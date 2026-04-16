@@ -1,0 +1,28 @@
+// PostgreSQL schema – use this for production (Neon, Supabase, Railway, etc.)
+// Steps to switch:
+//   1. cp prisma/schema.postgresql.prisma prisma/schema.prisma
+//   2. Set DATABASE_URL to your PostgreSQL connection string in .env.local
+//   3. npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model MealEntry {
+  id        String   @id @default(cuid())
+  date      String
+  name      String
+  quantity  String?
+  calories  Float
+  protein   Float
+  carbs     Float
+  fat       Float
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
