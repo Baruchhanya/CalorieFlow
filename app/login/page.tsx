@@ -32,6 +32,7 @@ function GoogleIcon() {
 function LoginContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
+  const actualEmail = searchParams.get("actual");
   const [loading, setLoading] = useState(false);
   const [lang, setLang] = useState<"he" | "en">("he");
 
@@ -112,6 +113,9 @@ function LoginContent() {
         {error && (
           <div className="w-full bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600 text-center">
             {error === "unauthorized" ? T.unauthorized : T.authFailed}
+            {actualEmail && (
+              <div className="mt-1 text-xs text-red-400">Email: {actualEmail}</div>
+            )}
           </div>
         )}
 

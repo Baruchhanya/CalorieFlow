@@ -44,12 +44,14 @@ export async function proxy(request: NextRequest) {
   }
 
   // Enforce email allowlist if NEXT_PUBLIC_ALLOWED_EMAIL is set
-  const allowedEmail = process.env.NEXT_PUBLIC_ALLOWED_EMAIL;
-  if (user && allowedEmail && user.email !== allowedEmail && !isPublicPath) {
+  const allowedEmail = process.env.NEXT_PUBLIC_ALLOWED_EMAIL?.trim().toLowerCase();
+  if (user && allowedEmail && user.email?.trim().toLowerCase() !== allowedEmail && !isPublicPath) {
     await supabase.auth.signOut();
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("error", "unauthorized");
+    // Temporarily expose the actual email for debugging
+    url.searchParams.set("actual", user.email ?? "unknown");
     return NextResponse.redirect(url);
   }
 
