@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Flame, Pencil, Check, X } from "lucide-react";
+import { Flame, Pencil, Check, X, CheckCircle2 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
 interface DeficitCardProps {
@@ -114,7 +114,6 @@ export default function DeficitCard({
           type="number"
           value={burnedInput}
           onChange={(e) => setBurnedInput(e.target.value)}
-          onBlur={() => saveBurned(Number(burnedInput))}
           onKeyDown={(e) => e.key === "Enter" && saveBurned(Number(burnedInput))}
           placeholder={T.caloriesBurnedPlaceholder}
           className="flex-1 text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-300"
@@ -122,6 +121,13 @@ export default function DeficitCard({
           min={0}
         />
         <span className="text-xs text-slate-400 shrink-0">{T.kcal}</span>
+        <button
+          onClick={() => saveBurned(Number(burnedInput))}
+          disabled={savingBurned}
+          className="shrink-0 flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors disabled:opacity-50">
+          {savingBurned ? <Flame className="w-3.5 h-3.5 animate-pulse" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+          OK
+        </button>
       </div>
     </div>
   );
