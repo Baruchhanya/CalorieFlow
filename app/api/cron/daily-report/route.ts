@@ -22,9 +22,13 @@ export async function GET(req: Request) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // Find user by email
-  const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
-  const user = users.find((u) => u.email?.toLowerCase() === allowedEmail.toLowerCase());
+  // Find user by email via REST API
+  const adminRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+    headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+  });
+  const { users } = await adminRes.json();
+  const user = (users as { id: string; email: string }[])
+    ?.find((u) => u.email?.toLowerCase() === allowedEmail.toLowerCase());
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
