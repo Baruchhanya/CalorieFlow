@@ -3,12 +3,12 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Type, Image as ImageIcon, Mic, Send, X, Plus, AlertCircle,
-  Loader2, StopCircle, CheckCircle2, Camera, FolderOpen,
+  Loader2, StopCircle, CheckCircle2, Camera, FolderOpen, PenLine,
 } from "lucide-react";
 import { GeminiResponse, FoodItem } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 
-type Tab = "text" | "image" | "audio";
+type Tab = "text" | "image" | "audio" | "manual";
 
 interface FoodInputProps {
   onEntriesAdded: () => void;
@@ -24,15 +24,52 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+function localDateStr(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+}
+
+// ─── Selective Result Preview ────────────────────────────────────────────────
+
+interface EditableItem extends FoodItem {
+  selected: boolean;
+  editedCalories: string;
+}
+
 interface ResultPreviewProps {
   result: GeminiResponse;
-  onAdd: () => void;
+  onAdd: (items: FoodItem[]) => void;
   onDiscard: () => void;
   adding: boolean;
 }
 
 function ResultPreview({ result, onAdd, onDiscard, adding }: ResultPreviewProps) {
   const { T } = useLang();
+  const [items, setItems] = useState<EditableItem[]>(() =>
+    result.items.map((item) => ({
+      ...item,
+      selected: true,
+      editedCalories: String(Math.round(item.calories)),
+    }))
+  );
+
+  const toggleItem = (i: number) =>
+    setItems((prev) => prev.map((it, idx) => idx === i ? { ...it, selected: !it.selected } : it));
+
+  const updateCalories = (i: number, val: string) =>
+    setItems((prev) => prev.map((it, idx) => idx === i ? { ...it, editedCalories: val } : it));
+
+  const selectedItems = items.filter((it) => it.selected);
+  const totalCal = selectedItems.reduce((s, it) => s + (Number(it.editedCalories) || it.calories), 0);
+
+  const handleAdd = () => {
+    const toAdd = selectedItems.map((it) => ({
+      ...it,
+      calories: Number(it.editedCalories) || it.calories,
+    }));
+    onAdd(toAdd);
+  };
+
   return (
     <div className="mt-4 flex flex-col gap-3 animate-in slide-in-from-bottom-2 duration-300">
       {result.needs_clarification && result.note && (
@@ -41,43 +78,151 @@ function ResultPreview({ result, onAdd, onDiscard, adding }: ResultPreviewProps)
           <span>{result.note}</span>
         </div>
       )}
+
       <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-2">
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
           {T.foundItems(result.items.length)}
         </p>
-        {result.items.map((item: FoodItem, i: number) => (
-          <div key={i} className="bg-white rounded-lg p-3 border border-slate-100 flex justify-between items-start gap-2">
-            <div>
-              <p className="font-semibold text-slate-800 text-sm">{item.name}</p>
-              {item.quantity && <p className="text-xs text-slate-400">{item.quantity}</p>}
-            </div>
-            <div className="text-left shrink-0">
-              <p className="font-bold text-amber-600 text-sm">{Math.round(item.calories)} {T.kcal}</p>
-              <p className="text-xs text-slate-400">
-                {T.protein.slice(0, 1)}:{Math.round(item.protein_g)}g {T.carbs.slice(0, 1)}:{Math.round(item.carbs_g)}g {T.fat.slice(0, 1)}:{Math.round(item.fat_g)}g
-              </p>
+
+        {items.map((item, i) => (
+          <div key={i}
+            className={`bg-white rounded-lg p-3 border transition-all duration-150 ${item.selected ? "border-emerald-200" : "border-slate-100 opacity-50"}`}>
+            <div className="flex items-start gap-2">
+              {/* Checkbox */}
+              <button onClick={() => toggleItem(i)}
+                className={`mt-0.5 w-5 h-5 rounded-md border-2 shrink-0 flex items-center justify-center transition-colors ${item.selected ? "bg-emerald-500 border-emerald-500" : "border-slate-300"}`}>
+                {item.selected && <CheckCircle2 className="w-3 h-3 text-white" />}
+              </button>
+
+              {/* Name */}
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-slate-800 text-sm truncate">{item.name}</p>
+                {item.quantity && <p className="text-xs text-slate-400">{item.quantity}</p>}
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {T.protein.slice(0,1)}:{Math.round(item.protein_g)}g {T.carbs.slice(0,1)}:{Math.round(item.carbs_g)}g {T.fat.slice(0,1)}:{Math.round(item.fat_g)}g
+                </p>
+              </div>
+
+              {/* Editable calories */}
+              <div className="flex items-center gap-1 shrink-0">
+                <input
+                  type="number"
+                  value={item.editedCalories}
+                  onChange={(e) => updateCalories(i, e.target.value)}
+                  disabled={!item.selected}
+                  className="w-16 text-center text-sm font-bold text-amber-600 border border-slate-200 rounded-lg px-1 py-1 focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:opacity-40"
+                />
+                <span className="text-xs text-slate-400">{T.kcal}</span>
+              </div>
             </div>
           </div>
         ))}
+
         <div className="flex justify-between items-center pt-1 border-t border-slate-100">
           <span className="text-sm font-semibold text-slate-600">{T.totalCalories}</span>
-          <span className="text-lg font-bold text-emerald-600">{Math.round(result.total_calories)} {T.kcal}</span>
+          <span className="text-lg font-bold text-emerald-600">{Math.round(totalCal)} {T.kcal}</span>
         </div>
       </div>
+
       <div className="flex gap-2">
         <button onClick={onDiscard} disabled={adding}
           className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5">
           <X className="w-4 h-4" />{T.discard}
         </button>
-        <button onClick={onAdd} disabled={adding}
+        <button onClick={handleAdd} disabled={adding || selectedItems.length === 0}
           className="flex-2 flex-grow-[2] py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60">
           {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          {adding ? T.adding : T.addToDiary}
+          {adding ? T.adding : `${T.addToDiary} (${selectedItems.length})`}
         </button>
       </div>
     </div>
   );
 }
+
+// ─── Manual Entry Form ────────────────────────────────────────────────────────
+
+interface ManualFormProps {
+  onAdd: (item: FoodItem) => void;
+  adding: boolean;
+}
+
+function ManualForm({ onAdd, adding }: ManualFormProps) {
+  const { T } = useLang();
+  const [name, setName] = useState("");
+  const [calories, setCalories] = useState("");
+  const [protein, setProtein] = useState("");
+  const [carbs, setCarbs] = useState("");
+  const [fat, setFat] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = () => {
+    if (!name.trim()) { setError(T.manualNameRequired); return; }
+    if (!calories || isNaN(Number(calories))) { setError(T.manualCaloriesRequired); return; }
+    setError("");
+    onAdd({
+      name: name.trim(),
+      quantity: "",
+      calories: Number(calories),
+      protein_g: Number(protein) || 0,
+      carbs_g: Number(carbs) || 0,
+      fat_g: Number(fat) || 0,
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      {error && (
+        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
+          <AlertCircle className="w-4 h-4 shrink-0" />{error}
+        </div>
+      )}
+
+      <input
+        value={name} onChange={(e) => setName(e.target.value)}
+        placeholder={T.manualName}
+        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+      />
+
+      {/* Calories – large & prominent */}
+      <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+        <input
+          type="number" value={calories} onChange={(e) => setCalories(e.target.value)}
+          placeholder={T.manualCalories}
+          className="flex-1 bg-transparent text-2xl font-black text-amber-600 focus:outline-none placeholder:text-amber-300"
+          min={0}
+        />
+        <span className="text-amber-500 font-semibold text-sm">{T.kcal}</span>
+      </div>
+
+      {/* Optional macros */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { val: protein, set: setProtein, label: T.manualProtein },
+          { val: carbs, set: setCarbs, label: T.manualCarbs },
+          { val: fat, set: setFat, label: T.manualFat },
+        ].map(({ val, set, label }) => (
+          <div key={label} className="flex flex-col gap-1">
+            <label className="text-[10px] text-slate-400 font-medium px-1">{label}</label>
+            <input
+              type="number" value={val} onChange={(e) => set(e.target.value)}
+              placeholder="0"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-emerald-300"
+              min={0}
+            />
+          </div>
+        ))}
+      </div>
+
+      <button onClick={handleSubmit} disabled={adding}
+        className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors disabled:opacity-50">
+        {adding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+        {adding ? T.adding : T.manualAdd}
+      </button>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProps) {
   const { T } = useLang();
@@ -172,18 +317,18 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
     } finally { setAnalyzing(false); }
   };
 
-  const handleAdd = async () => {
-    if (!result) return;
+  const saveItems = async (items: FoodItem[]) => {
     setAdding(true);
-    const date = currentDate ?? new Date().toISOString().split("T")[0];
+    const date = currentDate ?? localDateStr();
     try {
-      await Promise.all(result.items.map((item) =>
+      await Promise.all(items.map((item) =>
         fetch("/api/entries", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             date, name: item.name, quantity: item.quantity || null,
             calories: item.calories, protein: item.protein_g,
-            carbs: item.carbs_g, fat: item.fat_g, note: result.note || null,
+            carbs: item.carbs_g, fat: item.fat_g,
+            note: result?.note || null,
           }),
         })
       ));
@@ -207,20 +352,23 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
     if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
+  const tabs = [
+    { key: "text" as Tab, label: T.tabText, icon: <Type className="w-4 h-4" /> },
+    { key: "image" as Tab, label: T.tabImage, icon: <ImageIcon className="w-4 h-4" /> },
+    { key: "audio" as Tab, label: T.tabAudio, icon: <Mic className="w-4 h-4" /> },
+    { key: "manual" as Tab, label: T.tabManual, icon: <PenLine className="w-4 h-4" /> },
+  ];
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
       <h2 className="text-lg font-bold text-slate-800 mb-4">{T.addMeal}</h2>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-4">
-        {([
-          { key: "text" as Tab, label: T.tabText, icon: <Type className="w-4 h-4" /> },
-          { key: "image" as Tab, label: T.tabImage, icon: <ImageIcon className="w-4 h-4" /> },
-          { key: "audio" as Tab, label: T.tabAudio, icon: <Mic className="w-4 h-4" /> },
-        ]).map(({ key, label, icon }) => (
+      <div className="grid grid-cols-4 gap-1 bg-slate-100 rounded-xl p-1 mb-4">
+        {tabs.map(({ key, label, icon }) => (
           <button key={key} onClick={() => handleTabChange(key)}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${tab === key ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-            {icon}{label}
+            className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${tab === key ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+            {icon}<span className="hidden sm:inline">{label}</span>
           </button>
         ))}
       </div>
@@ -251,7 +399,7 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
           ) : (
             <div className="flex flex-col gap-2">
               <button onClick={() => cameraInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white rounded-xl py-4 font-semibold text-sm transition-colors">
+                className="w-full flex items-center justify-center gap-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl py-4 font-semibold text-sm transition-colors">
                 <Camera className="w-5 h-5" />{T.takePicture}
               </button>
               <div className="flex items-center gap-3 text-xs text-slate-400 px-1">
@@ -290,9 +438,7 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
                   <StopCircle className="w-5 h-5" />{T.stopRecording}
                 </button>
               )}
-              {!recording && (
-                <p className="text-sm text-slate-400 text-center max-w-xs">{T.voiceHint}</p>
-              )}
+              {!recording && <p className="text-sm text-slate-400 text-center max-w-xs">{T.voiceHint}</p>}
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3 w-full">
@@ -309,8 +455,13 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
         </div>
       )}
 
+      {/* Manual */}
+      {tab === "manual" && !success && (
+        <ManualForm onAdd={(item) => saveItems([item])} adding={adding} />
+      )}
+
       {/* Error */}
-      {error && (
+      {error && tab !== "manual" && (
         <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" /><span>{error}</span>
         </div>
@@ -323,7 +474,8 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
         </div>
       )}
 
-      {!result && !success && (
+      {/* Analyze button (non-manual tabs) */}
+      {tab !== "manual" && !result && !success && (
         <button onClick={handleAnalyze} disabled={!canAnalyze || analyzing}
           className="mt-4 w-full py-3 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
           {analyzing ? (
@@ -335,7 +487,12 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
       )}
 
       {result && !success && (
-        <ResultPreview result={result} onAdd={handleAdd} onDiscard={() => setResult(null)} adding={adding} />
+        <ResultPreview
+          result={result}
+          onAdd={saveItems}
+          onDiscard={() => setResult(null)}
+          adding={adding}
+        />
       )}
     </div>
   );

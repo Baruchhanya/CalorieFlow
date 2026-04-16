@@ -59,6 +59,17 @@ const he = {
   voiceHint: "לחץ להתחלת הקלטה ותאר מה אכלת בדיבור חופשי",
   or: "או",
 
+  // Manual entry
+  tabManual: "ידני",
+  manualName: "שם המזון",
+  manualCalories: "קלוריות",
+  manualProtein: 'חלבון (g)',
+  manualCarbs: 'פחמימות (g)',
+  manualFat: 'שומן (g)',
+  manualAdd: "הוסף ליומן",
+  manualNameRequired: "נא להזין שם",
+  manualCaloriesRequired: "נא להזין קלוריות",
+
   // Errors
   micError: "לא ניתן לגשת למיקרופון. אנא אשר גישה ונסה שוב.",
   noTextError: "אנא הזן תיאור מזון",
@@ -168,6 +179,17 @@ const en: Translations = {
   clickToUpload: "Click to upload image",
   voiceHint: "Press to start recording and describe what you ate",
   or: "or",
+
+  // Manual entry
+  tabManual: "Manual",
+  manualName: "Food name",
+  manualCalories: "Calories",
+  manualProtein: "Protein (g)",
+  manualCarbs: "Carbs (g)",
+  manualFat: "Fat (g)",
+  manualAdd: "Add to diary",
+  manualNameRequired: "Please enter a name",
+  manualCaloriesRequired: "Please enter calories",
 
   micError: "Cannot access microphone. Please allow access and try again.",
   noTextError: "Please enter a food description",

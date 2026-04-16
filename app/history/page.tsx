@@ -45,7 +45,8 @@ export default function HistoryPage() {
   const [history, setHistory] = useState<DaySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [defaultGoal, setDefaultGoal] = useState(1820);
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
 
   useEffect(() => {
     fetch("/api/settings").then(r => r.json()).then(d => {
