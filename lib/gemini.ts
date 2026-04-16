@@ -43,7 +43,7 @@ function parseGeminiResponse(text: string): GeminiResponse {
 }
 
 export async function analyzeText(text: string): Promise<GeminiResponse> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const result = await model.generateContent(
     `${NUTRITION_PROMPT}\n\nAnalyze this food input: "${text}"`
   );
@@ -54,7 +54,7 @@ export async function analyzeImage(
   base64Data: string,
   mimeType: string
 ): Promise<GeminiResponse> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const result = await model.generateContent([
     { inlineData: { data: base64Data, mimeType } },
     `${NUTRITION_PROMPT}\n\nAnalyze all the food visible in this image and provide nutritional information.`,
@@ -66,7 +66,7 @@ export async function analyzeAudio(
   base64Data: string,
   mimeType: string
 ): Promise<GeminiResponse> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const result = await model.generateContent([
     { inlineData: { data: base64Data, mimeType } },
     `${NUTRITION_PROMPT}\n\nThe user described food in an audio recording. Transcribe what they said and analyze the food mentioned.`,
