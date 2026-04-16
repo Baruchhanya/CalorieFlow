@@ -7,6 +7,7 @@ import {
   History, LogOut, Globe,
 } from "lucide-react";
 import DailySummary from "@/components/DailySummary";
+import DeficitCard from "@/components/DeficitCard";
 import FoodInput from "@/components/FoodInput";
 import MealCard from "@/components/MealCard";
 import EditModal from "@/components/EditModal";
@@ -40,17 +41,29 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const [editingEntry, setEditingEntry] = useState<MealEntry | null>(null);
   const [clearing, setClearing] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [goalCalories, setGoalCalories] = useState(2000);
+  const [caloriesBurned, setCaloriesBurned] = useState(0);
 
   const today = getToday();
   const isToday = date === today;
   const isPast = date < today;
 
-  // Fetch user info
+  // Fetch user info + settings
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? null);
     });
+    fetch("/api/settings").then(r => r.json()).then(d => {
+      if (d.daily_goal_calories) setGoalCalories(d.daily_goal_calories);
+    }).catch(() => {});
   }, []);
+
+  // Fetch daily activity (calories burned) when date changes
+  useEffect(() => {
+    fetch(`/api/activity?date=${date}`).then(r => r.json()).then(d => {
+      setCaloriesBurned(d.calories_burned ?? 0);
+    }).catch(() => {});
+  }, [date]);
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
@@ -200,7 +213,15 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
 
       {/* Main */}
       <main className="max-w-2xl mx-auto px-4 py-4 flex flex-col gap-4">
-        <DailySummary entries={entries} />
+        <DailySummary entries={entries} goalCalories={goalCalories} />
+        <DeficitCard
+          consumed={entries.reduce((s, e) => s + e.calories, 0)}
+          burned={caloriesBurned}
+          goalCalories={goalCalories}
+          date={date}
+          onBurnedChange={setCaloriesBurned}
+          onGoalChange={setGoalCalories}
+        />
         <FoodInput onEntriesAdded={fetchEntries} currentDate={date} />
 
         {/* Meal list */}

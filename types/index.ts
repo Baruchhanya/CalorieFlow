@@ -43,3 +43,15 @@ export const DEFAULT_TARGETS: DailyTotals = {
   carbs: 250,
   fat: 65,
 };
+
+export interface UserSettings {
+  user_id: string;
+  daily_goal_calories: number;
+}
+
+export interface DailyActivity {
+  id: string;
+  user_id: string;
+  date: string;
+  calories_burned: number;
+}

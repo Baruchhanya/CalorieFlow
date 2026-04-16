@@ -14,6 +14,8 @@ interface DaySummary {
   protein: number;
   carbs: number;
   fat: number;
+  calories_burned?: number;
+  goal_calories?: number;
 }
 
 function formatDate(dateStr: string, lang: string) {
@@ -37,14 +39,19 @@ function groupByMonth(days: DaySummary[], lang: string) {
   return Array.from(map.entries()).map(([label, days]) => ({ label, days }));
 }
 
-const CALORIE_TARGET = 2000;
-
 export default function HistoryPage() {
   const router = useRouter();
   const { T, lang } = useLang();
   const [history, setHistory] = useState<DaySummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [defaultGoal, setDefaultGoal] = useState(2000);
   const today = new Date().toISOString().split("T")[0];
+
+  useEffect(() => {
+    fetch("/api/settings").then(r => r.json()).then(d => {
+      if (d.daily_goal_calories) setDefaultGoal(d.daily_goal_calories);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/history")
@@ -119,8 +126,13 @@ export default function HistoryPage() {
                 {days.map((day) => {
                   const { day: dayNum, weekday } = formatDate(day.date, lang);
                   const isToday2 = day.date === today;
-                  const over = day.calories > CALORIE_TARGET;
-                  const pct = Math.min((day.calories / CALORIE_TARGET) * 100, 100);
+                  const goal = day.goal_calories ?? defaultGoal;
+                  const burned = day.calories_burned ?? 0;
+                  const net = day.calories - burned;
+                  const diff = goal - net;
+                  const isDeficit = diff > 0;
+                  const over = day.calories > goal;
+                  const pct = Math.min((day.calories / goal) * 100, 100);
                   return (
                     <button key={day.date} onClick={() => router.push(`/?date=${day.date}`)}
                       className="w-full text-right bg-white rounded-xl border border-slate-100 shadow-sm hover:border-emerald-200 hover:shadow-md transition-all duration-150 p-4 flex items-center gap-4 group">
@@ -133,11 +145,11 @@ export default function HistoryPage() {
                           <span className={`text-lg font-bold ${over ? "text-red-500" : "text-slate-800"}`}>
                             {day.calories.toLocaleString()} {T.kcal}
                           </span>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isDeficit ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                            {isDeficit ? `↓ ${Math.abs(Math.round(diff))} ${T.deficit}` : `↑ ${Math.abs(Math.round(diff))} ${T.surplus}`}
+                          </span>
                           {isToday2 && (
-                            <span className="text-xs bg-emerald-100 text-emerald-700 font-semibold px-2 py-0.5 rounded-full">{T.today}</span>
-                          )}
-                          {over && (
-                            <span className="text-xs bg-red-100 text-red-600 font-semibold px-2 py-0.5 rounded-full">{T.exceeded}</span>
+                            <span className="text-xs bg-slate-100 text-slate-600 font-semibold px-2 py-0.5 rounded-full">{T.today}</span>
                           )}
                         </div>
                         <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5">

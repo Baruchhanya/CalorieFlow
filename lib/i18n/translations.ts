@@ -85,6 +85,17 @@ const he = {
   quantity: 'כמות (לדוג׳ 200g, 1 כוס)',
   note: "הערה",
 
+  // Deficit card
+  calorieGoal: 'יעד קלורי',
+  burned: 'שרפת',
+  net: 'נטו',
+  deficit: 'גרעון',
+  surplus: 'עודף',
+  caloriesBurnedPlaceholder: 'קלוריות שנשרפו',
+  editGoal: 'ערוך יעד',
+  goalPlaceholder: 'יעד (קק"ל)',
+  balance: 'איזון',
+
   // History
   historyTitle: "היסטוריה",
   allMeals: "כל הארוחות שלך",
@@ -180,6 +191,17 @@ const en: Translations = {
   foodName: "Food name",
   quantity: "Quantity (e.g. 200g, 1 cup)",
   note: "Note",
+
+  // Deficit card
+  calorieGoal: "Calorie Goal",
+  burned: "Burned",
+  net: "Net",
+  deficit: "Deficit",
+  surplus: "Surplus",
+  caloriesBurnedPlaceholder: "Calories burned",
+  editGoal: "Edit goal",
+  goalPlaceholder: "Goal (kcal)",
+  balance: "Balance",
 
   historyTitle: "History",
   allMeals: "All your meals",

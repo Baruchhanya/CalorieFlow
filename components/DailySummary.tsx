@@ -5,6 +5,7 @@ import { useLang } from "@/lib/i18n/context";
 
 interface DailySummaryProps {
   entries: MealEntry[];
+  goalCalories?: number;
 }
 
 interface MacroBarProps {
@@ -88,7 +89,7 @@ function CalorieRing({ consumed, target }: { consumed: number; target: number })
   );
 }
 
-export default function DailySummary({ entries }: DailySummaryProps) {
+export default function DailySummary({ entries, goalCalories }: DailySummaryProps) {
   const { T } = useLang();
   const totals = entries.reduce(
     (acc, e) => ({
@@ -104,7 +105,7 @@ export default function DailySummary({ entries }: DailySummaryProps) {
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
       <h2 className="text-lg font-bold text-slate-800 mb-4">{T.dailySummary}</h2>
       <div className="flex flex-col sm:flex-row items-center gap-6">
-        <CalorieRing consumed={totals.calories} target={DEFAULT_TARGETS.calories} />
+        <CalorieRing consumed={totals.calories} target={goalCalories ?? DEFAULT_TARGETS.calories} />
         <div className="flex-1 w-full flex flex-col gap-3">
           <MacroBar label={T.protein} value={totals.protein} target={DEFAULT_TARGETS.protein} unit="g" color="bg-blue-500" bgColor="bg-blue-100" />
           <MacroBar label={T.carbs} value={totals.carbs} target={DEFAULT_TARGETS.carbs} unit="g" color="bg-violet-500" bgColor="bg-violet-100" />
