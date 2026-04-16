@@ -13,8 +13,9 @@ export async function GET(req: Request) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const allowedEmail = process.env.NEXT_PUBLIC_ALLOWED_EMAIL;
+  const userId = process.env.SUPABASE_USER_ID;
 
-  if (!serviceKey || !supabaseUrl || !allowedEmail) {
+  if (!serviceKey || !supabaseUrl || !allowedEmail || !userId) {
     return NextResponse.json({ error: "Missing env vars" }, { status: 500 });
   }
 
@@ -22,16 +23,7 @@ export async function GET(req: Request) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // Find user by email via REST API
-  const adminRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
-    headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
-  });
-  const { users } = await adminRes.json();
-  const user = (users as { id: string; email: string }[])
-    ?.find((u) => u.email?.toLowerCase() === allowedEmail.toLowerCase());
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
+  const user = { id: userId, email: allowedEmail };
 
   const today = new Date().toISOString().split("T")[0];
 
