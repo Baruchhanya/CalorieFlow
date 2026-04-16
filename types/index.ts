@@ -38,7 +38,7 @@ export interface DailyTotals {
 }
 
 export const DEFAULT_TARGETS: DailyTotals = {
-  calories: 2000,
+  calories: 1820,
   protein: 150,
   carbs: 250,
   fat: 65,

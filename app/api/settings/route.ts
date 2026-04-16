@@ -12,7 +12,7 @@ export async function GET() {
     .eq("user_id", user.id)
     .single();
 
-  return NextResponse.json({ daily_goal_calories: data?.daily_goal_calories ?? 2000 });
+  return NextResponse.json({ daily_goal_calories: data?.daily_goal_calories ?? 1820 });
 }
 
 export async function PUT(req: Request) {

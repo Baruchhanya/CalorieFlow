@@ -55,7 +55,7 @@ export async function GET(req: Request) {
 
   const consumed = (meals ?? []).reduce((s, m) => s + (m.calories ?? 0), 0);
   const burned = activity?.calories_burned ?? 0;
-  const goalCalories = settings?.daily_goal_calories ?? 2000;
+  const goalCalories = settings?.daily_goal_calories ?? 1820;
 
   const emailPayload = buildDailyReportEmail({
     toEmail: allowedEmail,

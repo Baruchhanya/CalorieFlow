@@ -41,7 +41,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const [editingEntry, setEditingEntry] = useState<MealEntry | null>(null);
   const [clearing, setClearing] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [goalCalories, setGoalCalories] = useState(2000);
+  const [goalCalories, setGoalCalories] = useState(1820);
   const [caloriesBurned, setCaloriesBurned] = useState(0);
 
   const today = getToday();

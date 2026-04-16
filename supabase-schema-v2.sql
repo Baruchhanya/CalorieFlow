@@ -4,7 +4,7 @@
 -- 1. User settings (daily calorie goal)
 CREATE TABLE IF NOT EXISTS public.user_settings (
   user_id              UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
-  daily_goal_calories  INTEGER NOT NULL DEFAULT 2000,
+  daily_goal_calories  INTEGER NOT NULL DEFAULT 1820,
   created_at           TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at           TIMESTAMPTZ DEFAULT NOW()
 );

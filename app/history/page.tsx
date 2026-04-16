@@ -44,7 +44,7 @@ export default function HistoryPage() {
   const { T, lang } = useLang();
   const [history, setHistory] = useState<DaySummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [defaultGoal, setDefaultGoal] = useState(2000);
+  const [defaultGoal, setDefaultGoal] = useState(1820);
   const today = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
