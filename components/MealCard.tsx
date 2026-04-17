@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2, Pencil, ChevronDown, ChevronUp, Flame } from "lucide-react";
+import { Trash2, Pencil, ChevronDown, ChevronUp } from "lucide-react";
 import { MealEntry } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 
@@ -11,15 +11,32 @@ interface MealCardProps {
   onEdit: (entry: MealEntry) => void;
 }
 
+const MEAL_COLORS = [
+  "from-emerald-400 to-teal-500",
+  "from-blue-400 to-indigo-500",
+  "from-amber-400 to-orange-500",
+  "from-rose-400 to-pink-500",
+  "from-violet-400 to-purple-500",
+  "from-cyan-400 to-sky-500",
+];
+
+function getColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return MEAL_COLORS[Math.abs(hash) % MEAL_COLORS.length];
+}
+
 export default function MealCard({ entry, onDelete, onEdit }: MealCardProps) {
-  const { T } = useLang();
+  const { T, lang } = useLang();
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const time = new Date(entry.created_at).toLocaleTimeString("he-IL", {
-    hour: "2-digit",
-    minute: "2-digit",
+  const time = new Date(entry.created_at).toLocaleTimeString(lang === "he" ? "he-IL" : "en-US", {
+    hour: "2-digit", minute: "2-digit",
   });
+
+  const initials = entry.name
+    .split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
 
   const handleDelete = async () => {
     if (!confirm(T.deleteConfirm(entry.name))) return;
@@ -33,61 +50,64 @@ export default function MealCard({ entry, onDelete, onEdit }: MealCardProps) {
   };
 
   return (
-    <div
-      className={`bg-white rounded-xl border border-slate-100 shadow-sm transition-all duration-200 ${deleting ? "opacity-40 pointer-events-none" : ""}`}
-    >
+    <div className={`group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${deleting ? "opacity-40 pointer-events-none scale-95" : ""}`}>
       <div className="flex items-center gap-3 p-4">
-        <div className="flex-shrink-0 w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center">
-          <Flame className="w-5 h-5 text-emerald-500" />
+        {/* Avatar */}
+        <div className={`shrink-0 w-11 h-11 rounded-xl bg-gradient-to-br ${getColor(entry.name)} flex items-center justify-center shadow-sm`}>
+          <span className="text-white text-sm font-bold">{initials}</span>
         </div>
+
+        {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="font-semibold text-slate-800 truncate">{entry.name}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-slate-800 text-sm leading-tight">{entry.name}</span>
             {entry.quantity && (
-              <span className="text-xs text-slate-400 shrink-0">{entry.quantity}</span>
+              <span className="text-xs text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-md">{entry.quantity}</span>
             )}
           </div>
-          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
-            <span className="font-bold text-amber-600">{Math.round(entry.calories)} {T.kcal}</span>
-            <span className="text-slate-300">•</span>
-            <span>{T.protein.slice(0, 1)}: {Math.round(entry.protein)}g</span>
-            <span>{T.carbs.slice(0, 1)}: {Math.round(entry.carbs)}g</span>
-            <span>{T.fat.slice(0, 1)}: {Math.round(entry.fat)}g</span>
-            <span className="sm:hidden text-slate-300">· {time}</span>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span className="text-sm font-bold text-amber-500">{Math.round(entry.calories)} {T.kcal}</span>
+            <span className="text-slate-200">|</span>
+            <span className="text-xs text-slate-400">{T.protein.slice(0,1)} {Math.round(entry.protein)}g</span>
+            <span className="text-xs text-slate-400">{T.carbs.slice(0,1)} {Math.round(entry.carbs)}g</span>
+            <span className="text-xs text-slate-400">{T.fat.slice(0,1)} {Math.round(entry.fat)}g</span>
           </div>
         </div>
+
+        {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
-          <span className="text-xs text-slate-400 ml-1 hidden sm:block">{time}</span>
-          <button
-            onClick={() => onEdit(entry)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-500 hover:text-emerald-700 text-xs font-medium transition-colors"
-            title={T.edit}
-          >
+          <span className="text-[11px] text-slate-300 hidden sm:block ml-1">{time}</span>
+          <button onClick={() => onEdit(entry)} title={T.edit}
+            className="p-2 rounded-xl hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-colors opacity-0 group-hover:opacity-100">
             <Pencil className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{T.edit}</span>
           </button>
-          <button
-            onClick={handleDelete}
-            className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
-            title={T.delete}
-          >
-            <Trash2 className="w-4 h-4" />
+          <button onClick={handleDelete} title={T.delete}
+            className="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
           {entry.note && (
-            <button
-              onClick={() => setExpanded((v) => !v)}
-              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
-            >
-              {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            <button onClick={() => setExpanded((v) => !v)}
+              className="p-2 rounded-xl hover:bg-slate-50 text-slate-400 transition-colors">
+              {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </button>
           )}
         </div>
       </div>
+
+      {/* Note */}
       {expanded && entry.note && (
-        <div className="px-4 pb-3 text-sm text-slate-500 border-t border-slate-50 pt-2">
+        <div className="px-4 pb-3 pt-1 text-xs text-slate-500 border-t border-slate-50 bg-slate-50/50">
           {entry.note}
         </div>
       )}
+
+      {/* Bottom calorie bar */}
+      <div className="h-0.5 bg-slate-50">
+        <div
+          className={`h-full bg-gradient-to-r ${getColor(entry.name)} opacity-60`}
+          style={{ width: `${Math.min((entry.calories / 800) * 100, 100)}%` }}
+        />
+      </div>
     </div>
   );
 }

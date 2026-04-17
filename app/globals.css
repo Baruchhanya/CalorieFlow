@@ -1,9 +1,12 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 @layer base {
   html {
     direction: rtl;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   * {
@@ -11,31 +14,30 @@
   }
 
   body {
-    background-color: #f1f5f9;
-    color: #1e293b;
+    background: #f8fafc;
+    color: #0f172a;
     min-height: 100vh;
   }
 }
 
 @keyframes slide-in-from-bottom-2 {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.animate-in {
-  animation-fill-mode: both;
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-.slide-in-from-bottom-2 {
-  animation-name: slide-in-from-bottom-2;
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
-.duration-300 {
-  animation-duration: 300ms;
-}
+.animate-in { animation-fill-mode: both; }
+.slide-in-from-bottom-2 { animation-name: slide-in-from-bottom-2; }
+.fade-in { animation-name: fade-in; }
+.scale-in { animation-name: scale-in; }
+.duration-200 { animation-duration: 200ms; }
+.duration-300 { animation-duration: 300ms; }

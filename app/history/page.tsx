@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowRight, CalendarDays, Flame, TrendingUp, UtensilsCrossed, ChevronLeft,
-} from "lucide-react";
+import { ArrowRight, CalendarDays, Flame, TrendingUp, TrendingDown, UtensilsCrossed } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
 interface DaySummary {
@@ -25,7 +23,6 @@ function formatDate(dateStr: string, lang: string) {
     day: date.toLocaleDateString(locale, { day: "numeric" }),
     weekday: date.toLocaleDateString(locale, { weekday: "short" }),
     monthYear: date.toLocaleDateString(locale, { month: "long", year: "numeric" }),
-    full: date.toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
   };
 }
 
@@ -45,6 +42,7 @@ export default function HistoryPage() {
   const [history, setHistory] = useState<DaySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [defaultGoal, setDefaultGoal] = useState(1820);
+
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
 
@@ -66,37 +64,41 @@ export default function HistoryPage() {
   const avgCalories = totalDays > 0
     ? Math.round(history.reduce((s, d) => s + d.calories, 0) / totalDays) : 0;
   const totalMeals = history.reduce((s, d) => s + d.count, 0);
+  const deficitDays = history.filter(d => d.calories < (d.goal_calories ?? defaultGoal)).length;
   const grouped = groupByMonth(history, lang);
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#f1f5f9" }}>
-      <header className="sticky top-0 z-40 shadow-sm"
-        style={{ background: "linear-gradient(135deg, #059669 0%, #0d9488 100%)" }}>
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <header className="sticky top-0 z-40" style={{ background: "linear-gradient(135deg, #059669 0%, #0d9488 100%)" }}>
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
           <button onClick={() => router.push("/")}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors">
+            className="p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors">
             <ArrowRight className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl font-black text-white">{T.historyTitle}</h1>
+            <h1 className="text-xl font-black text-white leading-tight">{T.historyTitle}</h1>
             <p className="text-emerald-100 text-xs">{T.allMeals}</p>
           </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-5 flex flex-col gap-5">
+      <main className="max-w-2xl mx-auto px-4 py-5 flex flex-col gap-5 pb-12">
         {/* Stats */}
         {!loading && totalDays > 0 && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: T.trackedDays, value: String(totalDays), sub: T.total, icon: <CalendarDays className="w-3.5 h-3.5" />, cls: "bg-blue-50 text-blue-700" },
-              { label: T.avgCalories, value: avgCalories.toLocaleString(), sub: T.perDay, icon: <Flame className="w-3.5 h-3.5" />, cls: "bg-amber-50 text-amber-700" },
-              { label: T.totalMeals, value: String(totalMeals), sub: T.total, icon: <TrendingUp className="w-3.5 h-3.5" />, cls: "bg-emerald-50 text-emerald-700" },
+              { label: T.trackedDays, value: String(totalDays), icon: <CalendarDays className="w-4 h-4" />, cls: "bg-blue-500", light: "bg-blue-50 text-blue-700" },
+              { label: T.avgCalories, value: avgCalories.toLocaleString(), icon: <Flame className="w-4 h-4" />, cls: "bg-amber-500", light: "bg-amber-50 text-amber-700" },
+              { label: T.totalMeals, value: String(totalMeals), icon: <TrendingUp className="w-4 h-4" />, cls: "bg-emerald-500", light: "bg-emerald-50 text-emerald-700" },
+              { label: T.deficit, value: String(deficitDays), icon: <TrendingDown className="w-4 h-4" />, cls: "bg-violet-500", light: "bg-violet-50 text-violet-700" },
             ].map((s) => (
-              <div key={s.label} className={`${s.cls} rounded-xl p-4`}>
-                <div className="flex items-center gap-1.5 text-xs font-semibold opacity-70">{s.icon}{s.label}</div>
-                <p className="text-2xl font-black">{s.value}</p>
-                <p className="text-xs opacity-60">{s.sub}</p>
+              <div key={s.label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col gap-2">
+                <div className={`w-8 h-8 rounded-xl ${s.cls} flex items-center justify-center text-white`}>
+                  {s.icon}
+                </div>
+                <p className="text-2xl font-black text-slate-800">{s.value}</p>
+                <p className="text-xs text-slate-400 font-medium">{s.label}</p>
               </div>
             ))}
           </div>
@@ -106,23 +108,25 @@ export default function HistoryPage() {
         {loading ? (
           <div className="flex flex-col gap-3">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-20 bg-white rounded-xl animate-pulse border border-slate-100" />
+              <div key={i} className="h-24 bg-white rounded-2xl animate-pulse border border-slate-100" />
             ))}
           </div>
         ) : history.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-14 text-center">
-            <div className="text-5xl mb-4">📅</div>
-            <p className="text-slate-500 font-semibold text-lg">{T.noHistory}</p>
-            <p className="text-slate-400 text-sm mt-2">{T.noHistoryDesc}</p>
+            <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <CalendarDays className="w-8 h-8 text-slate-300" />
+            </div>
+            <p className="text-slate-700 font-bold text-lg">{T.noHistory}</p>
+            <p className="text-slate-400 text-sm mt-1">{T.noHistoryDesc}</p>
             <button onClick={() => router.push("/")}
-              className="mt-5 px-5 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-semibold hover:bg-emerald-600 transition-colors">
+              className="mt-5 px-6 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-colors shadow-sm">
               {T.addFirst}
             </button>
           </div>
         ) : (
           grouped.map(({ label, days }) => (
             <section key={label}>
-              <h2 className="text-sm font-bold text-slate-500 mb-2 px-1">{label}</h2>
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">{label}</h2>
               <div className="flex flex-col gap-2">
                 {days.map((day) => {
                   const { day: dayNum, weekday } = formatDate(day.date, lang);
@@ -132,38 +136,43 @@ export default function HistoryPage() {
                   const net = day.calories - burned;
                   const diff = goal - net;
                   const isDeficit = diff > 0;
-                  const over = day.calories > goal;
                   const pct = Math.min((day.calories / goal) * 100, 100);
+
                   return (
                     <button key={day.date} onClick={() => router.push(`/?date=${day.date}`)}
-                      className="w-full text-right bg-white rounded-xl border border-slate-100 shadow-sm hover:border-emerald-200 hover:shadow-md transition-all duration-150 p-4 flex items-center gap-4 group">
-                      <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl shrink-0 ${isToday2 ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-600"}`}>
-                        <span className="text-xs font-medium">{weekday}</span>
-                        <span className="text-lg font-black leading-none">{dayNum}</span>
+                      className="w-full text-start bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-emerald-200 hover:shadow-md transition-all duration-150 overflow-hidden group">
+                      <div className="p-4 flex items-center gap-3">
+                        {/* Date badge */}
+                        <div className={`flex flex-col items-center justify-center w-12 h-14 rounded-xl shrink-0 ${isToday2 ? "bg-emerald-500 text-white" : "bg-slate-50 text-slate-600"}`}>
+                          <span className="text-[10px] font-bold uppercase tracking-wide opacity-70">{weekday}</span>
+                          <span className="text-xl font-black leading-tight">{dayNum}</span>
+                          {isToday2 && <span className="text-[8px] font-bold uppercase opacity-80">{T.today}</span>}
+                        </div>
+
+                        {/* Main info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                            <span className="text-lg font-black text-slate-800">
+                              {day.calories.toLocaleString()} <span className="text-sm font-normal text-slate-400">{T.kcal}</span>
+                            </span>
+                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isDeficit ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                              {isDeficit ? `↓${Math.abs(Math.round(diff))}` : `↑${Math.abs(Math.round(diff))}`} {isDeficit ? T.deficit : T.surplus}
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-1.5">
+                            <div className={`h-full rounded-full transition-all ${isDeficit ? "bg-gradient-to-r from-emerald-400 to-teal-400" : "bg-gradient-to-r from-red-400 to-rose-400"}`}
+                              style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-slate-400">
+                            <span className="flex items-center gap-1"><UtensilsCrossed className="w-3 h-3" />{day.count} {T.meals}</span>
+                            <span>P {day.protein}g</span>
+                            <span>C {day.carbs}g</span>
+                            <span>F {day.fat}g</span>
+                          </div>
+                        </div>
+
+                        <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-400 transition-colors shrink-0 rotate-180" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-lg font-bold ${over ? "text-red-500" : "text-slate-800"}`}>
-                            {day.calories.toLocaleString()} {T.kcal}
-                          </span>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isDeficit ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
-                            {isDeficit ? `↓ ${Math.abs(Math.round(diff))} ${T.deficit}` : `↑ ${Math.abs(Math.round(diff))} ${T.surplus}`}
-                          </span>
-                          {isToday2 && (
-                            <span className="text-xs bg-slate-100 text-slate-600 font-semibold px-2 py-0.5 rounded-full">{T.today}</span>
-                          )}
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5">
-                          <div className={`h-full rounded-full ${over ? "bg-red-400" : "bg-emerald-400"}`} style={{ width: `${pct}%` }} />
-                        </div>
-                        <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400">
-                          <span><UtensilsCrossed className="w-3 h-3 inline ml-0.5" />{day.count} {T.meals}</span>
-                          <span>{T.protein.slice(0, 1)}: {day.protein}g</span>
-                          <span>{T.carbs.slice(0, 1)}: {day.carbs}g</span>
-                          <span>{T.fat.slice(0, 1)}: {day.fat}g</span>
-                        </div>
-                      </div>
-                      <ChevronLeft className="w-4 h-4 text-slate-300 group-hover:text-emerald-400 transition-colors shrink-0" />
                     </button>
                   );
                 })}
@@ -172,7 +181,7 @@ export default function HistoryPage() {
           ))
         )}
       </main>
-      <footer className="mt-8 pb-6 text-center text-xs text-slate-400">{T.poweredBy}</footer>
+      <footer className="pb-6 text-center text-xs text-slate-300">{T.poweredBy}</footer>
     </div>
   );
 }

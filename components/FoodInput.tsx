@@ -225,7 +225,7 @@ function ManualForm({ onAdd, adding }: ManualFormProps) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProps) {
-  const { T } = useLang();
+  const { T, lang } = useLang();
   const [tab, setTab] = useState<Tab>("text");
   const [text, setText] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -476,14 +476,39 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
 
       {/* Analyze button (non-manual tabs) */}
       {tab !== "manual" && !result && !success && (
-        <button onClick={handleAnalyze} disabled={!canAnalyze || analyzing}
-          className="mt-4 w-full py-3 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-          {analyzing ? (
-            <><Loader2 className="w-5 h-5 animate-spin" />{T.analyzing}</>
-          ) : (
-            <><Send className="w-5 h-5" />{T.analyze}</>
+        <>
+          <button onClick={handleAnalyze} disabled={!canAnalyze || analyzing}
+            className="mt-4 w-full py-3 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            {analyzing ? (
+              <><Loader2 className="w-5 h-5 animate-spin" />{T.analyzing}</>
+            ) : (
+              <><Send className="w-5 h-5" />{T.analyze}</>
+            )}
+          </button>
+
+          {/* Non-blocking hourglass overlay inside the card */}
+          {analyzing && (
+            <div className="mt-3 flex flex-col items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-2xl p-5 animate-in fade-in duration-300">
+              <div className="relative">
+                <div className="w-14 h-14 rounded-full border-4 border-emerald-200 border-t-emerald-500 animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center text-xl">⏳</div>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-bold text-emerald-700">{T.analyzing}</p>
+                <p className="text-xs text-emerald-500 mt-0.5">
+                  {tab === "image"
+                    ? (lang === "he" ? "Gemini מנתח את התמונה שלך..." : "Gemini is analyzing your image...")
+                    : (lang === "he" ? "Gemini מנתח את הארוחה שלך..." : "Gemini is analyzing your meal...")}
+                </p>
+              </div>
+              <div className="flex gap-1">
+                {[0,1,2,3,4].map(i => (
+                  <div key={i} className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+                ))}
+              </div>
+            </div>
           )}
-        </button>
+        </>
       )}
 
       {result && !success && (

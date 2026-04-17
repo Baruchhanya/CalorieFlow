@@ -55,3 +55,21 @@ export interface DailyActivity {
   date: string;
   calories_burned: number;
 }
+
+export interface UserProfile {
+  height_cm: number | null;
+  weight_kg: number | null;
+  age: number | null;
+}
+
+/**
+ * Calculate daily protein goal (grams) based on personal data.
+ * Formula: weight_kg × 1.2 (under 60) or × 1.4 (60+), rounded to nearest 5g.
+ * Falls back to DEFAULT_TARGETS.protein if data is missing.
+ */
+export function calcProteinGoal(profile: UserProfile | null): number {
+  if (!profile?.weight_kg) return DEFAULT_TARGETS.protein;
+  const factor = (profile.age ?? 0) >= 60 ? 1.4 : 1.2;
+  const raw = profile.weight_kg * factor;
+  return Math.max(50, Math.round(raw / 5) * 5);
+}
