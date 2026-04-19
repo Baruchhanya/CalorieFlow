@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CalendarDays, Flame, TrendingUp, TrendingDown, UtensilsCrossed } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight, CalendarDays, Flame, TrendingUp, TrendingDown, UtensilsCrossed, Scale } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
 interface DaySummary {
@@ -47,9 +48,10 @@ export default function HistoryPage() {
   const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
 
   useEffect(() => {
-    fetch("/api/settings").then(r => r.json()).then(d => {
-      if (d.daily_goal_calories) setDefaultGoal(d.daily_goal_calories);
-    }).catch(() => {});
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => setDefaultGoal(typeof d.daily_goal_calories === "number" ? d.daily_goal_calories : 1820))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -76,10 +78,16 @@ export default function HistoryPage() {
             className="p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors">
             <ArrowRight className="w-5 h-5" />
           </button>
-          <div>
+          <Image src="/logo.png" alt="CalorieFlow" width={36} height={36} className="rounded-xl shadow-sm shrink-0" />
+          <div className="flex-1 min-w-0">
             <h1 className="text-xl font-black text-white leading-tight">{T.historyTitle}</h1>
             <p className="text-emerald-100 text-xs">{T.allMeals}</p>
           </div>
+          <a href="/weight" title={lang === "he" ? "מעקב משקל" : "Weight tracking"}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-colors">
+            <Scale className="w-4 h-4" />
+            <span className="hidden sm:inline">{lang === "he" ? "משקל" : "Weight"}</span>
+          </a>
         </div>
       </header>
 

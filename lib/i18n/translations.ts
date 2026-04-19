@@ -28,6 +28,10 @@ const he = {
   remaining: "נותר",
   exceededBy: "חרגת ב",
   outOf: "מתוך",
+  dailyCalorieTarget: "יעד קלורי יומי",
+  dailyCalorieTargetHint: "אישי לך — נשמר בחשבון",
+  calorieGoalInvalidRange: "יעד קלורי חייב להיות בין 500 ל־10,000",
+  calorieGoalUpdated: "יעד קלורי עודכן",
   protein: "חלבון",
   carbs: "פחמימות",
   fat: "שומן",
@@ -120,6 +124,23 @@ const he = {
   noHistory: "אין היסטוריה עדיין",
   noHistoryDesc: "התחל לעקוב אחר הארוחות שלך בדף הראשי",
   addFirst: "הוסף ארוחה ראשונה →",
+
+  // Weight tracking shortcut
+  weightCardTitle: "מעקב משקל",
+  weightCardDesc: "גרף משקל לאורך זמן לצד מאזן קלורי יומי (גרעון / עודף)",
+  weightCardCta: "פתח מעקב משקל",
+
+  // Recurring meals (saved presets)
+  recurringMealsTitle: "ארוחות קבועות",
+  recurringMealsHint: "מזון שחוזר כל יום — לחיצה אחת מוסיפה ליום הנבחר.",
+  recurringEmpty: "עדיין אין פריטים. הוסיפו למטה.",
+  addRecurringMeal: "הוסף ארוחה קבועה",
+  saveRecurring: "שמור לרשימה",
+  recurringAdded: "נוסף ליומן מהרשימה",
+  recurringSaved: "נשמר לרשימת הארוחות הקבועות",
+  recurringDeleted: "הוסר מהרשימה",
+  deleteRecurringConfirm: (name: string) => `להסיר את "${name}" מהארוחות הקבועות?`,
+
   poweredBy: "CalorieFlow · מופעל על ידי Gemini AI",
 };
 
@@ -150,6 +171,10 @@ const en: Translations = {
   remaining: "Remaining",
   exceededBy: "Exceeded by",
   outOf: "of",
+  dailyCalorieTarget: "Daily calorie target",
+  dailyCalorieTargetHint: "Personal — saved to your account",
+  calorieGoalInvalidRange: "Calorie goal must be between 500 and 10,000",
+  calorieGoalUpdated: "Calorie goal updated",
   protein: "Protein",
   carbs: "Carbs",
   fat: "Fat",
@@ -237,6 +262,21 @@ const en: Translations = {
   noHistory: "No history yet",
   noHistoryDesc: "Start tracking your meals on the home page",
   addFirst: "Add first meal →",
+
+  weightCardTitle: "Weight tracking",
+  weightCardDesc: "Weight over time with daily calorie balance (deficit / surplus)",
+  weightCardCta: "Open weight tracking",
+
+  recurringMealsTitle: "Recurring meals",
+  recurringMealsHint: "Foods you eat often — one tap adds them to the selected day.",
+  recurringEmpty: "No saved items yet. Add one below.",
+  addRecurringMeal: "Add recurring meal",
+  saveRecurring: "Save to list",
+  recurringAdded: "Added to diary from your list",
+  recurringSaved: "Saved to your recurring list",
+  recurringDeleted: "Removed from list",
+  deleteRecurringConfirm: (name: string) => `Remove "${name}" from recurring meals?`,
+
   poweredBy: "CalorieFlow · Powered by Gemini AI",
 };
 

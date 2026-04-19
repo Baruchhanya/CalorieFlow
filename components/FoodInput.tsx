@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { GeminiResponse, FoodItem } from "@/types";
 import { useLang } from "@/lib/i18n/context";
+import { useToast } from "@/lib/toast/context";
+import MealPresets from "@/components/MealPresets";
 
 type Tab = "text" | "image" | "audio" | "manual";
 
@@ -89,9 +91,12 @@ function ResultPreview({ result, onAdd, onDiscard, adding }: ResultPreviewProps)
             className={`bg-white rounded-lg p-3 border transition-all duration-150 ${item.selected ? "border-emerald-200" : "border-slate-100 opacity-50"}`}>
             <div className="flex items-start gap-2">
               {/* Checkbox */}
-              <button onClick={() => toggleItem(i)}
-                className={`mt-0.5 w-5 h-5 rounded-md border-2 shrink-0 flex items-center justify-center transition-colors ${item.selected ? "bg-emerald-500 border-emerald-500" : "border-slate-300"}`}>
-                {item.selected && <CheckCircle2 className="w-3 h-3 text-white" />}
+              <button type="button" onClick={() => toggleItem(i)}
+                className={`mt-0.5 min-w-[44px] min-h-[44px] -ms-2 -mt-1 flex items-center justify-center rounded-xl touch-manipulation active:scale-95 transition-transform shrink-0`}
+                aria-pressed={item.selected}>
+                <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${item.selected ? "bg-emerald-500 border-emerald-500" : "border-slate-300"}`}>
+                  {item.selected && <CheckCircle2 className="w-3 h-3 text-white" />}
+                </span>
               </button>
 
               {/* Name */}
@@ -125,12 +130,12 @@ function ResultPreview({ result, onAdd, onDiscard, adding }: ResultPreviewProps)
       </div>
 
       <div className="flex gap-2">
-        <button onClick={onDiscard} disabled={adding}
-          className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5">
+        <button type="button" onClick={onDiscard} disabled={adding}
+          className="flex-1 min-h-[48px] py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 active:scale-[0.98] touch-manipulation transition-all flex items-center justify-center gap-1.5">
           <X className="w-4 h-4" />{T.discard}
         </button>
-        <button onClick={handleAdd} disabled={adding || selectedItems.length === 0}
-          className="flex-2 flex-grow-[2] py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60">
+        <button type="button" onClick={handleAdd} disabled={adding || selectedItems.length === 0}
+          className="flex-2 flex-grow-[2] min-h-[48px] py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 active:scale-[0.98] touch-manipulation transition-all flex items-center justify-center gap-1.5 disabled:opacity-60">
           {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
           {adding ? T.adding : `${T.addToDiary} (${selectedItems.length})`}
         </button>
@@ -213,8 +218,8 @@ function ManualForm({ onAdd, adding }: ManualFormProps) {
         ))}
       </div>
 
-      <button onClick={handleSubmit} disabled={adding}
-        className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors disabled:opacity-50">
+      <button type="button" onClick={handleSubmit} disabled={adding}
+        className="w-full min-h-[52px] py-3 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-[0.98] touch-manipulation transition-all disabled:opacity-50">
         {adding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
         {adding ? T.adding : T.manualAdd}
       </button>
@@ -226,6 +231,7 @@ function ManualForm({ onAdd, adding }: ManualFormProps) {
 
 export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProps) {
   const { T, lang } = useLang();
+  const { showToast } = useToast();
   const [tab, setTab] = useState<Tab>("text");
   const [text, setText] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -237,9 +243,9 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
   const [result, setResult] = useState<GeminiResponse | null>(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resultAnchorRef = useRef<HTMLDivElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -249,9 +255,16 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
 
   const reset = useCallback(() => {
     setText(""); setImageFile(null); setImagePreview(null); setAudioBlob(null);
-    setRecording(false); setRecordingTime(0); setResult(null); setError(""); setSuccess(false);
+    setRecording(false); setRecordingTime(0); setResult(null); setError("");
     if (timerRef.current) clearInterval(timerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!result) return;
+    requestAnimationFrame(() => {
+      resultAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }, [result]);
 
   const handleTabChange = (newTab: Tab) => { setTab(newTab); reset(); };
 
@@ -312,8 +325,13 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
       if (!res.ok) throw new Error(data.error || T.error);
       if (!data.items?.length) throw new Error(T.noFoodError);
       setResult(data);
+      showToast(
+        lang === "he" ? "הניתוח מוכן — בחר מה להוסיף ליומן" : "Analysis ready — pick items to log",
+        "success"
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : T.unknownError);
+      const msg = e instanceof Error ? e.message : T.unknownError;
+      showToast(msg, "error");
     } finally { setAnalyzing(false); }
   };
 
@@ -332,9 +350,12 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
           }),
         })
       ));
-      setSuccess(true); onEntriesAdded();
-      setTimeout(reset, 1200);
-    } catch { setError(T.saveDiaryError); }
+      showToast(T.mealAdded, "success");
+      onEntriesAdded();
+      setTimeout(reset, 650);
+    } catch {
+      showToast(T.saveDiaryError, "error");
+    }
     finally { setAdding(false); }
   };
 
@@ -361,13 +382,17 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-      <h2 className="text-lg font-bold text-slate-800 mb-4">{T.addMeal}</h2>
+      <h2 className="text-lg font-bold text-slate-800 mb-3">{T.addMeal}</h2>
+
+      <div className="mb-4 -mx-1">
+        <MealPresets currentDate={currentDate ?? localDateStr()} onAdded={onEntriesAdded} />
+      </div>
 
       {/* Tabs */}
       <div className="grid grid-cols-4 gap-1 bg-slate-100 rounded-xl p-1 mb-4">
         {tabs.map(({ key, label, icon }) => (
-          <button key={key} onClick={() => handleTabChange(key)}
-            className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${tab === key ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+          <button key={key} type="button" onClick={() => handleTabChange(key)}
+            className={`flex items-center justify-center gap-1.5 min-h-[44px] py-2 rounded-lg text-xs font-medium touch-manipulation active:scale-[0.97] transition-all duration-200 ${tab === key ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
             {icon}<span className="hidden sm:inline">{label}</span>
           </button>
         ))}
@@ -456,7 +481,7 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
       )}
 
       {/* Manual */}
-      {tab === "manual" && !success && (
+      {tab === "manual" && (
         <ManualForm onAdd={(item) => saveItems([item])} adding={adding} />
       )}
 
@@ -467,18 +492,11 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
         </div>
       )}
 
-      {/* Success */}
-      {success && (
-        <div className="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-700">
-          <CheckCircle2 className="w-4 h-4 shrink-0" /><span>{T.mealAdded}</span>
-        </div>
-      )}
-
       {/* Analyze button (non-manual tabs) */}
-      {tab !== "manual" && !result && !success && (
+      {tab !== "manual" && !result && (
         <>
-          <button onClick={handleAnalyze} disabled={!canAnalyze || analyzing}
-            className="mt-4 w-full py-3 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          <button type="button" onClick={handleAnalyze} disabled={!canAnalyze || analyzing}
+            className="mt-4 w-full min-h-[52px] py-3.5 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-[0.98] touch-manipulation transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100">
             {analyzing ? (
               <><Loader2 className="w-5 h-5 animate-spin" />{T.analyzing}</>
             ) : (
@@ -511,13 +529,15 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
         </>
       )}
 
-      {result && !success && (
-        <ResultPreview
-          result={result}
-          onAdd={saveItems}
-          onDiscard={() => setResult(null)}
-          adding={adding}
-        />
+      {result && (
+        <div ref={resultAnchorRef} className="scroll-mt-24">
+          <ResultPreview
+            result={result}
+            onAdd={saveItems}
+            onDiscard={() => setResult(null)}
+            adding={adding}
+          />
+        </div>
       )}
     </div>
   );

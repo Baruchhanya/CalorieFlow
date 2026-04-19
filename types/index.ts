@@ -49,6 +49,21 @@ export interface UserSettings {
   daily_goal_calories: number;
 }
 
+/** Saved recurring meal template (quick-add). */
+export interface MealPreset {
+  id: string;
+  user_id: string;
+  name: string;
+  quantity: string | null;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  sort_order: number;
+  created_at: string;
+  updated_at?: string | null;
+}
+
 export interface DailyActivity {
   id: string;
   user_id: string;

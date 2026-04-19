@@ -26,13 +26,16 @@ Return this exact JSON structure (no markdown, no code blocks, raw JSON only):
   "note": "any important notes (same language as input)"
 }
 
-CRITICAL GROUPING RULES:
-- Group ingredients that belong to the SAME dish/drink into ONE item. Examples:
-  • "coffee with milk and sugar" → ONE item: "קפה עם חלב וסוכר" / "Coffee with milk and sugar"
-  • "sandwich with cheese and tomato" → ONE item: "כריך גבינה עם עגבניה" / "Cheese and tomato sandwich"
-  • "salad with vegetables and dressing" → ONE item: "סלט עם רטבים" / "Salad with dressing"
-- ONLY create separate items when the user clearly described separate, distinct dishes or meals
-- Combine the calories and macros of all components into the single grouped item
+CRITICAL GROUPING RULES – DEFAULT IS ONE ITEM:
+- ALWAYS combine everything the user described into ONE single meal item by default.
+- Sum up all calories and macros from all components into that one item.
+- Name the item after the MAIN dish or the meal context. Examples:
+  • "chicken with rice, salad and bread" → ONE item: "עוף עם אורז, סלט ולחם" / "Chicken with rice, salad and bread"
+  • "pasta with tomato sauce and cheese, and a cola" → ONE item: "פסטה עם רוטב עגבניות וגבינה" + drink combined, or split if the user clearly called them out as separate occasions
+  • "ארוחת ערב: שניצל, תפוחי אדמה, סלט" → ONE item: "ארוחת ערב – שניצל, תפוחי אדמה וסלט"
+  • "breakfast eggs and toast, then later lunch sandwich" → TWO items (different meal occasions)
+- ONLY create MULTIPLE items if the user EXPLICITLY mentions different meal occasions/times (breakfast + lunch, morning snack + dinner, etc.)
+- Do NOT split individual ingredients or side dishes into separate items
 - Use realistic nutritional estimates based on typical serving sizes
 - All numeric values must be positive numbers (not strings)
 - If the food is completely unclear, set needs_clarification to true

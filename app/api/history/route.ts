@@ -7,12 +7,12 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const [mealsRes, activityRes, settingsRes] = await Promise.all([
-    supabase.from("meals").select("date, calories, protein, carbs, fat").order("date", { ascending: false }),
+    supabase.from("meals").select("date, calories, protein, carbs, fat").eq("user_id", user.id).order("date", { ascending: false }),
     supabase.from("daily_activity").select("date, calories_burned").eq("user_id", user.id),
     supabase.from("user_settings").select("daily_goal_calories").eq("user_id", user.id).single(),
   ]);
 
-  const goalCalories = settingsRes.data?.daily_goal_calories ?? 2000;
+  const goalCalories = settingsRes.data?.daily_goal_calories ?? 1820;
 
   // Build activity map
   const activityMap = new Map<string, number>();

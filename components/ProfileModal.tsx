@@ -1,24 +1,34 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, User, Save, Ruler, Weight, Calendar, Info } from "lucide-react";
+import { X, User, Save, Ruler, Weight, Calendar, Info, Flame } from "lucide-react";
 import { UserProfile, calcProteinGoal } from "@/types";
 import { useLang } from "@/lib/i18n/context";
+import { useToast } from "@/lib/toast/context";
 
 interface ProfileModalProps {
   initialProfile: UserProfile | null;
+  /** Current daily calorie target (from app state / settings). */
+  dailyGoalCalories: number;
   onSave: (profile: UserProfile) => void;
   onClose: () => void;
   isFirstTime?: boolean;
+  onDailyGoalSaved?: (goal: number) => void;
 }
 
-export default function ProfileModal({ initialProfile, onSave, onClose, isFirstTime }: ProfileModalProps) {
-  const { lang } = useLang();
+export default function ProfileModal({ initialProfile, dailyGoalCalories, onSave, onClose, isFirstTime, onDailyGoalSaved }: ProfileModalProps) {
+  const { lang, T: gT } = useLang();
+  const { showToast } = useToast();
   const [height, setHeight] = useState(String(initialProfile?.height_cm ?? ""));
   const [weight, setWeight] = useState(String(initialProfile?.weight_kg ?? ""));
   const [age, setAge] = useState(String(initialProfile?.age ?? ""));
+  const [dailyGoalStr, setDailyGoalStr] = useState(String(dailyGoalCalories));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setDailyGoalStr(String(dailyGoalCalories));
+  }, [dailyGoalCalories]);
 
   const previewProfile: UserProfile = {
     height_cm: Number(height) || null,
@@ -27,7 +37,7 @@ export default function ProfileModal({ initialProfile, onSave, onClose, isFirstT
   };
   const proteinGoal = calcProteinGoal(previewProfile);
 
-  const T = lang === "he" ? {
+  const profileT = lang === "he" ? {
     title: isFirstTime ? "ברוך הבא! הגדר את הפרופיל שלך" : "פרופיל אישי",
     subtitle: isFirstTime ? "כדי לחשב את יעד החלבון שלך" : "עדכן את הפרטים שלך",
     height: "גובה (ס״מ)",
@@ -44,6 +54,7 @@ export default function ProfileModal({ initialProfile, onSave, onClose, isFirstT
     weightPlaceholder: "לדוג׳ 75",
     agePlaceholder: "לדוג׳ 30",
     factorNote: (age: number) => age >= 60 ? "(מבוגר מעל 60: ×1.4)" : "(×1.2 לאדם צעיר)",
+    errorCalorieGoal: "יעד קלורי לא תקין (500–10,000)",
   } : {
     title: isFirstTime ? "Welcome! Set up your profile" : "Personal Profile",
     subtitle: isFirstTime ? "To calculate your daily protein goal" : "Update your details",
@@ -61,13 +72,20 @@ export default function ProfileModal({ initialProfile, onSave, onClose, isFirstT
     weightPlaceholder: "e.g. 75",
     agePlaceholder: "e.g. 30",
     factorNote: (age: number) => age >= 60 ? "(60+: ×1.4 for muscle preservation)" : "(×1.2 standard)",
+    errorCalorieGoal: "Invalid calorie goal (500–10,000)",
   };
+  const T = { ...gT, ...profileT };
 
   const handleSave = async () => {
     const w = Number(weight);
     const a = Number(age);
+    const g = Number(dailyGoalStr);
     if (weight && (w < 20 || w > 300)) { setError(T.errorWeight); return; }
     if (age && (a < 10 || a > 120)) { setError(T.errorAge); return; }
+    if (dailyGoalStr.trim() !== "" && (Number.isNaN(g) || g < 500 || g > 10000)) {
+      setError(T.errorCalorieGoal);
+      return;
+    }
     setError("");
     setSaving(true);
     try {
@@ -81,6 +99,16 @@ export default function ProfileModal({ initialProfile, onSave, onClose, isFirstT
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(profile),
       });
+      if (dailyGoalStr.trim() !== "" && !Number.isNaN(g) && g >= 500 && g <= 10000) {
+        const sRes = await fetch("/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ daily_goal_calories: g }),
+        });
+        if (sRes.ok) onDailyGoalSaved?.(g);
+        else showToast(T.saveError, "error");
+      }
+      showToast(lang === "he" ? "הפרופיל נשמר" : "Profile saved", "success");
       onSave(profile);
     } finally {
       setSaving(false);
@@ -132,6 +160,27 @@ export default function ProfileModal({ initialProfile, onSave, onClose, isFirstT
               </div>
             </div>
           ))}
+
+          {/* Daily calorie target */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+              <Flame className="w-4 h-4 text-orange-500" />
+              {T.dailyCalorieTarget}
+            </label>
+            <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-300">
+              <input
+                type="number"
+                value={dailyGoalStr}
+                onChange={(e) => setDailyGoalStr(e.target.value)}
+                placeholder={T.goalPlaceholder}
+                min={500}
+                max={10000}
+                className="flex-1 px-4 py-2.5 text-sm focus:outline-none"
+              />
+              <span className="px-3 text-xs text-slate-400 font-medium bg-slate-50 border-s border-slate-200 py-2.5">{T.kcal}</span>
+            </div>
+            <p className="text-[11px] text-slate-400">{T.dailyCalorieTargetHint}</p>
+          </div>
 
           {/* Protein preview */}
           <div className={`rounded-2xl p-4 border transition-all duration-300 ${hasWeight ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-100"}`}>
