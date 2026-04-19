@@ -28,6 +28,13 @@ const he = {
   remaining: "נותר",
   exceededBy: "חרגת ב",
   outOf: "מתוך",
+  /** Shown under "out of X kcal" when activity calories add to the day budget */
+  calorieBudgetBreakdown: (base: number, active: number) =>
+    `${base.toLocaleString("he-IL")} יעד בסיס + ${active.toLocaleString("he-IL")} פעיל`,
+  dailyAllowanceHeadline: "הקלוריות המותרות לך היום",
+  allowanceBaseLabel: "יעד בסיס",
+  allowanceActiveLabel: "פעילות (מה שמילאת)",
+  editBaseGoalShort: "ערוך יעד בסיס",
   dailyCalorieTarget: "יעד קלורי יומי",
   dailyCalorieTargetHint: "אישי לך — נשמר בחשבון",
   calorieGoalInvalidRange: "יעד קלורי חייב להיות בין 500 ל־10,000",
@@ -39,6 +46,7 @@ const he = {
 
   // Food input
   addMeal: "הוסף ארוחה",
+  addMealQuickIntro: "להלן ארוחות קבועות ומנות מההיסטוריה — לחיצה אחת מוסיפה ליום. למטה: טקסט, תמונה, קול או הזנה ידנית.",
   tabText: "טקסט",
   tabImage: "תמונה",
   tabAudio: "קול",
@@ -104,6 +112,9 @@ const he = {
   calorieGoal: 'יעד קלורי',
   burned: 'שרפת',
   net: 'נטו',
+  statDailyIntake: "צריכת קלוריות יומיות",
+  statActiveBurnDaily: "שריפת קלוריות אקטיבית יומית",
+  statIntakeMinusActivity: "צריכה פחות פעילות",
   deficit: 'גרעון',
   surplus: 'עודף',
   caloriesBurnedPlaceholder: 'קלוריות שנשרפו',
@@ -133,6 +144,8 @@ const he = {
   // Recurring meals (saved presets)
   recurringMealsTitle: "ארוחות קבועות",
   recurringMealsHint: "מזון שחוזר כל יום — לחיצה אחת מוסיפה ליום הנבחר.",
+  recurringFromHistoryTitle: "מהיר מההיסטוריה",
+  recurringFromHistoryHint: "מנות שתיעדת לאחרונה — לחיצה מוסיפה עם אותן קלוריות.",
   recurringEmpty: "עדיין אין פריטים. הוסיפו למטה.",
   addRecurringMeal: "הוסף ארוחה קבועה",
   saveRecurring: "שמור לרשימה",
@@ -171,6 +184,12 @@ const en: Translations = {
   remaining: "Remaining",
   exceededBy: "Exceeded by",
   outOf: "of",
+  calorieBudgetBreakdown: (base: number, active: number) =>
+    `${base.toLocaleString()} goal + ${active.toLocaleString()} active`,
+  dailyAllowanceHeadline: "Your calorie allowance today",
+  allowanceBaseLabel: "Base goal",
+  allowanceActiveLabel: "Activity (what you logged)",
+  editBaseGoalShort: "Edit base goal",
   dailyCalorieTarget: "Daily calorie target",
   dailyCalorieTargetHint: "Personal — saved to your account",
   calorieGoalInvalidRange: "Calorie goal must be between 500 and 10,000",
@@ -181,6 +200,7 @@ const en: Translations = {
   noMealsYet: "No meals logged today",
 
   addMeal: "Add Meal",
+  addMealQuickIntro: "Below: saved meals and quick picks from your history (one tap). Then text, photo, voice, or manual entry.",
   tabText: "Text",
   tabImage: "Image",
   tabAudio: "Voice",
@@ -243,6 +263,9 @@ const en: Translations = {
   calorieGoal: "Calorie Goal",
   burned: "Burned",
   net: "Net",
+  statDailyIntake: "Daily calorie intake",
+  statActiveBurnDaily: "Active calories burned (daily)",
+  statIntakeMinusActivity: "Intake minus activity",
   deficit: "Deficit",
   surplus: "Surplus",
   caloriesBurnedPlaceholder: "Calories burned",
@@ -269,6 +292,8 @@ const en: Translations = {
 
   recurringMealsTitle: "Recurring meals",
   recurringMealsHint: "Foods you eat often — one tap adds them to the selected day.",
+  recurringFromHistoryTitle: "Quick from history",
+  recurringFromHistoryHint: "Meals you logged before — one tap adds the same calories.",
   recurringEmpty: "No saved items yet. Add one below.",
   addRecurringMeal: "Add recurring meal",
   saveRecurring: "Save to list",

@@ -9,6 +9,8 @@ import { useToast } from "@/lib/toast/context";
 interface DailySummaryProps {
   entries: MealEntry[];
   goalCalories?: number;
+  /** Active calories for the day (e.g. exercise); added to base goal for the ring and "out of" total. */
+  caloriesBurned?: number;
   goalProtein?: number;
   /** When set, user can edit daily calorie target from the summary header (saved via `/api/settings`). */
   onGoalCaloriesChange?: (value: number) => void;
@@ -108,12 +110,20 @@ function MacroTile({ label, value, target, unit, from, to, bg }: {
   );
 }
 
-export default function DailySummary({ entries, goalCalories, goalProtein, onGoalCaloriesChange }: DailySummaryProps) {
+export default function DailySummary({ entries, goalCalories, caloriesBurned = 0, goalProtein, onGoalCaloriesChange }: DailySummaryProps) {
   const { T } = useLang();
   const { showToast } = useToast();
-  const target = goalCalories ?? DEFAULT_TARGETS.calories;
+  const baseGoal = goalCalories ?? DEFAULT_TARGETS.calories;
+  const activeExtra = Math.max(0, caloriesBurned);
   const [editingGoal, setEditingGoal] = useState(false);
-  const [goalDraft, setGoalDraft] = useState(String(target));
+  const [goalDraft, setGoalDraft] = useState(String(baseGoal));
+
+  const parsedDraft = Number(goalDraft);
+  const baseForRing =
+    editingGoal && goalDraft.trim() !== "" && !Number.isNaN(parsedDraft) && parsedDraft >= 500 && parsedDraft <= 10000
+      ? parsedDraft
+      : baseGoal;
+  const totalBudget = Math.max(baseForRing + activeExtra, 1);
 
   useEffect(() => {
     if (!editingGoal) setGoalDraft(String(goalCalories ?? DEFAULT_TARGETS.calories));
@@ -147,8 +157,8 @@ export default function DailySummary({ entries, goalCalories, goalProtein, onGoa
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-      {/* Header */}
-      <div className="px-6 pt-5 pb-1 flex items-center justify-between gap-2 flex-wrap">
+      {/* Title row */}
+      <div className="px-5 sm:px-6 pt-5 pb-2 flex items-center justify-between gap-2 flex-wrap">
         <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{T.dailySummary}</span>
         {onGoalCaloriesChange ? (
           editingGoal ? (
@@ -158,7 +168,7 @@ export default function DailySummary({ entries, goalCalories, goalProtein, onGoa
                 value={goalDraft}
                 onChange={(e) => setGoalDraft(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && saveGoal()}
-                className="w-24 text-sm border border-slate-200 rounded-xl px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                className="w-28 text-sm border border-slate-200 rounded-xl px-2 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-emerald-300"
                 aria-label={T.goalPlaceholder}
               />
               <button type="button" onClick={saveGoal} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-xl" aria-label={T.save}>
@@ -180,25 +190,40 @@ export default function DailySummary({ entries, goalCalories, goalProtein, onGoa
             <button
               type="button"
               onClick={() => setEditingGoal(true)}
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-700 px-2 py-1 rounded-xl hover:bg-emerald-50/80 transition-colors text-end"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-emerald-700 px-2 py-1.5 rounded-xl hover:bg-emerald-50/80 transition-colors"
               title={T.editGoal}
             >
-              <span>
-                {T.outOf} <span className="font-bold text-slate-600">{target.toLocaleString()}</span> {T.kcal}
-              </span>
               <Pencil className="w-3.5 h-3.5 shrink-0 opacity-70" />
+              {T.editBaseGoalShort}
             </button>
           )
-        ) : (
-          <span className="text-xs text-slate-400">
-            {T.outOf} {target.toLocaleString()} {T.kcal}
-          </span>
-        )}
+        ) : null}
       </div>
 
-      {/* Ring */}
+      {/* Large allowance = base + active (what you may eat today) */}
+      <div className="px-4 sm:px-6 pb-5 text-center border-b border-slate-100 bg-gradient-to-b from-emerald-50/80 to-white">
+        <p className="text-[11px] font-bold text-emerald-800/80 uppercase tracking-widest mb-1">{T.dailyAllowanceHeadline}</p>
+        <p className="text-4xl sm:text-5xl font-black text-emerald-800 tabular-nums leading-tight tracking-tight">
+          {Math.round(totalBudget).toLocaleString()}
+          <span className="text-lg sm:text-xl font-bold text-emerald-700/90 ms-1.5">{T.kcal}</span>
+        </p>
+        <p className="mt-2 text-sm text-slate-600 leading-snug">
+          <span className="font-semibold text-slate-800">{baseForRing.toLocaleString()}</span>
+          {" "}{T.allowanceBaseLabel}
+          {activeExtra > 0 && (
+            <>
+              {" "}
+              <span className="text-slate-400">+</span>{" "}
+              <span className="font-semibold text-amber-700">{activeExtra.toLocaleString()}</span>
+              {" "}{T.allowanceActiveLabel}
+            </>
+          )}
+        </p>
+      </div>
+
+      {/* Ring — how much of that allowance you already ate */}
       <div className="flex justify-center py-4">
-        <CalorieRing consumed={totals.calories} target={target} />
+        <CalorieRing consumed={totals.calories} target={totalBudget} />
       </div>
 
       {/* Macro tiles */}

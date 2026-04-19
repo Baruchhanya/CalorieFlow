@@ -1,22 +1,33 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Bookmark, Plus, X, Loader2 } from "lucide-react";
+import { Bookmark, Plus, X, Loader2, History } from "lucide-react";
 import type { MealPreset } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
-
 interface MealPresetsProps {
   currentDate: string;
   onAdded: () => void;
+}
+
+interface HistorySuggestion {
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  count: number;
 }
 
 export default function MealPresets({ currentDate, onAdded }: MealPresetsProps) {
   const { T, lang } = useLang();
   const { showToast } = useToast();
   const [presets, setPresets] = useState<MealPreset[]>([]);
+  const [historyItems, setHistoryItems] = useState<HistorySuggestion[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const [loading, setLoading] = useState(true);
   const [addingId, setAddingId] = useState<string | null>(null);
+  const [addingHistoryKey, setAddingHistoryKey] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
@@ -44,6 +55,57 @@ export default function MealPresets({ currentDate, onAdded }: MealPresetsProps) 
     load();
   }, [load]);
 
+  const loadHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await fetch("/api/meal-suggestions", { cache: "no-store" });
+      if (!res.ok) throw new Error("load");
+      const data = await res.json();
+      const items: HistorySuggestion[] = Array.isArray(data.items) ? data.items : [];
+      setHistoryItems(items);
+    } catch {
+      setHistoryItems([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  const presetNameKeys = new Set(presets.map((p) => p.name.trim().toLowerCase()));
+  const historyFiltered = historyItems.filter((h) => !presetNameKeys.has(h.name.trim().toLowerCase()));
+
+  const addFromHistory = async (h: HistorySuggestion) => {
+    const key = h.name.trim().toLowerCase();
+    setAddingHistoryKey(key);
+    try {
+      const res = await fetch("/api/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: currentDate,
+          name: h.name,
+          quantity: null,
+          calories: h.calories,
+          protein: h.protein,
+          carbs: h.carbs,
+          fat: h.fat,
+          note: null,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      showToast(T.recurringAdded, "success");
+      onAdded();
+      loadHistory();
+    } catch {
+      showToast(T.saveDiaryError, "error");
+    } finally {
+      setAddingHistoryKey(null);
+    }
+  };
+
   const addFromPreset = async (p: MealPreset) => {
     setAddingId(p.id);
     try {
@@ -64,6 +126,7 @@ export default function MealPresets({ currentDate, onAdded }: MealPresetsProps) 
       if (!res.ok) throw new Error();
       showToast(T.recurringAdded, "success");
       onAdded();
+      loadHistory();
     } catch {
       showToast(T.saveDiaryError, "error");
     } finally {
@@ -185,6 +248,53 @@ export default function MealPresets({ currentDate, onAdded }: MealPresetsProps) 
                 </button>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* From diary history */}
+        {(loadingHistory || historyFiltered.length > 0) && (
+          <div className="mt-4 pt-4 border-t border-emerald-100/80">
+            <div className="flex items-start gap-2 mb-2 px-1">
+              <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                <History className="w-4 h-4 text-slate-600" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{T.recurringFromHistoryTitle}</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">{T.recurringFromHistoryHint}</p>
+              </div>
+            </div>
+            {loadingHistory ? (
+              <div className="flex items-center justify-center py-4 text-slate-400">
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+            ) : (
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 touch-pan-x">
+                {historyFiltered.map((h) => {
+                  const key = h.name.trim().toLowerCase();
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      disabled={addingHistoryKey === key}
+                      onClick={() => addFromHistory(h)}
+                      className="flex shrink-0 flex-col items-start gap-0.5 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 min-w-[7rem] max-w-[min(100%,18rem)] text-start shadow-sm hover:bg-slate-50 active:bg-slate-100/80 transition-colors disabled:opacity-60"
+                    >
+                      {addingHistoryKey === key ? (
+                        <Loader2 className="w-5 h-5 text-slate-500 animate-spin" />
+                      ) : (
+                        <>
+                          <span className="text-sm font-bold text-slate-800 line-clamp-2 leading-tight">{h.name}</span>
+                          <span className="text-xs font-semibold text-emerald-600 tabular-nums">
+                            {Math.round(h.calories)} {T.kcal}
+                            <span className="text-slate-400 font-normal ms-1">×{h.count}</span>
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

@@ -295,6 +295,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
         <DailySummary
           entries={entries}
           goalCalories={goalCalories}
+          caloriesBurned={caloriesBurned}
           goalProtein={calcProteinGoal(userProfile)}
           onGoalCaloriesChange={setGoalCalories}
         />

@@ -19,12 +19,16 @@ export default function DeficitCard({ consumed, burned, goalCalories, date, onBu
   const { showToast } = useToast();
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState(String(goalCalories));
-  const [burnedInput, setBurnedInput] = useState(String(burned));
+  const [burnedInput, setBurnedInput] = useState(() => (burned === 0 ? "" : String(Math.round(burned))));
   const [savingBurned, setSavingBurned] = useState(false);
 
   useEffect(() => {
     if (!editingGoal) setGoalInput(String(goalCalories));
   }, [goalCalories, editingGoal]);
+
+  useEffect(() => {
+    setBurnedInput(burned === 0 ? "" : String(Math.round(burned)));
+  }, [burned, date]);
 
   const net = consumed - burned;
   const diff = goalCalories - net;
@@ -32,8 +36,13 @@ export default function DeficitCard({ consumed, burned, goalCalories, date, onBu
   const diffAbs = Math.abs(Math.round(diff));
   const progressPct = Math.min((net / goalCalories) * 100, 100);
 
-  const saveBurned = async (val: number) => {
-    if (isNaN(val) || val < 0) return;
+  const saveBurned = async (raw: string) => {
+    const t = raw.trim();
+    const val = t === "" ? 0 : Number(t);
+    if (t !== "" && (isNaN(val) || val < 0)) {
+      showToast(lang === "he" ? "נא להזין מספר חיובי או להשאיר ריק" : "Enter a positive number or leave empty", "error");
+      return;
+    }
     setSavingBurned(true);
     try {
       await fetch("/api/activity", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date, calories_burned: val }) });
@@ -54,12 +63,10 @@ export default function DeficitCard({ consumed, burned, goalCalories, date, onBu
     showToast(T.calorieGoalUpdated, "success");
   };
 
-  const consumedLabel = lang === "he" ? "צרכת" : "Consumed";
-
   const stats = [
-    { label: consumedLabel, value: Math.round(consumed), color: "#0f172a", bg: "bg-slate-50" },
-    { label: T.burned, value: Math.round(burned), color: "#f59e0b", bg: "bg-amber-50" },
-    { label: T.net, value: Math.round(net), color: "#6366f1", bg: "bg-indigo-50" },
+    { label: T.statDailyIntake, value: Math.round(consumed), color: "#0f172a", bg: "bg-slate-50" },
+    { label: T.statActiveBurnDaily, value: Math.round(burned), color: "#f59e0b", bg: "bg-amber-50" },
+    { label: T.statIntakeMinusActivity, value: Math.round(net), color: "#6366f1", bg: "bg-indigo-50" },
   ];
 
   return (
@@ -121,11 +128,13 @@ export default function DeficitCard({ consumed, burned, goalCalories, date, onBu
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
           {stats.map(s => (
-            <div key={s.label} className={`${s.bg} rounded-2xl py-3 px-2 text-center`}>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{s.label}</p>
-              <p className="text-xl font-black" style={{ color: s.color }}>{s.value.toLocaleString()}</p>
+            <div key={s.label} className={`${s.bg} rounded-2xl py-2.5 px-1 sm:px-2 text-center`}>
+              <p className="text-[8px] sm:text-[9px] font-bold text-slate-500 leading-tight mb-1.5 min-h-[2.5rem] flex items-end justify-center text-center px-0.5">
+                {s.label}
+              </p>
+              <p className="text-lg sm:text-xl font-black" style={{ color: s.color }}>{s.value.toLocaleString()}</p>
               <p className="text-[10px] text-slate-400">{T.kcal}</p>
             </div>
           ))}
@@ -137,13 +146,13 @@ export default function DeficitCard({ consumed, burned, goalCalories, date, onBu
           <input
             type="number" value={burnedInput}
             onChange={e => setBurnedInput(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && saveBurned(Number(burnedInput))}
+            onKeyDown={e => e.key === "Enter" && saveBurned(burnedInput)}
             placeholder={T.caloriesBurnedPlaceholder}
             className="flex-1 text-sm bg-transparent focus:outline-none placeholder:text-amber-300"
             disabled={savingBurned} min={0}
           />
           <span className="text-xs text-amber-400 shrink-0">{T.kcal}</span>
-          <button type="button" onClick={() => saveBurned(Number(burnedInput))} disabled={savingBurned}
+          <button type="button" onClick={() => saveBurned(burnedInput)} disabled={savingBurned}
             className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-2 rounded-xl active:scale-95 touch-manipulation transition-all disabled:opacity-50 shadow-sm">
             {savingBurned ? <Flame className="w-3.5 h-3.5 animate-pulse" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
             OK

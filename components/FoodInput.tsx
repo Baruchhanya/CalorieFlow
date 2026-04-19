@@ -382,7 +382,10 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-      <h2 className="text-lg font-bold text-slate-800 mb-3">{T.addMeal}</h2>
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-slate-800">{T.addMeal}</h2>
+        <p className="text-xs text-slate-500 mt-1 leading-relaxed">{T.addMealQuickIntro}</p>
+      </div>
 
       <div className="mb-4 -mx-1">
         <MealPresets currentDate={currentDate ?? localDateStr()} onAdded={onEntriesAdded} />
