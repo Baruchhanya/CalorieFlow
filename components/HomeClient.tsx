@@ -90,21 +90,24 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((d) => setGoalCalories(typeof d.daily_goal_calories === "number" ? d.daily_goal_calories : 1820))
-      .catch(() => {});
-    fetch("/api/profile").then(r => r.json()).then((d: UserProfile | null) => {
-      setUserProfile(d);
-      if (!d?.weight_kg) setShowProfile(true);
-    }).catch(() => {});
+  // Single fetch that loads all startup data (user, entries, settings, profile, activity)
+  const fetchAll = useCallback(async (targetDate: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/init?date=${targetDate}`);
+      if (!res.ok) return;
+      const d = await res.json();
+      setUserEmail(d.user?.email ?? null);
+      setEntries(Array.isArray(d.entries) ? d.entries : []);
+      setGoalCalories(typeof d.daily_goal_calories === "number" ? d.daily_goal_calories : 1820);
+      setCaloriesBurned(d.calories_burned ?? 0);
+      setUserProfile(d.profile ?? null);
+      if (!d.profile?.weight_kg) setShowProfile(true);
+    } catch { /* silent */ }
+    finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    fetch(`/api/activity?date=${date}`).then(r => r.json()).then(d => setCaloriesBurned(d.calories_burned ?? 0)).catch(() => {});
-  }, [date]);
+  useEffect(() => { fetchAll(date); }, [date, fetchAll]);
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
@@ -115,8 +118,6 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
     } catch { /* silent */ }
     finally { setLoading(false); }
   }, [date]);
-
-  useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
   /* Pull-down to refresh (mobile): when at top of page, drag down ~100px */
   useEffect(() => {
