@@ -10,7 +10,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { type, text, data, mimeType } = body;
+    const { type, text, data, mimeType, note } = body;
+    const extraContext = typeof note === "string" ? note : undefined;
 
     let result;
     switch (type) {
@@ -22,12 +23,12 @@ export async function POST(request: NextRequest) {
       case "image":
         if (!data || !mimeType)
           return NextResponse.json({ error: "Image data required" }, { status: 400 });
-        result = await analyzeImage(data, mimeType);
+        result = await analyzeImage(data, mimeType, extraContext);
         break;
       case "audio":
         if (!data || !mimeType)
           return NextResponse.json({ error: "Audio data required" }, { status: 400 });
-        result = await analyzeAudio(data, mimeType);
+        result = await analyzeAudio(data, mimeType, extraContext);
         break;
       default:
         return NextResponse.json({ error: "Invalid type" }, { status: 400 });

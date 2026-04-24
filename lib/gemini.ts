@@ -50,6 +50,15 @@ function parseGeminiResponse(text: string): GeminiResponse {
   return JSON.parse(cleaned);
 }
 
+function buildExtraContextBlock(extraContext?: string): string {
+  const trimmed = extraContext?.trim();
+  if (!trimmed) return "";
+  return `\n\nADDITIONAL USER CONTEXT (CRITICAL — the user added these details to improve accuracy; treat them as authoritative when they conflict with what you see/hear, and use them to refine quantities, ingredients, brands, cooking method, and portion sizes):
+"""
+${trimmed}
+"""`;
+}
+
 export async function analyzeText(text: string): Promise<GeminiResponse> {
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const result = await model.generateContent(
@@ -60,24 +69,26 @@ export async function analyzeText(text: string): Promise<GeminiResponse> {
 
 export async function analyzeImage(
   base64Data: string,
-  mimeType: string
+  mimeType: string,
+  extraContext?: string
 ): Promise<GeminiResponse> {
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const result = await model.generateContent([
     { inlineData: { data: base64Data, mimeType } },
-    `${NUTRITION_PROMPT}\n\nAnalyze all the food visible in this image and provide nutritional information.`,
+    `${NUTRITION_PROMPT}\n\nAnalyze all the food visible in this image and provide nutritional information.${buildExtraContextBlock(extraContext)}`,
   ]);
   return parseGeminiResponse(result.response.text());
 }
 
 export async function analyzeAudio(
   base64Data: string,
-  mimeType: string
+  mimeType: string,
+  extraContext?: string
 ): Promise<GeminiResponse> {
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const result = await model.generateContent([
     { inlineData: { data: base64Data, mimeType } },
-    `${NUTRITION_PROMPT}\n\nThe user described food in an audio recording. Transcribe what they said and analyze the food mentioned.`,
+    `${NUTRITION_PROMPT}\n\nThe user described food in an audio recording. Transcribe what they said and analyze the food mentioned.${buildExtraContextBlock(extraContext)}`,
   ]);
   return parseGeminiResponse(result.response.text());
 }

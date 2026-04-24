@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Type, Image as ImageIcon, Mic, Send, X, Plus, AlertCircle,
   Loader2, StopCircle, CheckCircle2, Camera, FolderOpen, PenLine,
+  PencilLine,
 } from "lucide-react";
 import { GeminiResponse, FoodItem } from "@/types";
 import { useLang } from "@/lib/i18n/context";
@@ -239,6 +240,7 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [extraNote, setExtraNote] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<GeminiResponse | null>(null);
   const [adding, setAdding] = useState(false);
@@ -256,6 +258,7 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
   const reset = useCallback(() => {
     setText(""); setImageFile(null); setImagePreview(null); setAudioBlob(null);
     setRecording(false); setRecordingTime(0); setResult(null); setError("");
+    setExtraNote("");
     if (timerRef.current) clearInterval(timerRef.current);
   }, []);
 
@@ -312,10 +315,20 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
         body = { type: "text", text };
       } else if (tab === "image") {
         if (!imageFile) { setError(T.noImageError); return; }
-        body = { type: "image", data: await blobToBase64(imageFile), mimeType: imageFile.type };
+        body = {
+          type: "image",
+          data: await blobToBase64(imageFile),
+          mimeType: imageFile.type,
+          note: extraNote.trim() || undefined,
+        };
       } else {
         if (!audioBlob) { setError(T.noAudioError); return; }
-        body = { type: "audio", data: await blobToBase64(audioBlob), mimeType: audioBlob.type };
+        body = {
+          type: "audio",
+          data: await blobToBase64(audioBlob),
+          mimeType: audioBlob.type,
+          note: extraNote.trim() || undefined,
+        };
       }
       const res = await fetch("/api/analyze", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -487,6 +500,34 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
       {tab === "manual" && (
         <ManualForm onAdd={(item) => saveItems([item])} adding={adding} />
       )}
+
+      {/* Optional extra context (image / audio) — helps Gemini refine the analysis */}
+      {!result &&
+        ((tab === "image" && imageFile) ||
+          (tab === "audio" && audioBlob && !recording)) && (
+          <div className="mt-3 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-1 duration-200">
+            <label
+              htmlFor="extra-context-note"
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 px-1"
+            >
+              <PencilLine className="w-3.5 h-3.5 text-emerald-500" />
+              {T.extraNoteLabel}
+            </label>
+            <textarea
+              id="extra-context-note"
+              value={extraNote}
+              onChange={(e) => setExtraNote(e.target.value)}
+              placeholder={
+                tab === "image"
+                  ? T.extraNotePlaceholderImage
+                  : T.extraNotePlaceholderAudio
+              }
+              rows={2}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent placeholder:text-slate-400 leading-relaxed"
+            />
+            <p className="text-[11px] text-slate-400 px-1">{T.extraNoteHint}</p>
+          </div>
+        )}
 
       {/* Error */}
       {error && tab !== "manual" && (

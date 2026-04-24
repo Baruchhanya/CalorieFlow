@@ -71,6 +71,12 @@ const he = {
   voiceHint: "לחץ להתחלת הקלטה ותאר מה אכלת בדיבור חופשי",
   or: "או",
 
+  // Extra context note (image / audio analysis)
+  extraNoteLabel: "הוספת פרטים לניתוח (אופציונלי)",
+  extraNoteHint: "פרטים נוספים יעזרו ל‑Gemini לחשב קלוריות מדויקות יותר",
+  extraNotePlaceholderImage: 'לדוג׳: השניצל בתנור (לא מטוגן), שתי כפות אורז, החלב 3% שומן, גודל הצלחת ~25 ס״מ',
+  extraNotePlaceholderAudio: 'הוסף פרטים שלא הזכרת בהקלטה: כמויות מדויקות, סוג שמן, אחוז שומן, מותג וכו׳',
+
   // Manual entry
   tabManual: "ידני",
   manualName: "שם המזון",
@@ -224,6 +230,12 @@ const en: Translations = {
   clickToUpload: "Click to upload image",
   voiceHint: "Press to start recording and describe what you ate",
   or: "or",
+
+  // Extra context note (image / audio analysis)
+  extraNoteLabel: "Add details for analysis (optional)",
+  extraNoteHint: "Extra details help Gemini calculate more accurate calories",
+  extraNotePlaceholderImage: "e.g. schnitzel is baked (not fried), 2 tbsp rice, milk is 3% fat, plate is ~25cm",
+  extraNotePlaceholderAudio: "Add details you didn't mention in the recording: exact amounts, oil type, fat %, brand, etc.",
 
   // Manual entry
   tabManual: "Manual",
