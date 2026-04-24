@@ -67,16 +67,42 @@ export async function analyzeText(text: string): Promise<GeminiResponse> {
   return parseGeminiResponse(result.response.text());
 }
 
+export interface ImagePart {
+  data: string;
+  mimeType: string;
+}
+
 export async function analyzeImage(
   base64Data: string,
   mimeType: string,
   extraContext?: string
 ): Promise<GeminiResponse> {
+  return analyzeImages([{ data: base64Data, mimeType }], extraContext);
+}
+
+export async function analyzeImages(
+  images: ImagePart[],
+  extraContext?: string
+): Promise<GeminiResponse> {
+  if (images.length === 0) {
+    throw new Error("At least one image is required");
+  }
+
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-  const result = await model.generateContent([
-    { inlineData: { data: base64Data, mimeType } },
-    `${NUTRITION_PROMPT}\n\nAnalyze all the food visible in this image and provide nutritional information.${buildExtraContextBlock(extraContext)}`,
-  ]);
+
+  const instruction =
+    images.length === 1
+      ? `Analyze all the food visible in this image and provide nutritional information.${buildExtraContextBlock(extraContext)}`
+      : `Analyze all the food visible across ALL ${images.length} images. The images show DIFFERENT angles, components, or items belonging to the SAME meal occasion the user is logging. Combine everything you see into a single coherent calorie analysis (sum quantities; do not double-count items that appear in more than one image — match by appearance and treat duplicates as the same physical food). Use every image to refine portion sizes, ingredients and cooking style.${buildExtraContextBlock(extraContext)}`;
+
+  const parts = [
+    ...images.map((img) => ({
+      inlineData: { data: img.data, mimeType: img.mimeType },
+    })),
+    `${NUTRITION_PROMPT}\n\n${instruction}`,
+  ];
+
+  const result = await model.generateContent(parts);
   return parseGeminiResponse(result.response.text());
 }
 

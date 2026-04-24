@@ -18,6 +18,14 @@ interface FoodInputProps {
   currentDate?: string;
 }
 
+const MAX_IMAGES = 5;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB per file
+
+interface SelectedImage {
+  file: File;
+  preview: string;
+}
+
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -235,8 +243,7 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
   const { showToast } = useToast();
   const [tab, setTab] = useState<Tab>("text");
   const [text, setText] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [images, setImages] = useState<SelectedImage[]>([]);
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -256,9 +263,11 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
   const reset = useCallback(() => {
-    setText(""); setImageFile(null); setImagePreview(null); setAudioBlob(null);
+    setText(""); setImages([]); setAudioBlob(null);
     setRecording(false); setRecordingTime(0); setResult(null); setError("");
     setExtraNote("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
     if (timerRef.current) clearInterval(timerRef.current);
   }, []);
 
@@ -272,12 +281,57 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
   const handleTabChange = (newTab: Tab) => { setTab(newTab); reset(); };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImageFile(file); setResult(null); setError("");
-    const reader = new FileReader();
-    reader.onload = () => setImagePreview(reader.result as string);
-    reader.readAsDataURL(file);
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    const incoming = Array.from(fileList);
+    const remainingSlots = Math.max(0, MAX_IMAGES - images.length);
+
+    if (remainingSlots === 0) {
+      setError(T.maxImagesReached(MAX_IMAGES));
+      e.target.value = "";
+      return;
+    }
+
+    const accepted: File[] = [];
+    let oversizedName: string | null = null;
+    for (const file of incoming.slice(0, remainingSlots)) {
+      if (file.size > MAX_IMAGE_BYTES) {
+        oversizedName = file.name;
+        continue;
+      }
+      accepted.push(file);
+    }
+
+    if (accepted.length === 0) {
+      if (oversizedName) setError(T.imageTooLarge(oversizedName));
+      e.target.value = "";
+      return;
+    }
+
+    setResult(null);
+    setError(oversizedName ? T.imageTooLarge(oversizedName) : "");
+
+    Promise.all(
+      accepted.map(
+        (file) =>
+          new Promise<SelectedImage>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve({ file, preview: reader.result as string });
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          })
+      )
+    )
+      .then((next) => setImages((prev) => [...prev, ...next].slice(0, MAX_IMAGES)))
+      .catch(() => setError(T.unknownError));
+
+    e.target.value = "";
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setResult(null);
   };
 
   const startRecording = async () => {
@@ -314,11 +368,16 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
         if (!text.trim()) { setError(T.noTextError); return; }
         body = { type: "text", text };
       } else if (tab === "image") {
-        if (!imageFile) { setError(T.noImageError); return; }
+        if (images.length === 0) { setError(T.noImageError); return; }
+        const encoded = await Promise.all(
+          images.map(async (img) => ({
+            data: await blobToBase64(img.file),
+            mimeType: img.file.type,
+          }))
+        );
         body = {
           type: "image",
-          data: await blobToBase64(imageFile),
-          mimeType: imageFile.type,
+          images: encoded,
           note: extraNote.trim() || undefined,
         };
       } else {
@@ -374,17 +433,13 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
 
   const canAnalyze =
     (tab === "text" && text.trim().length > 0) ||
-    (tab === "image" && imageFile !== null) ||
+    (tab === "image" && images.length > 0) ||
     (tab === "audio" && audioBlob !== null && !recording);
+
+  const canAddMoreImages = images.length < MAX_IMAGES;
 
   const formatTime = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-
-  const clearImage = () => {
-    setImageFile(null); setImagePreview(null); setResult(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
-  };
 
   const tabs = [
     { key: "text" as Tab, label: T.tabText, icon: <Type className="w-4 h-4" /> },
@@ -426,17 +481,65 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
       {/* Image */}
       {tab === "image" && (
         <div className="flex flex-col gap-3">
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+          <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageChange} className="hidden" />
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleImageChange} className="hidden" />
-          {imagePreview ? (
-            <div className="relative rounded-xl overflow-hidden border border-slate-200">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imagePreview} alt={T.previewImageAlt} className="w-full max-h-64 object-cover" />
-              <button onClick={clearImage}
-                className="absolute top-2 left-2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+
+          {images.length > 0 ? (
+            <>
+              <div className="grid grid-cols-3 gap-2">
+                {images.map((img, idx) => (
+                  <div
+                    key={`${img.file.name}-${idx}`}
+                    className="relative rounded-xl overflow-hidden border border-slate-200 aspect-square bg-slate-50"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.preview}
+                      alt={`${T.previewImageAlt} ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      aria-label={T.delete}
+                      className="absolute top-1.5 left-1.5 bg-black/55 hover:bg-black/75 text-white rounded-full p-1.5 transition-colors touch-manipulation"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="absolute bottom-1.5 end-1.5 bg-black/55 text-white text-[10px] leading-none px-1.5 py-1 rounded-md font-bold">
+                      {idx + 1}/{images.length}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-xs text-slate-500 px-1">
+                {images.length === 1 ? T.imageSelectedSingle : T.imagesSelected(images.length)}
+              </p>
+
+              {canAddMoreImages ? (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold transition-colors active:scale-[0.98] touch-manipulation"
+                  >
+                    <Camera className="w-4 h-4" />{T.addMorePhoto}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 text-sm font-medium transition-colors active:scale-[0.98] touch-manipulation"
+                  >
+                    <FolderOpen className="w-4 h-4" />{T.addMoreFromGallery}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  {T.maxImagesReached(MAX_IMAGES)}
+                </p>
+              )}
+            </>
           ) : (
             <div className="flex flex-col gap-2">
               <button onClick={() => cameraInputRef.current?.click()}
@@ -503,7 +606,7 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
 
       {/* Optional extra context (image / audio) — helps Gemini refine the analysis */}
       {!result &&
-        ((tab === "image" && imageFile) ||
+        ((tab === "image" && images.length > 0) ||
           (tab === "audio" && audioBlob && !recording)) && (
           <div className="mt-3 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-1 duration-200">
             <label
@@ -559,7 +662,13 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
                 <p className="text-sm font-bold text-emerald-700">{T.analyzing}</p>
                 <p className="text-xs text-emerald-500 mt-0.5">
                   {tab === "image"
-                    ? (lang === "he" ? "Gemini מנתח את התמונה שלך..." : "Gemini is analyzing your image...")
+                    ? (lang === "he"
+                        ? (images.length > 1
+                            ? `Gemini מנתח ${images.length} תמונות יחד...`
+                            : "Gemini מנתח את התמונה שלך...")
+                        : (images.length > 1
+                            ? `Gemini is analyzing ${images.length} photos together...`
+                            : "Gemini is analyzing your image..."))
                     : (lang === "he" ? "Gemini מנתח את הארוחה שלך..." : "Gemini is analyzing your meal...")}
                 </p>
               </div>
