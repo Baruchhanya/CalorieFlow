@@ -46,12 +46,17 @@ export interface AccessStatus {
  * Check whether a given email is allowed to access the app and whether
  * they are an admin.
  *
- * Order:
- *   1. env-var emails (ALLOWED_EMAILS) → always allowed + admin
- *   2. DB row in `allowed_users` → allowed; admin if `is_admin = true`
- *   3. If both env-var list AND DB are EMPTY → open (back-compat with old "no
- *      allowlist = open access" behaviour).
- *   4. Otherwise → denied.
+ * Semantics:
+ *   - Env-var emails (`ALLOWED_EMAILS`) ALWAYS grant "allowed" — this is the
+ *     lockout safety net. They cannot be removed via the UI; you must edit
+ *     the env var to fully revoke access.
+ *   - The `allowed_users` DB row, when present, is the source of truth for
+ *     `is_admin`. This lets an admin demote an env super-admin from the UI
+ *     to a regular user (the env still keeps them allowed, just not admin).
+ *   - If no DB row exists, env presence alone implies admin (so a fresh
+ *     install with only env config still has an admin who can use /admin).
+ *   - If both env list and DB are empty → open (preserves historical
+ *     "no allowlist configured = anyone can sign in" behaviour).
  *
  * Pass an existing user-scoped supabase client to leverage the user's RLS
  * policy ("user can read their own row"). If unavailable, falls back to
@@ -63,16 +68,10 @@ export async function checkEmailAccess(
 ): Promise<AccessStatus> {
   if (!email) return { allowed: false, isAdmin: false, source: "denied" };
   const lower = email.toLowerCase();
+  const inEnv = isEnvAdmin(lower);
 
-  if (isEnvAdmin(lower)) {
-    return { allowed: true, isAdmin: true, source: "env" };
-  }
-
-  // Try the lightweight user-scoped query first (uses the request's session)
-  let dbHit:
-    | { is_admin: boolean | null }
-    | null
-    | undefined;
+  // Look up DB row (DB wins for is_admin, even for env-listed emails).
+  let dbHit: { is_admin: boolean | null } | null | undefined;
 
   if (client) {
     try {
@@ -87,8 +86,6 @@ export async function checkEmailAccess(
     }
   }
 
-  // Fallback to service role (used by middleware contexts where the user
-  // session isn't guaranteed to satisfy RLS exactly)
   if (dbHit === undefined) {
     try {
       const admin = createServiceRoleClient();
@@ -104,7 +101,14 @@ export async function checkEmailAccess(
   }
 
   if (dbHit) {
+    // DB row exists → use its admin flag. Email is allowed (DB row implies
+    // allowed; env presence is irrelevant once a row exists).
     return { allowed: true, isAdmin: !!dbHit.is_admin, source: "db" };
+  }
+
+  if (inEnv) {
+    // Env-listed but no DB row → implicit super-admin.
+    return { allowed: true, isAdmin: true, source: "env" };
   }
 
   // If absolutely no allowlist is configured anywhere, keep the historical

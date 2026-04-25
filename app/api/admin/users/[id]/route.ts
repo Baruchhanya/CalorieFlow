@@ -93,12 +93,8 @@ export async function PATCH(
   }
 
   const targetEmail = String(target.data.email).toLowerCase();
-  if (isEnvAdmin(targetEmail)) {
-    return NextResponse.json(
-      { error: "Env super-admins are always admin" },
-      { status: 400 }
-    );
-  }
+  // Env super-admins CAN be demoted via PATCH — the env entry only guarantees
+  // "allowed", not admin. The DB row is the source of truth for is_admin.
   if (me.email && targetEmail === me.email.toLowerCase() && body.is_admin === false) {
     return NextResponse.json(
       { error: "You cannot demote yourself" },

@@ -111,10 +111,28 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
   const toggleAdmin = async (u: AllowedUser) => {
     setBusyId(u.id);
     try {
+      const desired = !u.is_admin;
+      // Env super-admins without a DB row: create a row so the DB can override
+      // their admin flag (env still keeps them allowed).
+      if (u.id.startsWith("env:")) {
+        const res = await fetch("/api/admin/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: u.email, is_admin: desired }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showToast(data.error || T.adminUpdateFailed, "error");
+          return;
+        }
+        setUsers((prev) => [...prev, data]);
+        return;
+      }
+
       const res = await fetch(`/api/admin/users/${u.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_admin: !u.is_admin }),
+        body: JSON.stringify({ is_admin: desired }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -243,8 +261,10 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
             <ul className="divide-y divide-slate-100">
               {allRows.map((u) => {
                 const isMe = u.email.toLowerCase() === meEmail.toLowerCase();
-                const locked = u.is_env_admin;
+                const isEnvListed = u.is_env_admin;
                 const busy = busyId === u.id;
+                // Self-demote protection mirrors the server side.
+                const disableToggle = busy || (isMe && u.is_admin);
 
                 return (
                   <li key={u.id} className="px-5 py-3 flex items-center gap-3">
@@ -272,34 +292,35 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
                         ) : (
                           <span className="text-slate-500 font-medium">{T.adminRoleUser}</span>
                         )}
-                        {locked && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold uppercase text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                        {isEnvListed && (
+                          <span
+                            title={T.adminEnvHint}
+                            className="inline-flex items-center gap-0.5 text-[10px] font-bold uppercase text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded"
+                          >
                             <Crown className="w-3 h-3" /> {isHe ? "מהגדרות שרת" : "env"}
                           </span>
                         )}
-                        {!locked && u.added_by && (
+                        {!isEnvListed && u.added_by && (
                           <span className="text-slate-400">· {isHe ? `נוסף ע״י ${u.added_by}` : `by ${u.added_by}`}</span>
                         )}
                       </p>
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
-                      {!locked && (
-                        <button
-                          type="button"
-                          onClick={() => toggleAdmin(u)}
-                          disabled={busy || (isMe && u.is_admin)}
-                          title={u.is_admin ? T.adminDemote : T.adminPromote}
-                          className={`min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl border text-xs font-bold transition-colors disabled:opacity-40 ${
-                            u.is_admin
-                              ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                              : "border-slate-200 text-slate-500 hover:bg-slate-50"
-                          }`}
-                        >
-                          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
-                        </button>
-                      )}
-                      {!locked && !isMe && (
+                      <button
+                        type="button"
+                        onClick={() => toggleAdmin(u)}
+                        disabled={disableToggle}
+                        title={u.is_admin ? T.adminDemote : T.adminPromote}
+                        className={`min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl border text-xs font-bold transition-colors disabled:opacity-40 ${
+                          u.is_admin
+                            ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                            : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                        }`}
+                      >
+                        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
+                      </button>
+                      {!isEnvListed && !isMe && (
                         <button
                           type="button"
                           onClick={() => removeUser(u)}

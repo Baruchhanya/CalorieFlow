@@ -85,6 +85,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Email too long" }, { status: 400 });
   }
 
+  // Self-demote protection: an admin cannot create their own row with
+  // is_admin = false (would lock themselves out of /admin).
+  if (
+    me.email &&
+    rawEmail === me.email.toLowerCase() &&
+    wantAdmin === false
+  ) {
+    return NextResponse.json(
+      { error: "You cannot demote yourself" },
+      { status: 400 }
+    );
+  }
+
   const admin = createServiceRoleClient();
 
   // Check existing row (case-insensitive) to give a friendly error
