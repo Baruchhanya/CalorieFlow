@@ -113,6 +113,9 @@ const he = {
   noMealsHistoryDesc: "לא נמצאו רשומות ליום זה",
   deleteConfirm: (name: string) => `למחוק את "${name}"?`,
   clearAllConfirm: (n: number) => `למחוק את כל ${n} הארוחות של יום זה?`,
+  mealDeleted: (name: string) => `"${name}" נמחק`,
+  mealUpdated: (name: string) => `"${name}" עודכן`,
+  deleteFailed: "שגיאה במחיקה, נסה שוב",
 
   // Edit modal
   editEntry: "עריכת פריט",
@@ -305,6 +308,9 @@ const en: Translations = {
   noMealsHistoryDesc: "No records found for this day",
   deleteConfirm: (name: string) => `Delete "${name}"?`,
   clearAllConfirm: (n: number) => `Delete all ${n} meals for this day?`,
+  mealDeleted: (name: string) => `"${name}" deleted`,
+  mealUpdated: (name: string) => `"${name}" updated`,
+  deleteFailed: "Failed to delete, try again",
 
   editEntry: "Edit Entry",
   foodName: "Food name",
