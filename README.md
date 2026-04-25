@@ -53,6 +53,7 @@ npm install
 1. **Supabase Dashboard** → **SQL Editor** → **New Query**
 2. העתק את תוכן `supabase-schema.sql` (בשורש הפרויקט)
 3. לחץ **Run**
+4. הרץ גם את `supabase-allowed-users.sql` (טבלת ה‑allowlist הדינמית למסך הניהול)
 
 ```sql
 -- מה ה-schema יוצר:
@@ -61,6 +62,7 @@ npm install
 -- ✓ פוליסות: כל משתמש רואה/עורך רק את הנתונים שלו
 -- ✓ אינדקס לחיפוש מהיר לפי תאריך
 -- ✓ Trigger לעדכון updated_at אוטומטי
+-- ✓ טבלת allowed_users לניהול גישה דינמי דרך מסך /admin
 ```
 
 #### ג. הפעל Google OAuth
@@ -219,10 +221,21 @@ npx vercel --prod
 | שכבה | מנגנון |
 |-------|--------|
 | **Auth** | Supabase OAuth – Google Login בלבד |
-| **Email Allowlist** | `proxy.ts` בודק כל request ומבלוק משתמשים לא מורשים |
+| **Email Allowlist** | `proxy.ts` בודק כל request מול env‑var (super‑admins) ‎+‎ טבלת `allowed_users` |
+| **Admin UI** | מסך `/admin` (ניתן לגישה רק למנהלים) — הוסף/הסר/קדם משתמשים ללא שינוי env vars |
 | **RLS** | PostgreSQL Row Level Security – כל משתמש רואה רק את הנתונים שלו |
 | **Gemini API** | נמצא בשרת בלבד, לא ב-client bundle |
 | **Anon Key** | בטוח לחשיפה ציבורית – RLS מגן על הנתונים |
+
+### ניהול משתמשים דרך האפליקציה
+
+האימייל/ים ב-`ALLOWED_EMAILS` הם **super‑admins** (תמיד מאושרים, תמיד מנהלים, לא ניתנים להסרה מתוך ה‑UI — בטוח מ‑lockout).
+
+לאחר שהמיגרציה `supabase-allowed-users.sql` רצה, מנהלים רואים אייקון מגן בתפריט וכפתור **ניהול** שמוביל ל‑`/admin`:
+- הוספת משתמש חדש דרך מייל בלבד (אין צורך ב‑deploy מחדש)
+- הענקת/הסרת הרשאות מנהל
+- הסרת משתמש (חוץ ממנהלי env ומעצמך)
+- כל המשתמשים החדשים נכנסים אוטומטית גם לדוח היומי במייל
 
 ---
 

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   CalendarDays, Trash2, RefreshCw, ChevronRight, ChevronLeft,
-  LogOut, Globe, User, Scale, History, Home,
+  LogOut, Globe, User, Scale, History, Home, Shield,
 } from "lucide-react";
 import DailySummary from "@/components/DailySummary";
 import DeficitCard from "@/components/DeficitCard";
@@ -76,6 +76,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const [goalCalories, setGoalCalories] = useState(1820);
   const [caloriesBurned, setCaloriesBurned] = useState(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -102,6 +103,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
       setGoalCalories(typeof d.daily_goal_calories === "number" ? d.daily_goal_calories : 1820);
       setCaloriesBurned(d.calories_burned ?? 0);
       setUserProfile(d.profile ?? null);
+      setIsAdmin(!!d.is_admin);
       if (!d.profile?.weight_kg) setShowProfile(true);
     } catch { /* silent */ }
     finally { setLoading(false); }
@@ -232,6 +234,14 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
                 <Scale className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{lang === "he" ? "משקל" : "Weight"}</span>
               </a>
+
+              {isAdmin && (
+                <a href="/admin" title={T.adminPageTitle}
+                  className={`flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-semibold transition-colors ${scrolled ? "text-amber-700 hover:bg-amber-50" : "text-white bg-amber-400/30 hover:bg-amber-400/50"}`}>
+                  <Shield className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{T.adminNavLabel}</span>
+                </a>
+              )}
 
               <div className={`w-px h-4 mx-0.5 ${scrolled ? "bg-slate-200" : "bg-white/20"}`} />
 
@@ -374,6 +384,9 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           <NavItem icon={<Home className="w-5 h-5" />} label={lang === "he" ? "היום" : "Today"} active href="/" />
           <NavItem icon={<Scale className="w-5 h-5" />} label={lang === "he" ? "משקל" : "Weight"} href="/weight" />
           <NavItem icon={<History className="w-5 h-5" />} label={lang === "he" ? "היסטוריה" : "History"} href="/history" />
+          {isAdmin && (
+            <NavItem icon={<Shield className="w-5 h-5" />} label={T.adminNavLabel} href="/admin" />
+          )}
           <NavItem icon={<User className="w-5 h-5" />} label={lang === "he" ? "פרופיל" : "Profile"}
             onClick={() => setShowProfile(true)}
             active={showProfile}

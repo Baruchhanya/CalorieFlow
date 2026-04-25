@@ -167,6 +167,33 @@ const he = {
   deleteRecurringConfirm: (name: string) => `להסיר את "${name}" מהארוחות הקבועות?`,
 
   poweredBy: "CalorieFlow · מופעל על ידי Gemini AI",
+
+  // Admin page
+  adminNavLabel: "ניהול",
+  adminPageTitle: "ניהול משתמשים",
+  adminPageSubtitle: "הוסיפו ושלוט בגישה לאפליקציה",
+  adminAddTitle: "הוספת משתמש חדש",
+  adminAddHint: "הזינו כתובת מייל. ברגע שהמשתמש יתחבר ב‑Google עם המייל הזה — תהיה לו גישה מיידית.",
+  adminEmailPlaceholder: "name@example.com",
+  adminGrantAdmin: "הוסף כמנהל (גישה למסך זה)",
+  adminAddButton: "הוסף לרשימה",
+  adminAdding: "מוסיף...",
+  adminAddFailed: "שגיאה בהוספה",
+  adminInvalidEmail: "כתובת מייל לא תקינה",
+  adminListTitle: "משתמשים מורשים",
+  adminListHint: "כל המייליים האלה יוכלו להיכנס לאפליקציה. עמודות מסומנות בכתר נקבעו במשתני סביבה ולא ניתנות להסרה כאן.",
+  adminEmpty: "עדיין אין משתמשים — הוסיפו את הראשון למעלה",
+  adminRoleAdmin: "מנהל",
+  adminRoleUser: "משתמש",
+  adminPromote: "הפוך למנהל",
+  adminDemote: "הסר הרשאות מנהל",
+  adminRemove: "הסר מהרשימה",
+  adminConfirmRemove: (email: string) => `להסיר את ${email} מהרשימה? לא יוכל יותר להיכנס.`,
+  adminUserAdded: (email: string) => `${email} נוסף לרשימה`,
+  adminUserRemoved: (email: string) => `${email} הוסר מהרשימה`,
+  adminRemoveFailed: "שגיאה בהסרה",
+  adminUpdateFailed: "שגיאה בעדכון",
+  adminFooter: "שינויים נכנסים לתוקף מיידית. משתמש שהוסר ינותק בכניסה הבאה לאפליקציה.",
 };
 
 export type Translations = typeof he;
@@ -327,6 +354,33 @@ const en: Translations = {
   deleteRecurringConfirm: (name: string) => `Remove "${name}" from recurring meals?`,
 
   poweredBy: "CalorieFlow · Powered by Gemini AI",
+
+  // Admin page
+  adminNavLabel: "Admin",
+  adminPageTitle: "User Management",
+  adminPageSubtitle: "Add and control access to the app",
+  adminAddTitle: "Add a new user",
+  adminAddHint: "Type their email. As soon as they sign in with Google using that email, they get instant access.",
+  adminEmailPlaceholder: "name@example.com",
+  adminGrantAdmin: "Make admin (access to this page)",
+  adminAddButton: "Add to allowlist",
+  adminAdding: "Adding...",
+  adminAddFailed: "Failed to add",
+  adminInvalidEmail: "Invalid email address",
+  adminListTitle: "Allowed users",
+  adminListHint: "Everyone listed here can sign in. Rows marked with a crown were set in env vars and cannot be removed from this page.",
+  adminEmpty: "No users yet — add the first one above",
+  adminRoleAdmin: "Admin",
+  adminRoleUser: "User",
+  adminPromote: "Promote to admin",
+  adminDemote: "Demote to user",
+  adminRemove: "Remove from allowlist",
+  adminConfirmRemove: (email: string) => `Remove ${email}? They will no longer be able to sign in.`,
+  adminUserAdded: (email: string) => `${email} added`,
+  adminUserRemoved: (email: string) => `${email} removed`,
+  adminRemoveFailed: "Failed to remove",
+  adminUpdateFailed: "Failed to update",
+  adminFooter: "Changes take effect immediately. A removed user will be signed out on their next request.",
 };
 
 export const translations = { he, en };

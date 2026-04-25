@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { checkEmailAccess } from "@/lib/auth";
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -43,16 +44,20 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Enforce email allowlist
-  const rawAllowed = process.env.ALLOWED_EMAILS ?? process.env.NEXT_PUBLIC_ALLOWED_EMAIL ?? "";
-  const allowedEmails = rawAllowed.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
-  if (user && allowedEmails.length > 0 && !allowedEmails.includes(user.email?.trim().toLowerCase() ?? "") && !isPublicPath) {
-    await supabase.auth.signOut();
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("error", "unauthorized");
-    url.searchParams.set("actual", user.email ?? "unknown");
-    return NextResponse.redirect(url);
+  // Enforce allowlist (env-var super-admins ∪ DB-managed allowed_users).
+  // checkEmailAccess gracefully degrades to env-only behaviour if the
+  // allowed_users table doesn't exist yet, so deploying this code BEFORE
+  // running the migration is safe.
+  if (user && !isPublicPath) {
+    const access = await checkEmailAccess(user.email, supabase);
+    if (!access.allowed) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("error", "unauthorized");
+      url.searchParams.set("actual", user.email ?? "unknown");
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

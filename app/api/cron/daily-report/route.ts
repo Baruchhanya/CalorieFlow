@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getResend, buildDailyReportEmail } from "@/lib/resend";
+import { getAllAllowedEmails } from "@/lib/auth";
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -11,11 +12,15 @@ export async function GET(req: Request) {
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const rawEmails = process.env.ALLOWED_EMAILS ?? process.env.NEXT_PUBLIC_ALLOWED_EMAIL ?? "";
-  const allowedEmails = rawEmails.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 
-  if (!serviceKey || !supabaseUrl || allowedEmails.length === 0) {
+  if (!serviceKey || !supabaseUrl) {
     return NextResponse.json({ error: "Missing env vars" }, { status: 500 });
+  }
+
+  // Union of env-var emails and DB-managed allowed_users
+  const allowedEmails = await getAllAllowedEmails();
+  if (allowedEmails.length === 0) {
+    return NextResponse.json({ error: "No allowed emails configured" }, { status: 500 });
   }
 
   const supabaseAdmin = createSupabaseClient(supabaseUrl, serviceKey, {
