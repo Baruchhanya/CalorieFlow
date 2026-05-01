@@ -75,16 +75,36 @@ export interface UserProfile {
   height_cm: number | null;
   weight_kg: number | null;
   age: number | null;
+  /** User-defined daily protein target (grams). null = use auto-calculated value. */
+  protein_goal_g: number | null;
 }
 
 /**
- * Calculate daily protein goal (grams) based on personal data.
- * Formula: weight_kg × 1.2 (under 60) or × 1.4 (60+), rounded to nearest 5g.
- * Falls back to DEFAULT_TARGETS.protein if data is missing.
+ * Auto-calculate the suggested daily protein goal (grams) from body data.
+ * Formula: weight_kg × 1.2 (under 60) or × 1.4 (60+), rounded to nearest 5g, min 50g.
+ * Returns DEFAULT_TARGETS.protein when weight is missing.
+ *
+ * NOTE: This is the *suggested* value. To get the *effective* value the user
+ * sees on the dashboard, call `effectiveProteinGoal(profile)` which honors a
+ * manual override stored in `profile.protein_goal_g`.
  */
-export function calcProteinGoal(profile: UserProfile | null): number {
+export function calcProteinGoal(
+  profile: Pick<UserProfile, "weight_kg" | "age"> | null
+): number {
   if (!profile?.weight_kg) return DEFAULT_TARGETS.protein;
   const factor = (profile.age ?? 0) >= 60 ? 1.4 : 1.2;
   const raw = profile.weight_kg * factor;
   return Math.max(50, Math.round(raw / 5) * 5);
+}
+
+/**
+ * The protein goal actually shown to the user. Honors a manual override
+ * (`profile.protein_goal_g`) when set; otherwise falls back to the
+ * auto-calculated value.
+ */
+export function effectiveProteinGoal(profile: UserProfile | null): number {
+  if (profile?.protein_goal_g && profile.protein_goal_g > 0) {
+    return profile.protein_goal_g;
+  }
+  return calcProteinGoal(profile);
 }

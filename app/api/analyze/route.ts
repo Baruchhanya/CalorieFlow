@@ -5,7 +5,12 @@ import {
   analyzeImages,
   analyzeAudio,
   type ImagePart,
+  type AnalyzeLang,
 } from "@/lib/gemini";
+
+function pickLang(raw: unknown): AnalyzeLang {
+  return raw === "en" ? "en" : "he";
+}
 
 export async function POST(request: NextRequest) {
   // Auth check – Gemini key must never be exposed client-side
@@ -15,18 +20,18 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { type, text, data, mimeType, images, note } = body;
+    const { type, text, data, mimeType, images, note, lang } = body;
     const extraContext = typeof note === "string" ? note : undefined;
+    const outputLang = pickLang(lang);
 
     let result;
     switch (type) {
       case "text":
         if (!text?.trim())
           return NextResponse.json({ error: "Text is required" }, { status: 400 });
-        result = await analyzeText(text);
+        result = await analyzeText(text, outputLang);
         break;
       case "image": {
-        // Accept either a multi-image array (preferred) or single data+mimeType for back-compat
         const parts: ImagePart[] = Array.isArray(images)
           ? images
               .filter(
@@ -50,13 +55,13 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
 
-        result = await analyzeImages(parts, extraContext);
+        result = await analyzeImages(parts, extraContext, outputLang);
         break;
       }
       case "audio":
         if (!data || !mimeType)
           return NextResponse.json({ error: "Audio data required" }, { status: 400 });
-        result = await analyzeAudio(data, mimeType, extraContext);
+        result = await analyzeAudio(data, mimeType, extraContext, outputLang);
         break;
       default:
         return NextResponse.json({ error: "Invalid type" }, { status: 400 });

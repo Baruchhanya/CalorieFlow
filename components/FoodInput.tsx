@@ -389,6 +389,8 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
           note: extraNote.trim() || undefined,
         };
       }
+      // Tell Gemini which language to respond in for name/quantity/note
+      body.lang = lang;
       const res = await fetch("/api/analyze", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

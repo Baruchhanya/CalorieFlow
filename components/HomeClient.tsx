@@ -13,7 +13,7 @@ import FoodInput from "@/components/FoodInput";
 import MealCard from "@/components/MealCard";
 import EditModal from "@/components/EditModal";
 import ProfileModal from "@/components/ProfileModal";
-import { MealEntry, UserProfile, calcProteinGoal } from "@/types";
+import { MealEntry, UserProfile, effectiveProteinGoal } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
@@ -307,7 +307,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           entries={entries}
           goalCalories={goalCalories}
           caloriesBurned={caloriesBurned}
-          goalProtein={calcProteinGoal(userProfile)}
+          goalProtein={effectiveProteinGoal(userProfile)}
           onGoalCaloriesChange={setGoalCalories}
         />
 
