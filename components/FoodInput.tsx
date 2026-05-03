@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Type, Image as ImageIcon, Mic, Send, X, Plus, AlertCircle,
   Loader2, StopCircle, CheckCircle2, Camera, FolderOpen, PenLine,
-  PencilLine,
+  PencilLine, Trash2,
 } from "lucide-react";
 import { GeminiResponse, FoodItem } from "@/types";
 import { useLang } from "@/lib/i18n/context";
@@ -55,7 +55,7 @@ interface ResultPreviewProps {
 }
 
 function ResultPreview({ result, onAdd, onDiscard, adding }: ResultPreviewProps) {
-  const { T } = useLang();
+  const { T, lang } = useLang();
   const [items, setItems] = useState<EditableItem[]>(() =>
     result.items.map((item) => ({
       ...item,
@@ -69,6 +69,9 @@ function ResultPreview({ result, onAdd, onDiscard, adding }: ResultPreviewProps)
 
   const updateCalories = (i: number, val: string) =>
     setItems((prev) => prev.map((it, idx) => idx === i ? { ...it, editedCalories: val } : it));
+
+  const removeItem = (i: number) =>
+    setItems((prev) => prev.filter((_, idx) => idx !== i));
 
   const selectedItems = items.filter((it) => it.selected);
   const totalCal = selectedItems.reduce((s, it) => s + (Number(it.editedCalories) || it.calories), 0);
@@ -92,8 +95,14 @@ function ResultPreview({ result, onAdd, onDiscard, adding }: ResultPreviewProps)
 
       <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-2">
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-          {T.foundItems(result.items.length)}
+          {T.foundItems(items.length)}
         </p>
+
+        {items.length === 0 && (
+          <p className="text-xs text-slate-400 text-center py-2">
+            {lang === "he" ? "כל הפריטים הוסרו — לחץ בטל כדי לנתח מחדש" : "All items removed — press Discard to start over"}
+          </p>
+        )}
 
         {items.map((item, i) => (
           <div key={i}
@@ -128,6 +137,16 @@ function ResultPreview({ result, onAdd, onDiscard, adding }: ResultPreviewProps)
                 />
                 <span className="text-xs text-slate-400">{T.kcal}</span>
               </div>
+
+              {/* Delete item */}
+              <button
+                type="button"
+                onClick={() => removeItem(i)}
+                aria-label={T.delete}
+                className="min-w-[36px] min-h-[36px] -me-1 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-400 hover:bg-red-50 active:scale-95 touch-manipulation transition-all shrink-0"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
           </div>
         ))}
