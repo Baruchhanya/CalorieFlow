@@ -151,7 +151,8 @@ export default function EditModal({ entry, onSave, onClose }: EditModalProps) {
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
           )}
 
-          <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-2 -mx-4 sm:-mx-5 px-4 sm:px-5 -mb-4 sm:-mb-5 border-t border-slate-100 sm:border-t-0">
+          <div className="flex gap-3 pt-2 sticky bottom-0 bg-white -mx-4 sm:-mx-5 px-4 sm:px-5 -mb-4 sm:-mb-5 border-t border-slate-100 sm:border-t-0"
+            style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom, 8px))" }}>
             <button
               type="button"
               onClick={onClose}

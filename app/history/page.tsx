@@ -168,18 +168,19 @@ export default function HistoryPage() {
                             </span>
                           </div>
                           <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-1.5">
-                            <div className={`h-full rounded-full transition-all ${isDeficit ? "bg-gradient-to-r from-emerald-400 to-teal-400" : "bg-gradient-to-r from-red-400 to-rose-400"}`}
+                            <div className={`h-full rounded-full transition-all ${isDeficit ? "bg-gradient-to-l from-emerald-400 to-teal-400" : "bg-gradient-to-l from-red-400 to-rose-400"}`}
                               style={{ width: `${pct}%` }} />
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-slate-400">
-                            <span className="flex items-center gap-1"><UtensilsCrossed className="w-3 h-3" />{day.count} {T.meals}</span>
-                            <span>P {day.protein}g</span>
-                            <span>C {day.carbs}g</span>
-                            <span>F {day.fat}g</span>
+                          <div className="flex items-center gap-x-3 gap-y-0.5 text-xs text-slate-400 flex-wrap">
+                            <span className="flex items-center gap-1 shrink-0"><UtensilsCrossed className="w-3 h-3" />{day.count} {T.meals}</span>
+                            <span className="shrink-0">P {day.protein}g</span>
+                            <span className="shrink-0">C {day.carbs}g</span>
+                            <span className="shrink-0">F {day.fat}g</span>
                           </div>
                         </div>
 
-                        <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-400 transition-colors shrink-0 rotate-180" />
+                        {/* In RTL this chevron is on the left (inline-start), pointing left = "enter" */}
+                        <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-400 transition-colors shrink-0 rtl:rotate-0 ltr:rotate-180" />
                       </div>
                     </button>
                   );
@@ -189,7 +190,7 @@ export default function HistoryPage() {
           ))
         )}
       </main>
-      <footer className="pb-6 text-center text-xs text-slate-300">{T.poweredBy}</footer>
+      <footer className="pb-6 text-center text-xs text-slate-300" style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom, 24px))" }}>{T.poweredBy}</footer>
     </div>
   );
 }

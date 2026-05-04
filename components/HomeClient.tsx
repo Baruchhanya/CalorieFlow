@@ -173,7 +173,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const handleSignOut = async () => { await createClient().auth.signOut(); router.push("/login"); };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 sm:pb-8">
+    <div className="min-h-screen bg-slate-50 pb-28 sm:pb-8" style={{ paddingBottom: "calc(7rem + env(safe-area-inset-bottom, 0px))" }}>
 
       {/* ── HEADER ── */}
       <header className={`sticky top-0 z-40 transition-all duration-300 ${
@@ -383,7 +383,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
 
       {/* ── BOTTOM NAV (mobile) ── */}
       <nav className="fixed bottom-0 inset-x-0 z-40 sm:hidden glass border-t border-slate-100 shadow-lg">
-        <div className="flex items-center justify-around px-2 py-1.5 max-w-sm mx-auto">
+        <div className="flex items-center justify-around px-2 pt-1.5 pb-2 max-w-sm mx-auto pb-safe" style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom, 8px))" }}>
           <NavItem icon={<Home className="w-5 h-5" />} label={lang === "he" ? "היום" : "Today"} active href="/" />
           <NavItem icon={<Scale className="w-5 h-5" />} label={lang === "he" ? "משקל" : "Weight"} href="/weight" />
           <NavItem icon={<History className="w-5 h-5" />} label={lang === "he" ? "היסטוריה" : "History"} href="/history" />

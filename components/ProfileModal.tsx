@@ -302,6 +302,8 @@ export default function ProfileModal({ initialProfile, dailyGoalCalories, onSave
               {T.skip}
             </button>
           )}
+          {/* Safe-area spacer for iPhone home indicator */}
+          <div style={{ height: "env(safe-area-inset-bottom, 0px)" }} />
         </div>
       </div>
     </div>

@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
-import { Inter } from "next/font/google";
+import { Rubik } from "next/font/google";
 
-const inter = Inter({ subsets: ["latin"], display: "swap" });
+const rubik = Rubik({ subsets: ["latin", "hebrew"], display: "swap" });
 
 export const metadata: Metadata = {
   title: "CalorieFlow – יומן תזונה אישי",
@@ -14,13 +14,20 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#059669",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="he" dir="rtl" className={inter.className}>
+    <html lang="he" dir="rtl" className={rubik.className}>
       <body>
         <Providers>{children}</Providers>
       </body>

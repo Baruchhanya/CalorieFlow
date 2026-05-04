@@ -3,22 +3,41 @@
 @layer base {
   html {
     direction: rtl;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     scroll-behavior: smooth;
+    /* Prevent overscroll bounce on iOS from showing white edges */
+    overscroll-behavior: none;
   }
   * { box-sizing: border-box; }
   body {
     background: #f0faf5;
     color: #0f172a;
-    min-height: 100vh;
+    min-height: 100dvh;
+    /* Fill the safe-area background so notch/home bar match the page */
+    background-color: #f0faf5;
+  }
+  /*
+   * Prevent iOS from zooming in when an input is focused.
+   * iOS zooms whenever the computed font-size is below 16 px.
+   * We set a minimum here; Tailwind utility classes that set a *larger*
+   * size will still win because they are more specific or come later.
+   */
+  input, textarea, select {
+    font-size: max(16px, 1em);
   }
   /* Hide number input arrows */
   input[type=number]::-webkit-inner-spin-button,
   input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
-  input[type=number] { -moz-appearance: textfield; }
+  input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 }
+
+/* ── Safe-area helpers ───────────────────────────────────────────────────────
+   Use these where Tailwind can't express env() values inline.           */
+.pb-safe   { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.pt-safe   { padding-top:    env(safe-area-inset-top,    0px); }
+.mb-safe   { margin-bottom:  env(safe-area-inset-bottom, 0px); }
 
 /* Animations */
 @keyframes ring-fill {
