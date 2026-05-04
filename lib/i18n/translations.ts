@@ -169,6 +169,13 @@ const he = {
   recurringDeleted: "הוסר מהרשימה",
   deleteRecurringConfirm: (name: string) => `להסיר את "${name}" מהארוחות הקבועות?`,
 
+  // Calorie balance history section
+  balanceHistory: "היסטוריית מאזן קלוריות",
+  balanceHistoryHint: "7 הימים האחרונים שתועדו",
+  weeklyAvg: "ממוצע שבועי",
+  monthlyAvg: "ממוצע חודשי",
+  noBalanceData: "אין עדיין נתוני מאזן — הוסף ארוחות כדי להתחיל",
+
   poweredBy: "CalorieFlow · מופעל על ידי Gemini AI",
 
   // Admin page
@@ -359,6 +366,13 @@ const en: Translations = {
   recurringSaved: "Saved to your recurring list",
   recurringDeleted: "Removed from list",
   deleteRecurringConfirm: (name: string) => `Remove "${name}" from recurring meals?`,
+
+  // Calorie balance history section
+  balanceHistory: "Calorie Balance History",
+  balanceHistoryHint: "Last 7 tracked days",
+  weeklyAvg: "Weekly Average",
+  monthlyAvg: "Monthly Average",
+  noBalanceData: "No balance data yet — add meals to get started",
 
   poweredBy: "CalorieFlow · Powered by Gemini AI",
 

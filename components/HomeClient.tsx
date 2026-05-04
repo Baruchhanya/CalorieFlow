@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import DailySummary from "@/components/DailySummary";
 import DeficitCard from "@/components/DeficitCard";
+import CalorieHistorySection from "@/components/CalorieHistorySection";
 import FoodInput from "@/components/FoodInput";
 import MealCard from "@/components/MealCard";
 import EditModal from "@/components/EditModal";
@@ -315,6 +316,8 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           consumed={totalCalories} burned={caloriesBurned} goalCalories={goalCalories}
           date={date} onBurnedChange={setCaloriesBurned} onGoalChange={setGoalCalories}
         />
+
+        <CalorieHistorySection />
 
         {/* קישור בולט למעקב משקל + גרפים (במיוחד כשה-bottom nav פחות מורגש) */}
         <a href="/weight"
