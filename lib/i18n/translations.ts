@@ -173,7 +173,9 @@ const he = {
   balanceHistory: "היסטוריית מאזן קלוריות",
   balanceHistoryHint: "7 הימים האחרונים שתועדו",
   weeklyAvg: "ממוצע שבועי",
+  weeklyTotal: "סה״כ שבועי",
   monthlyAvg: "ממוצע חודשי",
+  monthlyTotal: "סה״כ חודשי",
   noBalanceData: "אין עדיין נתוני מאזן — הוסף ארוחות כדי להתחיל",
 
   poweredBy: "CalorieFlow · מופעל על ידי Gemini AI",
@@ -371,7 +373,9 @@ const en: Translations = {
   balanceHistory: "Calorie Balance History",
   balanceHistoryHint: "Last 7 tracked days",
   weeklyAvg: "Weekly Average",
+  weeklyTotal: "Weekly Total",
   monthlyAvg: "Monthly Average",
+  monthlyTotal: "Monthly Total",
   noBalanceData: "No balance data yet — add meals to get started",
 
   poweredBy: "CalorieFlow · Powered by Gemini AI",

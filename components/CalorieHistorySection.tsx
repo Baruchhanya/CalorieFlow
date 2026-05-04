@@ -20,10 +20,9 @@ function BalanceBar({
   const pct = maxAbs > 0 ? Math.abs(day.balance) / maxAbs : 0;
   const barH = Math.max(Math.round(pct * 80), 4); // 4–80px
 
-  const label = new Date(day.date + "T12:00:00").toLocaleDateString(
-    lang === "he" ? "he-IL" : "en-US",
-    { weekday: "short" }
-  );
+  const d = new Date(day.date + "T12:00:00");
+  const label = d.toLocaleDateString(lang === "he" ? "he-IL" : "en-US", { weekday: "short" });
+  const dateLabel = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
 
   const absVal = Math.abs(day.balance);
   const sign = day.balance > 0 ? "+" : day.balance < 0 ? "−" : "";
@@ -51,9 +50,12 @@ function BalanceBar({
         />
       </div>
 
-      {/* Day label */}
-      <span className="text-[10px] text-slate-400 font-medium leading-none truncate w-full text-center">
+      {/* Day label + date */}
+      <span className="text-[10px] text-slate-500 font-semibold leading-none truncate w-full text-center">
         {label}
+      </span>
+      <span className="text-[9px] text-slate-400 leading-none truncate w-full text-center">
+        {dateLabel}
       </span>
     </div>
   );
@@ -61,18 +63,28 @@ function BalanceBar({
 
 // ─── Stat tile ───────────────────────────────────────────────────────────────
 
+function formatVal(n: number) {
+  const sign = n > 0 ? "+" : n < 0 ? "−" : "";
+  const abs = Math.abs(n);
+  return { sign, abs };
+}
+
 function StatTile({
   label,
-  value,
+  avg,
+  total,
   hint,
+  totalLabel,
 }: {
   label: string;
-  value: number | null;
+  avg: number | null;
+  total: number | null;
   hint: string;
+  totalLabel: string;
 }) {
   const { T } = useLang();
 
-  if (value === null) {
+  if (avg === null) {
     return (
       <div className="flex-1 bg-slate-50 rounded-2xl p-3.5 flex flex-col gap-1">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{label}</p>
@@ -82,35 +94,40 @@ function StatTile({
     );
   }
 
-  const isDeficit = value <= 0;
-  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
-  const abs = Math.abs(value);
+  const isDeficit = avg <= 0;
+  const avgFmt = formatVal(avg);
+  const totalFmt = total !== null ? formatVal(total) : null;
 
   return (
     <div
-      className={`flex-1 rounded-2xl p-3.5 flex flex-col gap-1 border ${
-        isDeficit
-          ? "bg-emerald-50 border-emerald-100"
-          : "bg-red-50 border-red-100"
+      className={`flex-1 rounded-2xl p-3.5 flex flex-col gap-1.5 border ${
+        isDeficit ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"
       }`}
     >
-      <p
-        className={`text-[10px] font-bold uppercase tracking-wide ${
-          isDeficit ? "text-emerald-600" : "text-red-500"
-        }`}
-      >
+      <p className={`text-[10px] font-bold uppercase tracking-wide ${isDeficit ? "text-emerald-600" : "text-red-500"}`}>
         {label}
       </p>
+
+      {/* Average */}
       <div className="flex items-end gap-1">
-        <span
-          className={`text-2xl font-black leading-none ${
-            isDeficit ? "text-emerald-700" : "text-red-600"
-          }`}
-        >
-          {sign}{abs.toLocaleString()}
+        <span className={`text-2xl font-black leading-none ${isDeficit ? "text-emerald-700" : "text-red-600"}`}>
+          {avgFmt.sign}{avgFmt.abs.toLocaleString()}
         </span>
         <span className="text-xs text-slate-400 mb-0.5">{T.kcal}</span>
       </div>
+
+      {/* Total */}
+      {totalFmt && (
+        <div className={`flex items-center gap-1 pt-1 border-t ${isDeficit ? "border-emerald-100" : "border-red-100"}`}>
+          <span className={`text-[10px] font-semibold ${isDeficit ? "text-emerald-600" : "text-red-500"}`}>
+            {totalLabel}:
+          </span>
+          <span className={`text-[10px] font-bold ${isDeficit ? "text-emerald-700" : "text-red-600"}`}>
+            {totalFmt.sign}{totalFmt.abs.toLocaleString()} {T.kcal}
+          </span>
+        </div>
+      )}
+
       <div className="flex items-center gap-1">
         {isDeficit ? (
           <TrendingDown className="w-3 h-3 text-emerald-500 shrink-0" />
@@ -250,12 +267,16 @@ export default function CalorieHistorySection() {
         <div className="flex gap-3">
           <StatTile
             label={T.weeklyAvg}
-            value={data?.weekly_avg ?? null}
+            avg={data?.weekly_avg ?? null}
+            total={data?.weekly_total ?? null}
+            totalLabel={T.weeklyTotal}
             hint={T.balanceHistoryHint}
           />
           <StatTile
             label={T.monthlyAvg}
-            value={data?.monthly_avg ?? null}
+            avg={data?.monthly_avg ?? null}
+            total={data?.monthly_total ?? null}
+            totalLabel={T.monthlyTotal}
             hint={lang === "he" ? "30 הימים האחרונים" : "Last 30 days"}
           />
         </div>

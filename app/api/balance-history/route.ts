@@ -9,7 +9,9 @@ export interface BalanceDay {
 export interface BalanceHistoryResponse {
   days7: BalanceDay[];        // last ≤7 tracked days (for chart)
   weekly_avg: number | null;  // mean balance over days7
+  weekly_total: number | null; // sum balance over days7
   monthly_avg: number | null; // mean balance over all tracked days in last 30 days
+  monthly_total: number | null; // sum balance over all tracked days in last 30 days
 }
 
 export async function GET() {
@@ -70,15 +72,13 @@ export async function GET() {
 
   const days7 = allDays.slice(-7);
 
-  const weekly_avg =
-    days7.length > 0
-      ? Math.round(days7.reduce((s, d) => s + d.balance, 0) / days7.length)
-      : null;
+  const weeklySum = days7.reduce((s, d) => s + d.balance, 0);
+  const monthlySum = allDays.reduce((s, d) => s + d.balance, 0);
 
-  const monthly_avg =
-    allDays.length > 0
-      ? Math.round(allDays.reduce((s, d) => s + d.balance, 0) / allDays.length)
-      : null;
+  const weekly_avg = days7.length > 0 ? Math.round(weeklySum / days7.length) : null;
+  const weekly_total = days7.length > 0 ? Math.round(weeklySum) : null;
+  const monthly_avg = allDays.length > 0 ? Math.round(monthlySum / allDays.length) : null;
+  const monthly_total = allDays.length > 0 ? Math.round(monthlySum) : null;
 
-  return NextResponse.json({ days7, weekly_avg, monthly_avg } satisfies BalanceHistoryResponse);
+  return NextResponse.json({ days7, weekly_avg, weekly_total, monthly_avg, monthly_total } satisfies BalanceHistoryResponse);
 }
