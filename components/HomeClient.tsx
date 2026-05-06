@@ -304,6 +304,8 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
       {/* ── MAIN ── */}
       <main className="max-w-2xl mx-auto px-4 py-4 flex flex-col gap-4">
 
+        <FoodInput onEntriesAdded={fetchEntries} currentDate={date} />
+
         <DailySummary
           entries={entries}
           goalCalories={goalCalories}
@@ -331,8 +333,6 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           </div>
           <span className="text-xs font-bold text-blue-600 shrink-0">{T.weightCardCta} →</span>
         </a>
-
-        <FoodInput onEntriesAdded={fetchEntries} currentDate={date} />
 
         {/* Meal list */}
         <section className="animate-slide-up">
