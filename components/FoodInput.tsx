@@ -35,6 +35,42 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+function compressImage(file: File, maxWidth = 1024, quality = 0.8): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Failed to get canvas context"));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        resolve(dataUrl.split(",")[1]);
+      };
+      img.onerror = reject;
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function localDateStr(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
@@ -390,8 +426,8 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
         if (images.length === 0) { setError(T.noImageError); return; }
         const encoded = await Promise.all(
           images.map(async (img) => ({
-            data: await blobToBase64(img.file),
-            mimeType: img.file.type,
+            data: await compressImage(img.file),
+            mimeType: "image/jpeg",
           }))
         );
         body = {
@@ -414,6 +450,14 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Non-JSON response:", text);
+        throw new Error(res.status === 413 ? "התמונות גדולות מדי. נסה שוב." : T.error);
+      }
+      
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || T.error);
       if (!data.items?.length) throw new Error(T.noFoodError);
