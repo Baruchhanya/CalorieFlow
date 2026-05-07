@@ -92,6 +92,49 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Handle iOS keyboard popping up bottom nav
+  useEffect(() => {
+    const handleFocus = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") {
+        document.documentElement.style.setProperty("--keyboard-offset", "100%");
+      }
+    };
+    
+    const handleBlur = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") {
+        document.documentElement.style.setProperty("--keyboard-offset", "0");
+      }
+    };
+
+    document.addEventListener("focus", handleFocus, true);
+    document.addEventListener("blur", handleBlur, true);
+    
+    // Also listen to visual viewport resize (iOS 13+)
+    if (window.visualViewport) {
+      const handleResize = () => {
+        if (window.visualViewport!.height < window.innerHeight) {
+          // Keyboard is likely open
+          document.documentElement.style.setProperty("--keyboard-offset", "100%");
+        } else {
+          document.documentElement.style.setProperty("--keyboard-offset", "0");
+        }
+      };
+      window.visualViewport.addEventListener("resize", handleResize);
+      return () => {
+        document.removeEventListener("focus", handleFocus, true);
+        document.removeEventListener("blur", handleBlur, true);
+        window.visualViewport?.removeEventListener("resize", handleResize);
+      };
+    }
+
+    return () => {
+      document.removeEventListener("focus", handleFocus, true);
+      document.removeEventListener("blur", handleBlur, true);
+    };
+  }, []);
+
   // Single fetch that loads all startup data (user, entries, settings, profile, activity)
   const fetchAll = useCallback(async (targetDate: string) => {
     setLoading(true);
@@ -382,7 +425,8 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
       <footer className="pb-28 sm:pb-8 text-center text-xs text-slate-300 mt-4">{T.poweredBy}</footer>
 
       {/* ── BOTTOM NAV (mobile) ── */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 sm:hidden glass border-t border-slate-100 shadow-lg">
+      <nav className="fixed bottom-0 inset-x-0 z-40 sm:hidden glass border-t border-slate-100 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] transition-transform duration-300"
+        style={{ transform: "translateY(var(--keyboard-offset, 0))" }}>
         <div className="flex items-center justify-around px-2 pt-1.5 pb-2 max-w-sm mx-auto pb-safe" style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom, 8px))" }}>
           <NavItem icon={<Home className="w-5 h-5" />} label={lang === "he" ? "היום" : "Today"} active href="/" />
           <NavItem icon={<Scale className="w-5 h-5" />} label={lang === "he" ? "משקל" : "Weight"} href="/weight" />
