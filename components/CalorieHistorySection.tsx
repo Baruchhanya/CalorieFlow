@@ -28,7 +28,11 @@ function BalanceBar({
   const sign = day.balance > 0 ? "+" : day.balance < 0 ? "−" : "";
 
   return (
-    <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
+    <a
+      href={`/?date=${day.date}`}
+      className="flex flex-col items-center gap-1 flex-1 min-w-0 transition-transform active:scale-95 hover:bg-slate-50 rounded-xl p-1 -m-1"
+      title={lang === "he" ? "לחץ לפירוט" : "Click for details"}
+    >
       {/* Value label above bar */}
       <span
         className={`text-[9px] font-bold leading-none ${
@@ -57,7 +61,7 @@ function BalanceBar({
       <span className="text-[9px] text-slate-400 leading-none truncate w-full text-center">
         {dateLabel}
       </span>
-    </div>
+    </a>
   );
 }
 
