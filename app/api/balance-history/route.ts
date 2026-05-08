@@ -23,7 +23,7 @@ export async function GET() {
   const from30 = new Date(today);
   from30.setDate(from30.getDate() - 29);
   const fromStr = from30.toISOString().split("T")[0];
-  const toStr = today.toISOString().split("T")[0];
+  const todayStr = today.toISOString().split("T")[0];
 
   const [mealsRes, activityRes, settingsRes] = await Promise.all([
     supabase
@@ -31,13 +31,13 @@ export async function GET() {
       .select("date, calories")
       .eq("user_id", user.id)
       .gte("date", fromStr)
-      .lte("date", toStr),
+      .lte("date", todayStr),
     supabase
       .from("daily_activity")
       .select("date, calories_burned")
       .eq("user_id", user.id)
       .gte("date", fromStr)
-      .lte("date", toStr),
+      .lte("date", todayStr),
     supabase
       .from("user_settings")
       .select("daily_goal_calories")
@@ -57,11 +57,15 @@ export async function GET() {
     activityMap.set(a.date, a.calories_burned ?? 0);
   }
 
-  // Build per-day entries — only days that have meal data
+  // Build per-day entries — only days that have meal data, EXCLUDING today
   const allDays: BalanceDay[] = [];
   const cur = new Date(from30);
-  while (cur <= today) {
+  while (cur < today) { // < today instead of <= today to exclude today
     const dateStr = cur.toISOString().split("T")[0];
+    if (dateStr === todayStr) {
+      cur.setDate(cur.getDate() + 1);
+      continue;
+    }
     const consumed = calorieMap.get(dateStr);
     if (consumed !== undefined) {
       const burned = activityMap.get(dateStr) ?? 0;
