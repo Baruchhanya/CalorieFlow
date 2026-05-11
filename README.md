@@ -11,7 +11,7 @@
 |-------|--------|
 | **Google Login** | Supabase Auth – כניסה עם חשבון Google |
 | **Email Allowlist** | רק אימייל מורשה יכול לגשת |
-| **ניתוח AI** | Gemini 2.0 Flash – תומך בטקסט, תמונה, וקול |
+| **ניתוח AI** | Gemini 3.1 Pro – תומך בטקסט, תמונה, וקול |
 | **3 שיטות קלט** | טקסט / צילום / העלאת תמונה / הקלטת קול |
 | **סיכום יומי** | גלגל קלוריות + פסי חלבון/פחמימות/שומן |
 | **ניווט תאריכים** | חצי ← → לגלישה בין ימים |
@@ -284,7 +284,7 @@ npx vercel --prod
 | Styling | Tailwind CSS 4 |
 | Auth | Supabase Auth (Google OAuth) |
 | Database | Supabase PostgreSQL + RLS |
-| AI | Google Gemini 2.0 Flash |
+| AI | Google Gemini 3.1 Pro |
 | Icons | Lucide React |
 | Deploy | Vercel |
 
