@@ -99,7 +99,7 @@ export async function analyzeText(
   text: string,
   lang: AnalyzeLang = "he"
 ): Promise<GeminiResponse> {
-  const model = genAI.getGenerativeModel({ model: "gemini-3.1-pro-preview" });
+  const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
   const result = await model.generateContent(
     `${buildPrompt(lang)}\n\nAnalyze this food input: "${text}"`
   );
@@ -129,7 +129,7 @@ export async function analyzeImages(
     throw new Error("At least one image is required");
   }
 
-  const model = genAI.getGenerativeModel({ model: "gemini-3.1-pro-preview" });
+  const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
 
   const instruction =
     images.length === 1
@@ -153,7 +153,7 @@ export async function analyzeAudio(
   extraContext?: string,
   lang: AnalyzeLang = "he"
 ): Promise<GeminiResponse> {
-  const model = genAI.getGenerativeModel({ model: "gemini-3.1-pro-preview" });
+  const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
   const result = await model.generateContent([
     { inlineData: { data: base64Data, mimeType } },
     `${buildPrompt(lang)}\n\nThe user described food in an audio recording. Transcribe what they said and analyze the food mentioned. Apply the SPLITTING RULES — if the user listed multiple distinct foods (e.g. "pizza and salad", "burger and fries"), output them as separate items. If they described one composite dish (e.g. "pasta with sauce", "salad with chicken on top"), output a single item.${buildExtraContextBlock(extraContext)}`,
