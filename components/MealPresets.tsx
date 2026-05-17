@@ -28,6 +28,7 @@ export default function MealPresets({ currentDate, onAdded }: MealPresetsProps) 
   const [loading, setLoading] = useState(true);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [addingHistoryKey, setAddingHistoryKey] = useState<string | null>(null);
+  const [savingPresetKey, setSavingPresetKey] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
@@ -103,6 +104,33 @@ export default function MealPresets({ currentDate, onAdded }: MealPresetsProps) 
       showToast(T.saveDiaryError, "error");
     } finally {
       setAddingHistoryKey(null);
+    }
+  };
+
+  const saveHistoryAsPreset = async (h: HistorySuggestion) => {
+    const key = h.name.trim().toLowerCase();
+    setSavingPresetKey(key);
+    try {
+      const res = await fetch("/api/meal-presets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: h.name,
+          quantity: null,
+          calories: h.calories,
+          protein: h.protein,
+          carbs: h.carbs,
+          fat: h.fat,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const row = await res.json();
+      setPresets((prev) => [...prev, row]);
+      showToast(T.recurringSaved, "success");
+    } catch {
+      showToast(T.saveError, "error");
+    } finally {
+      setSavingPresetKey(null);
     }
   };
 
@@ -271,26 +299,46 @@ export default function MealPresets({ currentDate, onAdded }: MealPresetsProps) 
               <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 touch-pan-x">
                 {historyFiltered.map((h) => {
                   const key = h.name.trim().toLowerCase();
+                  const isAddingThis = addingHistoryKey === key;
+                  const isSavingThis = savingPresetKey === key;
                   return (
-                    <button
+                    <div
                       key={key}
-                      type="button"
-                      disabled={addingHistoryKey === key}
-                      onClick={() => addFromHistory(h)}
-                      className="flex shrink-0 flex-col items-start gap-0.5 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 min-w-[7rem] max-w-[min(100%,18rem)] text-start shadow-sm hover:bg-slate-50 active:bg-slate-100/80 transition-colors disabled:opacity-60"
+                      dir="ltr"
+                      className="flex shrink-0 items-stretch rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden max-w-[min(100%,18rem)]"
                     >
-                      {addingHistoryKey === key ? (
-                        <Loader2 className="w-5 h-5 text-slate-500 animate-spin" />
-                      ) : (
-                        <>
-                          <span className="text-sm font-bold text-slate-800 line-clamp-2 leading-tight">{h.name}</span>
-                          <span className="text-xs font-semibold text-emerald-600 tabular-nums">
-                            {Math.round(h.calories)} {T.kcal}
-                            <span className="text-slate-400 font-normal ms-1">×{h.count}</span>
-                          </span>
-                        </>
-                      )}
-                    </button>
+                      <button
+                        type="button"
+                        disabled={isAddingThis}
+                        onClick={() => addFromHistory(h)}
+                        className="flex flex-col items-start gap-0.5 px-3 py-2.5 min-w-[7rem] text-start hover:bg-slate-50 active:bg-slate-100/80 transition-colors disabled:opacity-60"
+                      >
+                        {isAddingThis ? (
+                          <Loader2 className="w-5 h-5 text-slate-500 animate-spin" />
+                        ) : (
+                          <>
+                            <span className="text-sm font-bold text-slate-800 line-clamp-2 leading-tight">{h.name}</span>
+                            <span className="text-xs font-semibold text-emerald-600 tabular-nums">
+                              {Math.round(h.calories)} {T.kcal}
+                              <span className="text-slate-400 font-normal ms-1">×{h.count}</span>
+                            </span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSavingThis}
+                        title={lang === "he" ? "שמור כארוחה קבועה" : "Save as preset"}
+                        onClick={() => saveHistoryAsPreset(h)}
+                        className="shrink-0 px-2 border-s border-slate-100 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                      >
+                        {isSavingThis ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Bookmark className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
                   );
                 })}
               </div>

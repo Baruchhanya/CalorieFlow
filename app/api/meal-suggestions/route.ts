@@ -25,6 +25,7 @@ export async function GET() {
     const key = raw.toLowerCase();
     const existing = map.get(key);
     if (!existing) {
+      // First occurrence is the most recent (query is ORDER BY created_at DESC)
       map.set(key, {
         name: raw,
         calories: Number(row.calories) || 0,
@@ -38,9 +39,8 @@ export async function GET() {
     }
   }
 
-  const items = Array.from(map.values())
-    .sort((a, b) => b.count - a.count || b.calories - a.calories)
-    .slice(0, 18);
+  // Preserve insertion order = most-recently-eaten first
+  const items = Array.from(map.values()).slice(0, 18);
 
   return NextResponse.json({ items });
 }
