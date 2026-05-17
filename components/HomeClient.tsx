@@ -321,20 +321,6 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           </div>
         </div>
 
-        {/* Calorie strip */}
-        {totalCalories > 0 && !scrolled && (
-          <div className="border-t border-white/10">
-            <div className="max-w-2xl mx-auto px-4 py-2 flex items-center justify-between">
-              <span className="text-emerald-100 text-xs">
-                {entries.length} {lang === "he" ? "רשומות מזון" : "food entries"}
-              </span>
-              <span className="text-white text-sm font-black">
-                {Math.round(totalCalories).toLocaleString()}
-                <span className="text-emerald-200 font-normal text-xs ms-1">{T.kcal}</span>
-              </span>
-            </div>
-          </div>
-        )}
       </header>
 
       {/* Past-day notice */}
