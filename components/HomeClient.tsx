@@ -15,6 +15,7 @@ import MealCard from "@/components/MealCard";
 import EditModal from "@/components/EditModal";
 import ProfileModal from "@/components/ProfileModal";
 import { MealEntry, UserProfile, effectiveProteinGoal } from "@/types";
+import type { BalanceHistoryResponse } from "@/app/api/balance-history/route";
 import { createClient } from "@/lib/supabase/client";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
@@ -80,6 +81,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [balanceHistory, setBalanceHistory] = useState<BalanceHistoryResponse | undefined>(undefined);
 
   const today = getToday();
   const isToday = date === today;
@@ -148,6 +150,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
       setCaloriesBurned(d.calories_burned ?? 0);
       setUserProfile(d.profile ?? null);
       setIsAdmin(!!d.is_admin);
+      if (d.balance_history) setBalanceHistory(d.balance_history);
       if (!d.profile?.weight_kg) setShowProfile(true);
     } catch { /* silent */ }
     finally { setLoading(false); }
@@ -362,7 +365,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           date={date} onBurnedChange={setCaloriesBurned} onGoalChange={setGoalCalories}
         />
 
-        <CalorieHistorySection />
+        <CalorieHistorySection initialData={balanceHistory} />
 
         {/* קישור בולט למעקב משקל + גרפים (במיוחד כשה-bottom nav פחות מורגש) */}
         <a href="/weight"

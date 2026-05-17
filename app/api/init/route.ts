@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { checkEmailAccess } from "@/lib/auth";
+import type { BalanceDay, BalanceHistoryResponse } from "@/app/api/balance-history/route";
 
 /**
  * Read user_profile, gracefully falling back if the optional
@@ -29,16 +30,6 @@ async function readProfile(supabase: SupabaseClient, userId: string) {
   return null;
 }
 
-/**
- * GET /api/init?date=YYYY-MM-DD
- *
- * Single endpoint that replaces 4 separate fetches on page load:
- *   /api/settings, /api/profile, /api/entries?date=, /api/activity?date=
- *
- * Auth is verified once; queries run in parallel via Promise.all.
- * Also returns the caller's admin status so the UI can hide/show
- * the Admin entry point without a second round-trip.
- */
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -47,7 +38,14 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date") ?? new Date().toISOString().split("T")[0];
 
-  const [entriesRes, settingsRes, profile, activityRes, access] =
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+  const from30 = new Date(today);
+  from30.setDate(from30.getDate() - 29);
+  const fromStr = from30.toISOString().split("T")[0];
+
+  const [entriesRes, settingsRes, profile, activityRes, access,
+         histMealsRes, histActivityRes] =
     await Promise.all([
       supabase
         .from("meals")
@@ -72,14 +70,67 @@ export async function GET(request: NextRequest) {
         .single(),
 
       checkEmailAccess(user.email, supabase),
+
+      supabase
+        .from("meals")
+        .select("date, calories")
+        .eq("user_id", user.id)
+        .gte("date", fromStr)
+        .lte("date", todayStr),
+
+      supabase
+        .from("daily_activity")
+        .select("date, calories_burned")
+        .eq("user_id", user.id)
+        .gte("date", fromStr)
+        .lte("date", todayStr),
     ]);
+
+  const goal = settingsRes.data?.daily_goal_calories ?? 1820;
+
+  // Build balance history (same logic as /api/balance-history)
+  const calorieMap = new Map<string, number>();
+  for (const m of histMealsRes.data ?? []) {
+    calorieMap.set(m.date, (calorieMap.get(m.date) ?? 0) + (m.calories ?? 0));
+  }
+  const activityMap = new Map<string, number>();
+  for (const a of histActivityRes.data ?? []) {
+    activityMap.set(a.date, a.calories_burned ?? 0);
+  }
+
+  const allDays: BalanceDay[] = [];
+  const cur = new Date(from30);
+  while (cur < today) {
+    const dateStr = cur.toISOString().split("T")[0];
+    if (dateStr !== todayStr) {
+      const consumed = calorieMap.get(dateStr);
+      if (consumed !== undefined) {
+        const burned = activityMap.get(dateStr) ?? 0;
+        allDays.push({ date: dateStr, balance: Math.round((consumed - burned) - goal) });
+      }
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  const days7 = allDays.slice(-7);
+  const weeklySum = days7.reduce((s, d) => s + d.balance, 0);
+  const monthlySum = allDays.reduce((s, d) => s + d.balance, 0);
+
+  const balanceHistory: BalanceHistoryResponse = {
+    days7,
+    weekly_avg: days7.length > 0 ? Math.round(weeklySum / days7.length) : null,
+    weekly_total: days7.length > 0 ? Math.round(weeklySum) : null,
+    monthly_avg: allDays.length > 0 ? Math.round(monthlySum / allDays.length) : null,
+    monthly_total: allDays.length > 0 ? Math.round(monthlySum) : null,
+  };
 
   return NextResponse.json({
     user: { email: user.email },
     entries: entriesRes.data ?? [],
-    daily_goal_calories: settingsRes.data?.daily_goal_calories ?? 1820,
+    daily_goal_calories: goal,
     profile,
     calories_burned: activityRes.data?.calories_burned ?? 0,
     is_admin: access.isAdmin,
+    balance_history: balanceHistory,
   });
 }

@@ -2,6 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { checkEmailAccess } from "@/lib/auth";
 
+// HttpOnly cookie that caches a successful allowlist check for 5 minutes.
+// Value is the user's ID so it's automatically invalidated on sign-in/out.
+const ACCESS_COOKIE = "_cf_ok";
+const ACCESS_COOKIE_TTL = 300; // seconds
+
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -45,18 +50,26 @@ export async function proxy(request: NextRequest) {
   }
 
   // Enforce allowlist (env-var super-admins ∪ DB-managed allowed_users).
-  // checkEmailAccess gracefully degrades to env-only behaviour if the
-  // allowed_users table doesn't exist yet, so deploying this code BEFORE
-  // running the migration is safe.
+  // Skip the DB query when the access cookie already confirms this user is allowed —
+  // saves ~100-200ms on every navigation after the first request.
   if (user && !isPublicPath) {
-    const access = await checkEmailAccess(user.email, supabase);
-    if (!access.allowed) {
-      await supabase.auth.signOut();
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("error", "unauthorized");
-      url.searchParams.set("actual", user.email ?? "unknown");
-      return NextResponse.redirect(url);
+    const cached = request.cookies.get(ACCESS_COOKIE)?.value;
+    if (cached !== user.id) {
+      const access = await checkEmailAccess(user.email, supabase);
+      if (!access.allowed) {
+        await supabase.auth.signOut();
+        const url = request.nextUrl.clone();
+        url.pathname = "/login";
+        url.searchParams.set("error", "unauthorized");
+        url.searchParams.set("actual", user.email ?? "unknown");
+        return NextResponse.redirect(url);
+      }
+      supabaseResponse.cookies.set(ACCESS_COOKIE, user.id, {
+        httpOnly: true,
+        sameSite: "lax",
+        maxAge: ACCESS_COOKIE_TTL,
+        path: "/",
+      });
     }
   }
 

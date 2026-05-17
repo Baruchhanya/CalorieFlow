@@ -178,10 +178,10 @@ function LoadingSkeleton() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function CalorieHistorySection() {
+export default function CalorieHistorySection({ initialData }: { initialData?: BalanceHistoryResponse }) {
   const { T, lang } = useLang();
-  const [data, setData] = useState<BalanceHistoryResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<BalanceHistoryResponse | null>(initialData ?? null);
+  const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
@@ -198,7 +198,9 @@ export default function CalorieHistorySection() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!initialData) load();
+  }, [initialData, load]);
 
   if (loading) return <LoadingSkeleton />;
 
