@@ -228,47 +228,18 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-2">
 
-            {/* Left: logo + date */}
-            <div className="flex items-center gap-2.5 min-w-0">
+            {/* Left: logo + name */}
+            <div className="flex items-center gap-2 shrink-0">
               <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 shadow-sm ring-2 ring-white/20">
                 <Image src="/logo.png" alt="CF" width={32} height={32} className="w-full h-full object-cover" />
               </div>
-              <div className="min-w-0">
-                <h1 className={`text-base font-black leading-tight ${scrolled ? "text-slate-800" : "text-white"}`}>
-                  {T.appName}
-                </h1>
-                <div className="flex items-center gap-1">
-                  <CalendarDays className={`w-3 h-3 shrink-0 ${scrolled ? "text-slate-400" : "text-emerald-100"}`} />
-                  <p className={`text-xs truncate leading-none ${scrolled ? "text-slate-500" : "text-emerald-100"}`}>
-                    {formatDate(date, lang)}
-                    {isToday && (
-                      <span className={`ms-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase ${scrolled ? "bg-emerald-100 text-emerald-700" : "bg-white/25 text-white"}`}>
-                        {T.today}
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
+              <h1 className={`text-base font-black leading-tight ${scrolled ? "text-slate-800" : "text-white"}`}>
+                {T.appName}
+              </h1>
             </div>
 
             {/* Right: controls */}
             <div className="flex items-center gap-1 shrink-0">
-              <button onClick={() => navigateDate(-1)} title={T.prevDay}
-                className={`p-1.5 rounded-xl transition-colors ${scrolled ? "hover:bg-slate-100 text-slate-600" : "bg-white/10 hover:bg-white/20 text-white"}`}>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-              {!isToday && (
-                <button onClick={goToToday}
-                  className={`px-2 py-1 rounded-xl text-[11px] font-bold transition-colors ${scrolled ? "bg-emerald-100 text-emerald-700" : "bg-white/20 hover:bg-white/30 text-white"}`}>
-                  {T.today}
-                </button>
-              )}
-              <button onClick={() => navigateDate(1)} disabled={isToday} title={T.nextDay}
-                className={`p-1.5 rounded-xl transition-colors disabled:opacity-25 ${scrolled ? "hover:bg-slate-100 text-slate-600" : "bg-white/10 hover:bg-white/20 text-white"}`}>
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              <div className={`w-px h-4 mx-0.5 ${scrolled ? "bg-slate-200" : "bg-white/20"}`} />
 
               {/* History + Weight – חובה בדסקטופ (ה-bottom nav מוסתר מ-sm ומעלה) */}
               <a href="/history" title={T.history}
@@ -318,6 +289,43 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* ── DATE BAR ── */}
+          <div className="flex items-center justify-between gap-2 pt-1 pb-2">
+            <button onClick={() => navigateDate(-1)} title={T.prevDay}
+              className="p-2 rounded-xl bg-white/15 hover:bg-white/25 active:bg-white/30 text-white transition-colors shrink-0">
+              <ChevronRight className="w-5 h-5" />
+            </button>
+
+            <label className="relative flex-1 flex items-center justify-center gap-2 cursor-pointer select-none group">
+              <CalendarDays className="w-4 h-4 text-white/80 shrink-0" />
+              <span className="text-white font-bold text-sm text-center leading-tight">
+                {formatDate(date, lang)}
+              </span>
+              {isToday && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/25 text-white uppercase shrink-0">
+                  {T.today}
+                </span>
+              )}
+              <input
+                type="date"
+                value={date}
+                max={today}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setDate(e.target.value);
+                    router.replace(`/?date=${e.target.value}`, { scroll: false });
+                  }
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+              />
+            </label>
+
+            <button onClick={() => navigateDate(1)} disabled={isToday} title={T.nextDay}
+              className="p-2 rounded-xl bg-white/15 hover:bg-white/25 active:bg-white/30 text-white transition-colors disabled:opacity-25 shrink-0">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
