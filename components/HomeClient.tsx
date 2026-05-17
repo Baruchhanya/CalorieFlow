@@ -344,8 +344,6 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
       {/* ── MAIN ── */}
       <main className="max-w-2xl mx-auto px-4 py-4 flex flex-col gap-4">
 
-        <FoodInput onEntriesAdded={fetchEntries} currentDate={date} />
-
         <DailySummary
           entries={entries}
           goalCalories={goalCalories}
@@ -353,6 +351,8 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           goalProtein={effectiveProteinGoal(userProfile)}
           onGoalCaloriesChange={setGoalCalories}
         />
+
+        <FoodInput onEntriesAdded={fetchEntries} currentDate={date} />
 
         <DeficitCard
           consumed={totalCalories} burned={caloriesBurned} goalCalories={goalCalories}
