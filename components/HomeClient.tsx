@@ -142,6 +142,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
     setLoading(true);
     try {
       const res = await fetch(`/api/init?date=${targetDate}`);
+      if (res.status === 401) { router.push("/login"); return; }
       if (!res.ok) return;
       const d = await res.json();
       setUserEmail(d.user?.email ?? null);
