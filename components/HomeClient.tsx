@@ -14,7 +14,8 @@ import FoodInput from "@/components/FoodInput";
 import MealCard from "@/components/MealCard";
 import EditModal from "@/components/EditModal";
 import ProfileModal from "@/components/ProfileModal";
-import { MealEntry, UserProfile, effectiveProteinGoal } from "@/types";
+import { MealEntry, MealPreset, UserProfile, effectiveProteinGoal } from "@/types";
+import type { HistorySuggestion } from "@/types";
 import type { BalanceHistoryResponse } from "@/app/api/balance-history/route";
 import { createClient } from "@/lib/supabase/client";
 import { useLang } from "@/lib/i18n/context";
@@ -82,6 +83,10 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const [showProfile, setShowProfile] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [balanceHistory, setBalanceHistory] = useState<BalanceHistoryResponse | undefined>(undefined);
+  const [mealPresets, setMealPresets] = useState<MealPreset[]>([]);
+  const [mealSuggestions, setMealSuggestions] = useState<HistorySuggestion[]>([]);
+  // Track whether stable (non-date-specific) data has been loaded
+  const stableLoadedRef = useRef(false);
 
   const today = getToday();
   const isToday = date === today;
@@ -137,27 +142,63 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
     };
   }, []);
 
-  // Single fetch that loads all startup data (user, entries, settings, profile, activity)
+  // Full init fetch — loads everything (first load only for stable data)
   const fetchAll = useCallback(async (targetDate: string) => {
     setLoading(true);
     try {
       const res = await fetch(`/api/init?date=${targetDate}`);
       if (!res.ok) return;
       const d = await res.json();
-      setUserEmail(d.user?.email ?? null);
+      // Date-specific data (always update)
       setEntries(Array.isArray(d.entries) ? d.entries : []);
-      setGoalCalories(typeof d.daily_goal_calories === "number" ? d.daily_goal_calories : 1820);
       setCaloriesBurned(d.calories_burned ?? 0);
-      setUserProfile(d.profile ?? null);
-      setIsAdmin(!!d.is_admin);
-      if (d.balance_history) setBalanceHistory(d.balance_history);
-      if (!d.profile?.weight_kg) setShowProfile(true);
+      // Stable data (only set on first load or full refresh)
+      if (!stableLoadedRef.current) {
+        setUserEmail(d.user?.email ?? null);
+        setGoalCalories(typeof d.daily_goal_calories === "number" ? d.daily_goal_calories : 1820);
+        setUserProfile(d.profile ?? null);
+        setIsAdmin(!!d.is_admin);
+        if (d.balance_history) setBalanceHistory(d.balance_history);
+        setMealPresets(Array.isArray(d.meal_presets) ? d.meal_presets : []);
+        setMealSuggestions(Array.isArray(d.meal_suggestions) ? d.meal_suggestions : []);
+        if (!d.profile?.weight_kg) setShowProfile(true);
+        stableLoadedRef.current = true;
+      }
     } catch { /* silent */ }
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchAll(date); }, [date, fetchAll]);
+  // Lightweight date-only fetch — entries + activity for a specific date
+  const fetchDateData = useCallback(async (targetDate: string) => {
+    setLoading(true);
+    try {
+      const [entriesRes, activityRes] = await Promise.all([
+        fetch(`/api/entries?date=${targetDate}`),
+        fetch(`/api/activity?date=${targetDate}`),
+      ]);
+      if (entriesRes.ok) {
+        const data = await entriesRes.json();
+        setEntries(Array.isArray(data) ? data : []);
+      }
+      if (activityRes.ok) {
+        const data = await activityRes.json();
+        setCaloriesBurned(data.calories_burned ?? 0);
+      }
+    } catch { /* silent */ }
+    finally { setLoading(false); }
+  }, []);
 
+  useEffect(() => {
+    if (!stableLoadedRef.current) {
+      // First load: get everything
+      fetchAll(date);
+    } else {
+      // Subsequent date changes: only entries + activity
+      fetchDateData(date);
+    }
+  }, [date, fetchAll, fetchDateData]);
+
+  // For pull-to-refresh — lightweight entries-only refresh
   const fetchEntries = useCallback(async () => {
     setLoading(true);
     try {
@@ -203,16 +244,32 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   };
 
   const goToToday = () => { setDate(today); router.replace("/", { scroll: false }); };
+  const handleNewEntries = useCallback((newEntries: MealEntry[]) => {
+    setEntries(prev => [...prev, ...newEntries]);
+  }, []);
   const handleDelete = (id: string) => setEntries(prev => prev.filter(e => e.id !== id));
   const handleSave = (updated: MealEntry) => { setEntries(prev => prev.map(e => e.id === updated.id ? updated : e)); setEditingEntry(null); };
 
   const handleClearAll = async () => {
     if (!entries.length || !confirm(T.clearAllConfirm(entries.length))) return;
     setClearing(true);
+    const ids = entries.map(e => e.id);
+    const previousEntries = entries;
+    // Optimistic: clear immediately
+    setEntries([]);
     try {
-      await Promise.all(entries.map(e => fetch(`/api/entries/${e.id}`, { method: "DELETE" })));
-      setEntries([]);
-      showToast(lang === "he" ? "כל הרשומות נמחקו" : "All entries removed", "info");
+      const res = await fetch("/api/entries", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+      if (res.ok) {
+        showToast(lang === "he" ? "כל הרשומות נמחקו" : "All entries removed", "info");
+      } else {
+        // Rollback on failure
+        setEntries(previousEntries);
+        showToast(lang === "he" ? "שגיאה במחיקה" : "Failed to delete", "error");
+      }
+    } catch {
+      // Rollback on network error
+      setEntries(previousEntries);
+      showToast(lang === "he" ? "שגיאה במחיקה" : "Failed to delete", "error");
     } finally { setClearing(false); }
   };
 
@@ -352,7 +409,14 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           onGoalCaloriesChange={setGoalCalories}
         />
 
-        <FoodInput onEntriesAdded={fetchEntries} currentDate={date} />
+        <FoodInput
+          onEntriesAdded={handleNewEntries}
+          currentDate={date}
+          initialPresets={mealPresets}
+          initialSuggestions={mealSuggestions}
+          onPresetsChange={setMealPresets}
+          onSuggestionsChange={setMealSuggestions}
+        />
 
         <DeficitCard
           consumed={totalCalories} burned={caloriesBurned} goalCalories={goalCalories}

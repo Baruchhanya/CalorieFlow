@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { Pencil, Check, X } from "lucide-react";
 import { MealEntry, DEFAULT_TARGETS } from "@/types";
 import { useLang } from "@/lib/i18n/context";
@@ -110,7 +110,7 @@ function MacroTile({ label, value, target, unit, from, to, bg }: {
   );
 }
 
-export default function DailySummary({ entries, goalCalories, caloriesBurned = 0, goalProtein, onGoalCaloriesChange }: DailySummaryProps) {
+export default memo(function DailySummary({ entries, goalCalories, caloriesBurned = 0, goalProtein, onGoalCaloriesChange }: DailySummaryProps) {
   const { T } = useLang();
   const { showToast } = useToast();
   const baseGoal = goalCalories ?? DEFAULT_TARGETS.calories;
@@ -237,4 +237,4 @@ export default function DailySummary({ entries, goalCalories, caloriesBurned = 0
       </div>
     </div>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { Flame, Pencil, Check, X, CheckCircle2, TrendingDown, TrendingUp } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
@@ -14,7 +14,7 @@ interface DeficitCardProps {
   onGoalChange: (v: number) => void;
 }
 
-export default function DeficitCard({ consumed, burned, goalCalories, date, onBurnedChange, onGoalChange }: DeficitCardProps) {
+export default memo(function DeficitCard({ consumed, burned, goalCalories, date, onBurnedChange, onGoalChange }: DeficitCardProps) {
   const { T, lang } = useLang();
   const { showToast } = useToast();
   const [editingGoal, setEditingGoal] = useState(false);
@@ -161,4 +161,4 @@ export default function DeficitCard({ consumed, burned, goalCalories, date, onBu
       </div>
     </div>
   );
-}
+});

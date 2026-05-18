@@ -2,30 +2,39 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Bookmark, Plus, X, Loader2, History } from "lucide-react";
-import type { MealPreset } from "@/types";
+import type { MealPreset, MealEntry, HistorySuggestion } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+
 interface MealPresetsProps {
   currentDate: string;
-  onAdded: () => void;
+  onAdded: (entries: MealEntry[]) => void;
+  initialPresets?: MealPreset[];
+  initialSuggestions?: HistorySuggestion[];
+  onPresetsChange?: (presets: MealPreset[]) => void;
+  onSuggestionsChange?: (suggestions: HistorySuggestion[]) => void;
 }
 
-interface HistorySuggestion {
-  name: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  count: number;
-}
-
-export default function MealPresets({ currentDate, onAdded }: MealPresetsProps) {
+export default function MealPresets({ currentDate, onAdded, initialPresets, initialSuggestions, onPresetsChange, onSuggestionsChange }: MealPresetsProps) {
   const { T, lang } = useLang();
   const { showToast } = useToast();
-  const [presets, setPresets] = useState<MealPreset[]>([]);
-  const [historyItems, setHistoryItems] = useState<HistorySuggestion[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const [presets, setPresetsLocal] = useState<MealPreset[]>(initialPresets ?? []);
+  const [historyItems, setHistoryItemsLocal] = useState<HistorySuggestion[]>(initialSuggestions ?? []);
+  const [loadingHistory, setLoadingHistory] = useState(!initialSuggestions);
+  const [loading, setLoading] = useState(!initialPresets);
+
+  // Sync with parent via useEffect
+  useEffect(() => {
+    onPresetsChange?.(presets);
+  }, [presets, onPresetsChange]);
+
+  useEffect(() => {
+    onSuggestionsChange?.(historyItems);
+  }, [historyItems, onSuggestionsChange]);
+
+  const setPresets = setPresetsLocal;
+  const setHistoryItems = setHistoryItemsLocal;
+
   const [addingId, setAddingId] = useState<string | null>(null);
   const [addingHistoryKey, setAddingHistoryKey] = useState<string | null>(null);
   const [savingPresetKey, setSavingPresetKey] = useState<string | null>(null);
@@ -53,8 +62,8 @@ export default function MealPresets({ currentDate, onAdded }: MealPresetsProps) 
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!initialPresets) load();
+  }, [load, initialPresets]);
 
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
@@ -72,8 +81,8 @@ export default function MealPresets({ currentDate, onAdded }: MealPresetsProps) 
   }, []);
 
   useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+    if (!initialSuggestions) loadHistory();
+  }, [loadHistory, initialSuggestions]);
 
   const presetNameKeys = new Set(presets.map((p) => p.name.trim().toLowerCase()));
   const historyFiltered = historyItems.filter((h) => !presetNameKeys.has(h.name.trim().toLowerCase()));
@@ -97,9 +106,9 @@ export default function MealPresets({ currentDate, onAdded }: MealPresetsProps) 
         }),
       });
       if (!res.ok) throw new Error();
+      const saved = await res.json();
       showToast(T.recurringAdded, "success");
-      onAdded();
-      loadHistory();
+      onAdded(Array.isArray(saved) ? saved : [saved]);
     } catch {
       showToast(T.saveDiaryError, "error");
     } finally {
@@ -152,9 +161,9 @@ export default function MealPresets({ currentDate, onAdded }: MealPresetsProps) 
         }),
       });
       if (!res.ok) throw new Error();
+      const saved = await res.json();
       showToast(T.recurringAdded, "success");
-      onAdded();
-      loadHistory();
+      onAdded(Array.isArray(saved) ? saved : [saved]);
     } catch {
       showToast(T.saveDiaryError, "error");
     } finally {

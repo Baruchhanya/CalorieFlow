@@ -4,30 +4,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { checkEmailAccess } from "@/lib/auth";
 import type { BalanceDay, BalanceHistoryResponse } from "@/app/api/balance-history/route";
 
-/**
- * Read user_profile, gracefully falling back if the optional
- * `protein_goal_g` column doesn't exist yet (pre-migration deploy).
- */
 async function readProfile(supabase: SupabaseClient, userId: string) {
-  const tryFull = await supabase
+  const { data, error } = await supabase
     .from("user_profile")
     .select("height_cm, weight_kg, age, protein_goal_g")
     .eq("user_id", userId)
     .single();
-  if (!tryFull.error) return tryFull.data;
-
-  const msg = (tryFull.error.message || "").toLowerCase();
-  if (msg.includes("protein_goal_g") || msg.includes("does not exist") || msg.includes("column")) {
-    const legacy = await supabase
-      .from("user_profile")
-      .select("height_cm, weight_kg, age")
-      .eq("user_id", userId)
-      .single();
-    if (!legacy.error && legacy.data) {
-      return { ...legacy.data, protein_goal_g: null };
-    }
-  }
-  return null;
+  if (error || !data) return null;
+  return data;
 }
 
 export async function GET(request: NextRequest) {
@@ -45,7 +29,7 @@ export async function GET(request: NextRequest) {
   const fromStr = from30.toISOString().split("T")[0];
 
   const [entriesRes, settingsRes, profile, activityRes, access,
-         histMealsRes, histActivityRes] =
+         histMealsRes, histActivityRes, presetsRes, suggestionsRes] =
     await Promise.all([
       supabase
         .from("meals")
@@ -84,6 +68,20 @@ export async function GET(request: NextRequest) {
         .eq("user_id", user.id)
         .gte("date", fromStr)
         .lte("date", todayStr),
+
+      supabase
+        .from("meal_presets")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true }),
+
+      supabase
+        .from("meals")
+        .select("name, calories, protein, carbs, fat, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(500),
     ]);
 
   const goal = settingsRes.data?.daily_goal_calories ?? 1820;
@@ -124,6 +122,29 @@ export async function GET(request: NextRequest) {
     monthly_total: allDays.length > 0 ? Math.round(monthlySum) : null,
   };
 
+  // Aggregate meal suggestions (distinct meals by name, most recent first)
+  type SuggestionRow = { name: string; calories: number; protein: number; carbs: number; fat: number; count: number };
+  const suggestionMap = new Map<string, SuggestionRow>();
+  for (const row of suggestionsRes.data ?? []) {
+    const raw = row.name?.trim();
+    if (!raw) continue;
+    const key = raw.toLowerCase();
+    const existing = suggestionMap.get(key);
+    if (!existing) {
+      suggestionMap.set(key, {
+        name: raw,
+        calories: Number(row.calories) || 0,
+        protein: Number(row.protein) || 0,
+        carbs: Number(row.carbs) || 0,
+        fat: Number(row.fat) || 0,
+        count: 1,
+      });
+    } else {
+      existing.count += 1;
+    }
+  }
+  const mealSuggestions = Array.from(suggestionMap.values()).slice(0, 18);
+
   return NextResponse.json({
     user: { email: user.email },
     entries: entriesRes.data ?? [],
@@ -132,5 +153,7 @@ export async function GET(request: NextRequest) {
     calories_burned: activityRes.data?.calories_burned ?? 0,
     is_admin: access.isAdmin,
     balance_history: balanceHistory,
+    meal_presets: presetsRes.data ?? [],
+    meal_suggestions: mealSuggestions,
   });
 }
