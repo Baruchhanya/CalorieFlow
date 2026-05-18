@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Trash2, Pencil, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { MealEntry } from "@/types";
 import { useLang } from "@/lib/i18n/context";
@@ -27,7 +27,7 @@ function hashColor(s: string) {
   return ACCENTS[Math.abs(h) % ACCENTS.length];
 }
 
-export default function MealCard({ entry, onDelete, onEdit }: MealCardProps) {
+export default memo(function MealCard({ entry, onDelete, onEdit }: MealCardProps) {
   const { T, lang } = useLang();
   const { showToast } = useToast();
   const [expanded, setExpanded] = useState(false);
@@ -135,4 +135,4 @@ export default function MealCard({ entry, onDelete, onEdit }: MealCardProps) {
       )}
     </div>
   );
-}
+});

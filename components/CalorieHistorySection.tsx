@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { TrendingDown, TrendingUp, RefreshCw, BarChart2 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import type { BalanceHistoryResponse, BalanceDay } from "@/app/api/balance-history/route";
@@ -178,7 +178,7 @@ function LoadingSkeleton() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function CalorieHistorySection({ initialData }: { initialData?: BalanceHistoryResponse }) {
+export default memo(function CalorieHistorySection({ initialData }: { initialData?: BalanceHistoryResponse }) {
   const { T, lang } = useLang();
   const [data, setData] = useState<BalanceHistoryResponse | null>(initialData ?? null);
   const [loading, setLoading] = useState(!initialData);
@@ -289,4 +289,4 @@ export default function CalorieHistorySection({ initialData }: { initialData?: B
       </div>
     </div>
   );
-}
+});

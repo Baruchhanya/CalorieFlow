@@ -6,16 +6,29 @@ import {
   Loader2, StopCircle, CheckCircle2, Camera, FolderOpen, PenLine,
   PencilLine, Trash2,
 } from "lucide-react";
-import { GeminiResponse, FoodItem } from "@/types";
+import { GeminiResponse, FoodItem, MealEntry, MealPreset } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
 import MealPresets from "@/components/MealPresets";
 
 type Tab = "text" | "image" | "audio" | "manual";
 
+interface HistorySuggestion {
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  count: number;
+}
+
 interface FoodInputProps {
-  onEntriesAdded: () => void;
+  onEntriesAdded: (entries: MealEntry[]) => void;
   currentDate?: string;
+  initialPresets?: MealPreset[];
+  initialSuggestions?: HistorySuggestion[];
+  onPresetsChange?: (presets: MealPreset[]) => void;
+  onSuggestionsChange?: (suggestions: HistorySuggestion[]) => void;
 }
 
 const MAX_IMAGES = 5;
@@ -293,7 +306,7 @@ function ManualForm({ onAdd, adding }: ManualFormProps) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProps) {
+export default function FoodInput({ onEntriesAdded, currentDate, initialPresets, initialSuggestions, onPresetsChange, onSuggestionsChange }: FoodInputProps) {
   const { T, lang } = useLang();
   const { showToast } = useToast();
   const [tab, setTab] = useState<Tab>("text");
@@ -476,19 +489,24 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
     setAdding(true);
     const date = currentDate ?? localDateStr();
     try {
-      await Promise.all(items.map((item) =>
-        fetch("/api/entries", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            date, name: item.name, quantity: item.quantity || null,
-            calories: item.calories, protein: item.protein_g,
-            carbs: item.carbs_g, fat: item.fat_g,
-            note: result?.note || null,
-          }),
-        })
-      ));
+      const payload = items.map((item) => ({
+        date, name: item.name, quantity: item.quantity || null,
+        calories: item.calories, protein: item.protein_g,
+        carbs: item.carbs_g, fat: item.fat_g,
+        note: result?.note || null,
+      }));
+      // Use batch insert (single request)
+      const res = await fetch("/api/entries", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload.length === 1 ? payload[0] : payload),
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        // Optimistic update: pass saved entries back to parent
+        const savedArr = Array.isArray(saved) ? saved : [saved];
+        onEntriesAdded(savedArr);
+      }
       showToast(T.mealAdded, "success");
-      onEntriesAdded();
       setTimeout(reset, 650);
     } catch {
       showToast(T.saveDiaryError, "error");
@@ -521,7 +539,14 @@ export default function FoodInput({ onEntriesAdded, currentDate }: FoodInputProp
       </div>
 
       <div className="mb-4 -mx-1">
-        <MealPresets currentDate={currentDate ?? localDateStr()} onAdded={onEntriesAdded} />
+        <MealPresets
+          currentDate={currentDate ?? localDateStr()}
+          onAdded={onEntriesAdded}
+          initialPresets={initialPresets}
+          initialSuggestions={initialSuggestions}
+          onPresetsChange={onPresetsChange}
+          onSuggestionsChange={onSuggestionsChange}
+        />
       </div>
 
       {/* Tabs */}
