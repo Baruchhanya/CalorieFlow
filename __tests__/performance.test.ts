@@ -5,7 +5,7 @@
  * - Optimistic update helpers
  * - React.memo wrapping
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 
 // ─── Batch insert/delete API route logic tests ─────────────────────────────
 

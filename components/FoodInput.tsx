@@ -7,20 +7,12 @@ import {
   PencilLine, Trash2,
 } from "lucide-react";
 import { GeminiResponse, FoodItem, MealEntry, MealPreset } from "@/types";
+import type { HistorySuggestion } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
 import MealPresets from "@/components/MealPresets";
 
 type Tab = "text" | "image" | "audio" | "manual";
-
-interface HistorySuggestion {
-  name: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  count: number;
-}
 
 interface FoodInputProps {
   onEntriesAdded: (entries: MealEntry[]) => void;
@@ -505,9 +497,11 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
         // Optimistic update: pass saved entries back to parent
         const savedArr = Array.isArray(saved) ? saved : [saved];
         onEntriesAdded(savedArr);
+        showToast(T.mealAdded, "success");
+        setTimeout(reset, 650);
+      } else {
+        showToast(T.saveDiaryError, "error");
       }
-      showToast(T.mealAdded, "success");
-      setTimeout(reset, 650);
     } catch {
       showToast(T.saveDiaryError, "error");
     }

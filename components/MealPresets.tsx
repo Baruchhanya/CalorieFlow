@@ -2,18 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Bookmark, Plus, X, Loader2, History } from "lucide-react";
-import type { MealPreset, MealEntry } from "@/types";
+import type { MealPreset, MealEntry, HistorySuggestion } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
-
-interface HistorySuggestion {
-  name: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  count: number;
-}
 
 interface MealPresetsProps {
   currentDate: string;
@@ -32,22 +23,18 @@ export default function MealPresets({ currentDate, onAdded, initialPresets, init
   const [loadingHistory, setLoadingHistory] = useState(!initialSuggestions);
   const [loading, setLoading] = useState(!initialPresets);
 
-  // Sync with parent
-  const setPresets = useCallback((updater: MealPreset[] | ((prev: MealPreset[]) => MealPreset[])) => {
-    setPresetsLocal(prev => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      onPresetsChange?.(next);
-      return next;
-    });
-  }, [onPresetsChange]);
+  // Sync with parent via useEffect
+  useEffect(() => {
+    onPresetsChange?.(presets);
+  }, [presets, onPresetsChange]);
 
-  const setHistoryItems = useCallback((updater: HistorySuggestion[] | ((prev: HistorySuggestion[]) => HistorySuggestion[])) => {
-    setHistoryItemsLocal(prev => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      onSuggestionsChange?.(next);
-      return next;
-    });
-  }, [onSuggestionsChange]);
+  useEffect(() => {
+    onSuggestionsChange?.(historyItems);
+  }, [historyItems, onSuggestionsChange]);
+
+  const setPresets = setPresetsLocal;
+  const setHistoryItems = setHistoryItemsLocal;
+
   const [addingId, setAddingId] = useState<string | null>(null);
   const [addingHistoryKey, setAddingHistoryKey] = useState<string | null>(null);
   const [savingPresetKey, setSavingPresetKey] = useState<string | null>(null);

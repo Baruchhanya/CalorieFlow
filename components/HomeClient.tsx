@@ -15,19 +15,11 @@ import MealCard from "@/components/MealCard";
 import EditModal from "@/components/EditModal";
 import ProfileModal from "@/components/ProfileModal";
 import { MealEntry, MealPreset, UserProfile, effectiveProteinGoal } from "@/types";
+import type { HistorySuggestion } from "@/types";
 import type { BalanceHistoryResponse } from "@/app/api/balance-history/route";
 import { createClient } from "@/lib/supabase/client";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
-
-interface HistorySuggestion {
-  name: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  count: number;
-}
 
 function getToday() {
   const n = new Date();
@@ -262,14 +254,22 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
     if (!entries.length || !confirm(T.clearAllConfirm(entries.length))) return;
     setClearing(true);
     const ids = entries.map(e => e.id);
+    const previousEntries = entries;
     // Optimistic: clear immediately
     setEntries([]);
     try {
-      await fetch("/api/entries", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
-      showToast(lang === "he" ? "כל הרשומות נמחקו" : "All entries removed", "info");
+      const res = await fetch("/api/entries", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+      if (res.ok) {
+        showToast(lang === "he" ? "כל הרשומות נמחקו" : "All entries removed", "info");
+      } else {
+        // Rollback on failure
+        setEntries(previousEntries);
+        showToast(lang === "he" ? "שגיאה במחיקה" : "Failed to delete", "error");
+      }
     } catch {
-      // Rollback on failure
-      fetchEntries();
+      // Rollback on network error
+      setEntries(previousEntries);
+      showToast(lang === "he" ? "שגיאה במחיקה" : "Failed to delete", "error");
     } finally { setClearing(false); }
   };
 

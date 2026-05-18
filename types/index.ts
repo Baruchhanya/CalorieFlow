@@ -71,6 +71,16 @@ export interface DailyActivity {
   calories_burned: number;
 }
 
+/** Aggregated meal suggestion from diary history (for quick re-add). */
+export interface HistorySuggestion {
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  count: number;
+}
+
 export interface UserProfile {
   height_cm: number | null;
   weight_kg: number | null;

@@ -66,6 +66,9 @@ export async function DELETE(request: NextRequest) {
   if (!Array.isArray(ids) || ids.length === 0) {
     return NextResponse.json({ error: "ids array required" }, { status: 400 });
   }
+  if (ids.length > 100) {
+    return NextResponse.json({ error: "Maximum 100 ids per batch delete" }, { status: 400 });
+  }
 
   const { error } = await supabase
     .from("meals")
