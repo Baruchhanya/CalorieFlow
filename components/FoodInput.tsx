@@ -19,8 +19,6 @@ interface FoodInputProps {
   currentDate?: string;
   initialPresets?: MealPreset[];
   initialSuggestions?: HistorySuggestion[];
-  onPresetsChange?: (presets: MealPreset[]) => void;
-  onSuggestionsChange?: (suggestions: HistorySuggestion[]) => void;
 }
 
 const MAX_IMAGES = 5;
@@ -298,7 +296,7 @@ function ManualForm({ onAdd, adding }: ManualFormProps) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function FoodInput({ onEntriesAdded, currentDate, initialPresets, initialSuggestions, onPresetsChange, onSuggestionsChange }: FoodInputProps) {
+export default function FoodInput({ onEntriesAdded, currentDate, initialPresets, initialSuggestions }: FoodInputProps) {
   const { T, lang } = useLang();
   const { showToast } = useToast();
   const [tab, setTab] = useState<Tab>("text");
@@ -538,8 +536,6 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
           onAdded={onEntriesAdded}
           initialPresets={initialPresets}
           initialSuggestions={initialSuggestions}
-          onPresetsChange={onPresetsChange}
-          onSuggestionsChange={onSuggestionsChange}
         />
       </div>
 

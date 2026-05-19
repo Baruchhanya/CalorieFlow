@@ -83,8 +83,8 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const [showProfile, setShowProfile] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [balanceHistory, setBalanceHistory] = useState<BalanceHistoryResponse | undefined>(undefined);
-  const [mealPresets, setMealPresets] = useState<MealPreset[]>([]);
-  const [mealSuggestions, setMealSuggestions] = useState<HistorySuggestion[]>([]);
+  const [mealPresets, setMealPresets] = useState<MealPreset[] | undefined>(undefined);
+  const [mealSuggestions, setMealSuggestions] = useState<HistorySuggestion[] | undefined>(undefined);
   // Track whether stable (non-date-specific) data has been loaded
   const stableLoadedRef = useRef(false);
 
@@ -414,8 +414,6 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           currentDate={date}
           initialPresets={mealPresets}
           initialSuggestions={mealSuggestions}
-          onPresetsChange={setMealPresets}
-          onSuggestionsChange={setMealSuggestions}
         />
 
         <DeficitCard

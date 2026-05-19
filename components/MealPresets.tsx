@@ -11,29 +11,15 @@ interface MealPresetsProps {
   onAdded: (entries: MealEntry[]) => void;
   initialPresets?: MealPreset[];
   initialSuggestions?: HistorySuggestion[];
-  onPresetsChange?: (presets: MealPreset[]) => void;
-  onSuggestionsChange?: (suggestions: HistorySuggestion[]) => void;
 }
 
-export default function MealPresets({ currentDate, onAdded, initialPresets, initialSuggestions, onPresetsChange, onSuggestionsChange }: MealPresetsProps) {
+export default function MealPresets({ currentDate, onAdded, initialPresets, initialSuggestions }: MealPresetsProps) {
   const { T, lang } = useLang();
   const { showToast } = useToast();
-  const [presets, setPresetsLocal] = useState<MealPreset[]>(initialPresets ?? []);
-  const [historyItems, setHistoryItemsLocal] = useState<HistorySuggestion[]>(initialSuggestions ?? []);
+  const [presets, setPresets] = useState<MealPreset[]>(initialPresets ?? []);
+  const [historyItems, setHistoryItems] = useState<HistorySuggestion[]>(initialSuggestions ?? []);
   const [loadingHistory, setLoadingHistory] = useState(!initialSuggestions);
   const [loading, setLoading] = useState(!initialPresets);
-
-  // Sync with parent via useEffect
-  useEffect(() => {
-    onPresetsChange?.(presets);
-  }, [presets, onPresetsChange]);
-
-  useEffect(() => {
-    onSuggestionsChange?.(historyItems);
-  }, [historyItems, onSuggestionsChange]);
-
-  const setPresets = setPresetsLocal;
-  const setHistoryItems = setHistoryItemsLocal;
 
   const [addingId, setAddingId] = useState<string | null>(null);
   const [addingHistoryKey, setAddingHistoryKey] = useState<string | null>(null);
