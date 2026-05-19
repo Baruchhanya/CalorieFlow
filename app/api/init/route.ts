@@ -5,13 +5,23 @@ import { checkEmailAccess } from "@/lib/auth";
 import type { BalanceDay, BalanceHistoryResponse } from "@/app/api/balance-history/route";
 
 async function readProfile(supabase: SupabaseClient, userId: string) {
-  const { data, error } = await supabase
+  const tryFull = await supabase
     .from("user_profile")
     .select("height_cm, weight_kg, age, protein_goal_g")
     .eq("user_id", userId)
     .single();
-  if (error || !data) return null;
-  return data;
+  if (!tryFull.error) return tryFull.data;
+
+  const msg = (tryFull.error.message || "").toLowerCase();
+  if (msg.includes("protein_goal_g") || msg.includes("does not exist") || msg.includes("column")) {
+    const legacy = await supabase
+      .from("user_profile")
+      .select("height_cm, weight_kg, age")
+      .eq("user_id", userId)
+      .single();
+    if (!legacy.error && legacy.data) return { ...legacy.data, protein_goal_g: null };
+  }
+  return null;
 }
 
 export async function GET(request: NextRequest) {
