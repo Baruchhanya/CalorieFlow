@@ -25,3 +25,6 @@ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$;
 CREATE TRIGGER trg_user_profile_updated_at
   BEFORE UPDATE ON public.user_profile
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- Explicit grants (required from Oct 30 2026 for existing projects)
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_profile TO authenticated;

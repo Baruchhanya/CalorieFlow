@@ -45,3 +45,7 @@ CREATE POLICY "manage_own_activity" ON public.daily_activity
 CREATE TRIGGER daily_activity_updated_at
   BEFORE UPDATE ON public.daily_activity
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Explicit grants (required from Oct 30 2026 for existing projects)
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_settings TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.daily_activity TO authenticated;

@@ -38,3 +38,8 @@ DROP TRIGGER IF EXISTS allowed_users_updated_at ON public.allowed_users;
 CREATE TRIGGER allowed_users_updated_at
   BEFORE UPDATE ON public.allowed_users
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- 5. Explicit grants (required from Oct 30 2026 for existing projects)
+-- authenticated users can only SELECT (read own row via RLS policy above).
+-- All writes go through the service_role key in server routes.
+GRANT SELECT ON public.allowed_users TO authenticated;

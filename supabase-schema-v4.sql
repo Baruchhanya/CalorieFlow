@@ -16,3 +16,6 @@ CREATE POLICY "Users manage own weight"
   ON public.weight_log FOR ALL
   USING  (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- Explicit grants (required from Oct 30 2026 for existing projects)
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.weight_log TO authenticated;

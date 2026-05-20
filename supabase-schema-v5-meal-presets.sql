@@ -38,3 +38,6 @@ CREATE POLICY "meal_presets_delete_own"
 CREATE TRIGGER meal_presets_updated_at
   BEFORE UPDATE ON public.meal_presets
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Explicit grants (required from Oct 30 2026 for existing projects)
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.meal_presets TO authenticated;

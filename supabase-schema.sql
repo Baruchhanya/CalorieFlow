@@ -48,3 +48,6 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER meals_updated_at
   BEFORE UPDATE ON public.meals
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- 6. Explicit grants (required from Oct 30 2026 for existing projects)
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.meals TO authenticated;
