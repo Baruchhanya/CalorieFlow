@@ -81,6 +81,15 @@ export interface HistorySuggestion {
   count: number;
 }
 
+export interface DayAcknowledgment {
+  id: string;
+  user_id: string;
+  date: string;
+  estimated_balance: number; // negative = deficit, 0 = balance, positive = surplus
+  created_at: string;
+  updated_at: string | null;
+}
+
 export interface UserProfile {
   height_cm: number | null;
   weight_kg: number | null;

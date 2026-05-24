@@ -14,6 +14,7 @@ import FoodInput from "@/components/FoodInput";
 import MealCard from "@/components/MealCard";
 import EditModal from "@/components/EditModal";
 import ProfileModal from "@/components/ProfileModal";
+import UntrackedDayCard from "@/components/UntrackedDayCard";
 import { MealEntry, MealPreset, UserProfile, effectiveProteinGoal } from "@/types";
 import type { HistorySuggestion } from "@/types";
 import type { BalanceHistoryResponse } from "@/app/api/balance-history/route";
@@ -275,6 +276,13 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
 
   const handleSignOut = async () => { await createClient().auth.signOut(); router.push("/login"); };
 
+  const refreshBalanceHistory = useCallback(async () => {
+    try {
+      const res = await fetch("/api/balance-history");
+      if (res.ok) setBalanceHistory(await res.json());
+    } catch { /* silent */ }
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-50 pb-28 sm:pb-8" style={{ paddingBottom: "calc(7rem + env(safe-area-inset-bottom, 0px))" }}>
 
@@ -462,13 +470,18 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
               ))}
             </div>
           ) : entries.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-12 text-center animate-fade-in">
-              <div className="w-20 h-20 mx-auto mb-4 opacity-15">
-                <Image src="/logo.png" alt="CF" width={80} height={80} className="rounded-3xl" />
+            <>
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-12 text-center animate-fade-in">
+                <div className="w-20 h-20 mx-auto mb-4 opacity-15">
+                  <Image src="/logo.png" alt="CF" width={80} height={80} className="rounded-3xl" />
+                </div>
+                <p className="text-slate-700 font-bold text-base">{isToday ? T.noMeals : T.noMealsHistoryDay}</p>
+                <p className="text-slate-400 text-sm mt-1">{isToday ? T.noMealsDesc : T.noMealsHistoryDesc}</p>
               </div>
-              <p className="text-slate-700 font-bold text-base">{isToday ? T.noMeals : T.noMealsHistoryDay}</p>
-              <p className="text-slate-400 text-sm mt-1">{isToday ? T.noMealsDesc : T.noMealsHistoryDesc}</p>
-            </div>
+              {isPast && (
+                <UntrackedDayCard date={date} onSaved={refreshBalanceHistory} />
+              )}
+            </>
           ) : (
             <div className="flex flex-col gap-2">
               {entries.map((entry, i) => (

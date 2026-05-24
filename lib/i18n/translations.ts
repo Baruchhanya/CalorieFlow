@@ -177,6 +177,20 @@ const he = {
   monthlyAvg: "ממוצע חודשי",
   monthlyTotal: "סה״כ חודשי",
   noBalanceData: "אין עדיין נתוני מאזן — הוסף ארוחות כדי להתחיל",
+  estimatedLegend: "הערכה",
+
+  // Untracked day acknowledgment
+  untrackedDayTitle: "יום לא מדווח",
+  untrackedDayDesc: "לא הוזנו ארוחות ביום זה. תוכל לסמן בערך האם היית בגרעון, איזון, או עודף קלורי — זה לא חייב להיות מדויק.",
+  untrackedPresetDeficit: "גרעון",
+  untrackedPresetBalance: "איזון",
+  untrackedPresetSurplus: "עודף",
+  untrackedInputPlaceholder: 'הזן מספר (קק"ל)',
+  untrackedSave: "שמור סימון",
+  untrackedHint: 'שלילי = גרעון · 0 = איזון · חיובי = עודף',
+  untrackedAcknowledged: "יום סומן",
+  untrackedRemove: "הסר סימון",
+  untrackedSaving: "שומר...",
 
   poweredBy: "CalorieFlow · מופעל על ידי Gemini AI",
 
@@ -377,6 +391,20 @@ const en: Translations = {
   monthlyAvg: "Monthly Average",
   monthlyTotal: "Monthly Total",
   noBalanceData: "No balance data yet — add meals to get started",
+  estimatedLegend: "Estimated",
+
+  // Untracked day acknowledgment
+  untrackedDayTitle: "Untracked day",
+  untrackedDayDesc: "No meals were logged for this day. You can roughly mark whether you were in deficit, balance, or surplus — no need to be exact.",
+  untrackedPresetDeficit: "Deficit",
+  untrackedPresetBalance: "Balance",
+  untrackedPresetSurplus: "Surplus",
+  untrackedInputPlaceholder: "Enter number (kcal)",
+  untrackedSave: "Save mark",
+  untrackedHint: "Negative = deficit · 0 = balance · Positive = surplus",
+  untrackedAcknowledged: "Day acknowledged",
+  untrackedRemove: "Remove mark",
+  untrackedSaving: "Saving...",
 
   poweredBy: "CalorieFlow · Powered by Gemini AI",
 

@@ -36,7 +36,11 @@ function BalanceBar({
       {/* Value label above bar */}
       <span
         className={`text-[9px] font-bold leading-none ${
-          isDeficit ? "text-emerald-600" : "text-red-500"
+          day.estimated
+            ? "text-slate-400"
+            : isDeficit
+            ? "text-emerald-600"
+            : "text-red-500"
         }`}
       >
         {sign}{absVal >= 1000 ? `${Math.round(absVal / 100) / 10}k` : absVal}
@@ -46,16 +50,21 @@ function BalanceBar({
       <div className="relative w-full flex items-end justify-center" style={{ height: 84 }}>
         <div
           className={`w-full max-w-[28px] rounded-t-md transition-all duration-500 ${
-            isDeficit
+            day.estimated
+              ? "bg-gradient-to-t from-slate-300 to-slate-200"
+              : isDeficit
               ? "bg-gradient-to-t from-emerald-500 to-emerald-400"
               : "bg-gradient-to-t from-red-500 to-red-400"
           }`}
-          style={{ height: barH }}
+          style={{
+            height: barH,
+            ...(day.estimated ? { border: "1px dashed #94a3b8", borderBottom: "none" } : {}),
+          }}
         />
       </div>
 
       {/* Day label + date */}
-      <span className="text-[10px] text-slate-500 font-semibold leading-none truncate w-full text-center">
+      <span className={`text-[10px] font-semibold leading-none truncate w-full text-center ${day.estimated ? "text-slate-400" : "text-slate-500"}`}>
         {label}
       </span>
       <span className="text-[9px] text-slate-400 leading-none truncate w-full text-center">
@@ -184,6 +193,11 @@ export default memo(function CalorieHistorySection({ initialData }: { initialDat
   const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState(false);
 
+  // React to parent re-fetching and passing fresh initialData (e.g. after acknowledgment saved)
+  useEffect(() => {
+    if (initialData) setData(initialData);
+  }, [initialData]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(false);
@@ -222,8 +236,9 @@ export default memo(function CalorieHistorySection({ initialData }: { initialDat
     );
   }
 
-  const days7 = data?.days7 ?? [];
-  const hasData = days7.length > 0;
+  const chartDays = data?.chart_days ?? data?.days7 ?? []; // fallback to days7 for old API responses
+  const hasData = chartDays.length > 0;
+  const hasEstimated = chartDays.some((d) => d.estimated);
 
   if (!hasData) {
     return (
@@ -237,7 +252,7 @@ export default memo(function CalorieHistorySection({ initialData }: { initialDat
     );
   }
 
-  const maxAbs = Math.max(...days7.map((d) => Math.abs(d.balance)), 1);
+  const maxAbs = Math.max(...chartDays.map((d) => Math.abs(d.balance)), 1);
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
@@ -249,7 +264,7 @@ export default memo(function CalorieHistorySection({ initialData }: { initialDat
           </p>
           <p className="text-[11px] text-slate-400 mt-0.5">{T.balanceHistoryHint}</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
             <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block" />
             {lang === "he" ? "גרעון" : "Deficit"}
@@ -258,18 +273,24 @@ export default memo(function CalorieHistorySection({ initialData }: { initialDat
             <span className="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block" />
             {lang === "he" ? "עודף" : "Surplus"}
           </span>
+          {hasEstimated && (
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-400">
+              <span className="w-2.5 h-2.5 rounded-sm bg-slate-300 inline-block border border-dashed border-slate-400" />
+              {T.estimatedLegend}
+            </span>
+          )}
         </div>
       </div>
 
       <div className="p-5 flex flex-col gap-4">
         {/* Bar chart */}
         <div className="flex items-end gap-1.5 sm:gap-2 px-0.5">
-          {days7.map((day) => (
+          {chartDays.map((day) => (
             <BalanceBar key={day.date} day={day} maxAbs={maxAbs} lang={lang} />
           ))}
         </div>
 
-        {/* Stat tiles */}
+        {/* Stat tiles — based on days7 (tracked-only) */}
         <div className="flex gap-3">
           <StatTile
             label={T.weeklyAvg}

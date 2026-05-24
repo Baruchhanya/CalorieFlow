@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   const fromStr = from30.toISOString().split("T")[0];
 
   const [entriesRes, settingsRes, profile, activityRes, access,
-         histMealsRes, histActivityRes, presetsRes, suggestionsRes] =
+         histMealsRes, histActivityRes, presetsRes, suggestionsRes, acksRes] =
     await Promise.all([
       supabase
         .from("meals")
@@ -92,6 +92,13 @@ export async function GET(request: NextRequest) {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(500),
+
+      supabase
+        .from("day_acknowledgments")
+        .select("date, estimated_balance")
+        .eq("user_id", user.id)
+        .gte("date", fromStr)
+        .lte("date", todayStr),
     ]);
 
   const goal = settingsRes.data?.daily_goal_calories ?? 1820;
@@ -104,6 +111,10 @@ export async function GET(request: NextRequest) {
   const activityMap = new Map<string, number>();
   for (const a of histActivityRes.data ?? []) {
     activityMap.set(a.date, a.calories_burned ?? 0);
+  }
+  const ackMap = new Map<string, number>();
+  for (const a of acksRes.data ?? []) {
+    ackMap.set(a.date, a.estimated_balance);
   }
 
   const allDays: BalanceDay[] = [];
@@ -124,8 +135,24 @@ export async function GET(request: NextRequest) {
   const weeklySum = days7.reduce((s, d) => s + d.balance, 0);
   const monthlySum = allDays.reduce((s, d) => s + d.balance, 0);
 
+  // chart_days: last 7 calendar days with any data (tracked or acknowledged)
+  const chart_days: BalanceDay[] = [];
+  for (let i = 7; i >= 1; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split("T")[0];
+    const consumed = calorieMap.get(dateStr);
+    if (consumed !== undefined) {
+      const burned = activityMap.get(dateStr) ?? 0;
+      chart_days.push({ date: dateStr, balance: Math.round((consumed - burned) - goal) });
+    } else if (ackMap.has(dateStr)) {
+      chart_days.push({ date: dateStr, balance: ackMap.get(dateStr)!, estimated: true });
+    }
+  }
+
   const balanceHistory: BalanceHistoryResponse = {
     days7,
+    chart_days,
     weekly_avg: days7.length > 0 ? Math.round(weeklySum / days7.length) : null,
     weekly_total: days7.length > 0 ? Math.round(weeklySum) : null,
     monthly_avg: allDays.length > 0 ? Math.round(monthlySum / allDays.length) : null,
