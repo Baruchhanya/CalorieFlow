@@ -4,11 +4,8 @@ import { useState, useEffect } from "react";
 import { Clock, CheckCircle, Pencil, X } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
-const PRESETS = [
-  { key: "deficit", val: -500 },
-  { key: "balance", val: 0 },
-  { key: "surplus", val: 500 },
-] as const;
+const TYPE_KEYS = ["deficit", "balance", "surplus"] as const;
+type DayType = typeof TYPE_KEYS[number];
 
 function statusLabel(val: number, lang: string): string {
   const isHe = lang === "he";
@@ -156,23 +153,40 @@ export default function UntrackedDayCard({ date, onSaved }: Props) {
 
       <p className="text-xs text-slate-500 leading-relaxed">{T.untrackedDayDesc}</p>
 
-      {/* Quick presets */}
+      {/* Type buttons — highlight based on current input sign, click flips sign or sets 0 */}
       <div className="flex gap-2">
-        {PRESETS.map(({ key, val }) => {
+        {TYPE_KEYS.map((key) => {
           const label = key === "deficit" ? T.untrackedPresetDeficit
             : key === "balance" ? T.untrackedPresetBalance
             : T.untrackedPresetSurplus;
-          const isActive = inputVal === String(val);
+
+          const numVal = parseInt(inputVal, 10);
+          const isActive = !isNaN(numVal) && (
+            key === "deficit" ? numVal < 0
+            : key === "surplus" ? numVal > 0
+            : numVal === 0
+          );
+
           const activeClass = key === "deficit"
             ? "bg-emerald-100 border-emerald-300 text-emerald-700"
             : key === "surplus"
             ? "bg-red-100 border-red-300 text-red-700"
             : "bg-slate-200 border-slate-300 text-slate-700";
 
+          const handleClick = () => {
+            if (key === "balance") { setInputVal("0"); return; }
+            const cur = parseInt(inputVal, 10);
+            if (!isNaN(cur) && cur !== 0) {
+              // Flip sign to match selected type
+              if (key === "deficit" && cur > 0) setInputVal(String(-cur));
+              if (key === "surplus" && cur < 0) setInputVal(String(Math.abs(cur)));
+            }
+          };
+
           return (
             <button
               key={key}
-              onClick={() => setInputVal(String(val))}
+              onClick={handleClick}
               className={`flex-1 text-xs font-semibold py-1.5 px-2 rounded-xl border transition-all ${
                 isActive ? activeClass : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
               }`}
