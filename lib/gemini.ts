@@ -9,6 +9,45 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export type AnalyzeLang = "he" | "en";
 
+export const GEMINI_MODEL = "gemini-3.1-flash-lite";
+
+// Pricing per 1M tokens (USD). Override via env vars when tariffs change.
+const INPUT_TOKEN_PRICE_PER_M = Number(process.env.GEMINI_INPUT_PRICE_PER_M ?? 0.1);
+const OUTPUT_TOKEN_PRICE_PER_M = Number(process.env.GEMINI_OUTPUT_PRICE_PER_M ?? 0.4);
+
+export interface GeminiUsage {
+  promptTokens: number;
+  candidatesTokens: number;
+  totalTokens: number;
+}
+
+export interface AnalyzeResult {
+  data: GeminiResponse;
+  usage: GeminiUsage;
+}
+
+export function estimateUsageCost(usage: GeminiUsage): number {
+  return (
+    (usage.promptTokens * INPUT_TOKEN_PRICE_PER_M) / 1_000_000 +
+    (usage.candidatesTokens * OUTPUT_TOKEN_PRICE_PER_M) / 1_000_000
+  );
+}
+
+interface UsageMetadataLike {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  totalTokenCount?: number;
+}
+
+function extractUsage(response: { usageMetadata?: UsageMetadataLike }): GeminiUsage {
+  const m = response.usageMetadata ?? {};
+  return {
+    promptTokens: m.promptTokenCount ?? 0,
+    candidatesTokens: m.candidatesTokenCount ?? 0,
+    totalTokens: m.totalTokenCount ?? 0,
+  };
+}
+
 function buildPrompt(lang: AnalyzeLang): string {
   const langInstruction =
     lang === "he"
@@ -98,12 +137,15 @@ ${trimmed}
 export async function analyzeText(
   text: string,
   lang: AnalyzeLang = "he"
-): Promise<GeminiResponse> {
-  const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+): Promise<AnalyzeResult> {
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
   const result = await model.generateContent(
     `${buildPrompt(lang)}\n\nAnalyze this food input: "${text}"`
   );
-  return parseGeminiResponse(result.response.text());
+  return {
+    data: parseGeminiResponse(result.response.text()),
+    usage: extractUsage(result.response),
+  };
 }
 
 export interface ImagePart {
@@ -116,7 +158,7 @@ export async function analyzeImage(
   mimeType: string,
   extraContext?: string,
   lang: AnalyzeLang = "he"
-): Promise<GeminiResponse> {
+): Promise<AnalyzeResult> {
   return analyzeImages([{ data: base64Data, mimeType }], extraContext, lang);
 }
 
@@ -124,12 +166,12 @@ export async function analyzeImages(
   images: ImagePart[],
   extraContext?: string,
   lang: AnalyzeLang = "he"
-): Promise<GeminiResponse> {
+): Promise<AnalyzeResult> {
   if (images.length === 0) {
     throw new Error("At least one image is required");
   }
 
-  const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
   const instruction =
     images.length === 1
@@ -144,7 +186,10 @@ export async function analyzeImages(
   ];
 
   const result = await model.generateContent(parts);
-  return parseGeminiResponse(result.response.text());
+  return {
+    data: parseGeminiResponse(result.response.text()),
+    usage: extractUsage(result.response),
+  };
 }
 
 export async function analyzeAudio(
@@ -152,11 +197,14 @@ export async function analyzeAudio(
   mimeType: string,
   extraContext?: string,
   lang: AnalyzeLang = "he"
-): Promise<GeminiResponse> {
-  const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+): Promise<AnalyzeResult> {
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
   const result = await model.generateContent([
     { inlineData: { data: base64Data, mimeType } },
     `${buildPrompt(lang)}\n\nThe user described food in an audio recording. Transcribe what they said and analyze the food mentioned. Apply the SPLITTING RULES — if the user listed multiple distinct foods (e.g. "pizza and salad", "burger and fries"), output them as separate items. If they described one composite dish (e.g. "pasta with sauce", "salad with chicken on top"), output a single item.${buildExtraContextBlock(extraContext)}`,
   ]);
-  return parseGeminiResponse(result.response.text());
+  return {
+    data: parseGeminiResponse(result.response.text()),
+    usage: extractUsage(result.response),
+  };
 }

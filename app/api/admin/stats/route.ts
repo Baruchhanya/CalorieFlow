@@ -1,0 +1,248 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { checkEmailAccess, createServiceRoleClient } from "@/lib/auth";
+import { estimateUsageCost } from "@/lib/gemini";
+
+export interface UserStat {
+  user_id: string | null;
+  email: string;
+  // account / auth
+  joined_at: string | null;
+  last_sign_in: string | null;
+  // meals
+  meals_total: number;
+  meals_30d: number;
+  meals_7d: number;
+  days_tracked: number;
+  last_meal_at: string | null;
+  // gemini
+  gemini_calls_total: number;
+  gemini_calls_30d: number;
+  gemini_calls_7d: number;
+  gemini_tokens_30d: number;
+  gemini_cost_usd_30d: number;
+  gemini_cost_usd_total: number;
+  gemini_errors_30d: number;
+  last_gemini_at: string | null;
+}
+
+export interface GlobalStats {
+  gemini_calls_today: number;
+  gemini_calls_7d: number;
+  gemini_calls_30d: number;
+  gemini_calls_total: number;
+  gemini_cost_usd_today: number;
+  gemini_cost_usd_30d: number;
+  gemini_cost_usd_total: number;
+  gemini_errors_30d: number;
+  gemini_avg_duration_ms_30d: number | null;
+}
+
+export interface AdminStatsResponse {
+  generated_at: string;
+  global: GlobalStats;
+  users: UserStat[];
+}
+
+function isoDaysAgo(days: number): string {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function startOfTodayIso(): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+interface MealRow {
+  user_id: string | null;
+  date: string | null;
+  created_at: string;
+}
+
+interface GeminiRow {
+  user_id: string | null;
+  user_email: string | null;
+  status: string;
+  prompt_tokens: number | null;
+  candidates_tokens: number | null;
+  total_tokens: number | null;
+  duration_ms: number | null;
+  created_at: string;
+}
+
+interface AuthUser {
+  id: string;
+  email?: string;
+  created_at?: string;
+  last_sign_in_at?: string | null;
+}
+
+interface AllowedRow {
+  email: string;
+}
+
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await checkEmailAccess(user.email, supabase);
+  if (!access.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const admin = createServiceRoleClient();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+  const now = new Date();
+  const start30d = isoDaysAgo(30);
+  const start7d = isoDaysAgo(7);
+  const startToday = startOfTodayIso();
+
+  // Fetch in parallel: meals, gemini_usage, allowed_users, auth users
+  const [mealsRes, geminiRes, allowedRes, authRes] = await Promise.all([
+    admin.from("meals").select("user_id, date, created_at"),
+    admin.from("gemini_usage").select("user_id, user_email, status, prompt_tokens, candidates_tokens, total_tokens, duration_ms, created_at"),
+    admin.from("allowed_users").select("email"),
+    fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=200`, {
+      headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+    }).then((r) => (r.ok ? r.json() : { users: [] })),
+  ]);
+
+  const meals = (mealsRes.data ?? []) as MealRow[];
+  const gemini = (geminiRes.data ?? []) as GeminiRow[];
+  const allowed = (allowedRes.data ?? []) as AllowedRow[];
+  const authUsers = ((authRes as { users?: AuthUser[] })?.users ?? []) as AuthUser[];
+
+  // Build set of all users we want to display: union of auth users + allowed_users emails
+  // (allowed users may not have signed in yet → no auth row)
+  type Row = { user_id: string | null; email: string; joined_at: string | null; last_sign_in: string | null };
+  const byEmail = new Map<string, Row>();
+
+  for (const u of authUsers) {
+    const e = (u.email ?? "").toLowerCase();
+    if (!e) continue;
+    byEmail.set(e, {
+      user_id: u.id,
+      email: e,
+      joined_at: u.created_at ?? null,
+      last_sign_in: u.last_sign_in_at ?? null,
+    });
+  }
+  for (const a of allowed) {
+    const e = a.email.toLowerCase();
+    if (!byEmail.has(e)) {
+      byEmail.set(e, { user_id: null, email: e, joined_at: null, last_sign_in: null });
+    }
+  }
+
+  // Per-user aggregates
+  const userStats: UserStat[] = Array.from(byEmail.values()).map((r) => {
+    const userMeals = r.user_id ? meals.filter((m) => m.user_id === r.user_id) : [];
+    const userGem = gemini.filter((g) =>
+      (r.user_id && g.user_id === r.user_id) ||
+      (!r.user_id && g.user_email?.toLowerCase() === r.email)
+    );
+
+    const meals_30d = userMeals.filter((m) => m.created_at >= start30d).length;
+    const meals_7d = userMeals.filter((m) => m.created_at >= start7d).length;
+    const days_tracked = new Set(userMeals.map((m) => m.date).filter(Boolean)).size;
+    const last_meal_at = userMeals.reduce<string | null>(
+      (acc, m) => (acc === null || m.created_at > acc ? m.created_at : acc),
+      null
+    );
+
+    const gem_30d = userGem.filter((g) => g.created_at >= start30d);
+    const gem_7d = userGem.filter((g) => g.created_at >= start7d);
+
+    const tokens_30d = gem_30d.reduce((s, g) => s + (g.total_tokens ?? 0), 0);
+    const cost_30d = gem_30d.reduce(
+      (s, g) =>
+        s +
+        estimateUsageCost({
+          promptTokens: g.prompt_tokens ?? 0,
+          candidatesTokens: g.candidates_tokens ?? 0,
+          totalTokens: g.total_tokens ?? 0,
+        }),
+      0
+    );
+    const cost_total = userGem.reduce(
+      (s, g) =>
+        s +
+        estimateUsageCost({
+          promptTokens: g.prompt_tokens ?? 0,
+          candidatesTokens: g.candidates_tokens ?? 0,
+          totalTokens: g.total_tokens ?? 0,
+        }),
+      0
+    );
+    const last_gemini_at = userGem.reduce<string | null>(
+      (acc, g) => (acc === null || g.created_at > acc ? g.created_at : acc),
+      null
+    );
+
+    return {
+      user_id: r.user_id,
+      email: r.email,
+      joined_at: r.joined_at,
+      last_sign_in: r.last_sign_in,
+      meals_total: userMeals.length,
+      meals_30d,
+      meals_7d,
+      days_tracked,
+      last_meal_at,
+      gemini_calls_total: userGem.length,
+      gemini_calls_30d: gem_30d.length,
+      gemini_calls_7d: gem_7d.length,
+      gemini_tokens_30d: tokens_30d,
+      gemini_cost_usd_30d: cost_30d,
+      gemini_cost_usd_total: cost_total,
+      gemini_errors_30d: gem_30d.filter((g) => g.status !== "success").length,
+      last_gemini_at,
+    };
+  });
+
+  // Sort by recent activity (last_gemini_at OR last_meal_at)
+  userStats.sort((a, b) => {
+    const aT = a.last_gemini_at ?? a.last_meal_at ?? "";
+    const bT = b.last_gemini_at ?? b.last_meal_at ?? "";
+    return bT.localeCompare(aT);
+  });
+
+  // Global rollups
+  const gem_today = gemini.filter((g) => g.created_at >= startToday);
+  const gem_g_7d = gemini.filter((g) => g.created_at >= start7d);
+  const gem_g_30d = gemini.filter((g) => g.created_at >= start30d);
+
+  const sumCost = (rows: GeminiRow[]) =>
+    rows.reduce(
+      (s, g) =>
+        s +
+        estimateUsageCost({
+          promptTokens: g.prompt_tokens ?? 0,
+          candidatesTokens: g.candidates_tokens ?? 0,
+          totalTokens: g.total_tokens ?? 0,
+        }),
+      0
+    );
+
+  const durations = gem_g_30d.map((g) => g.duration_ms ?? 0).filter((d) => d > 0);
+  const avg_dur = durations.length === 0 ? null : Math.round(durations.reduce((s, d) => s + d, 0) / durations.length);
+
+  const payload: AdminStatsResponse = {
+    generated_at: now.toISOString(),
+    global: {
+      gemini_calls_today: gem_today.length,
+      gemini_calls_7d: gem_g_7d.length,
+      gemini_calls_30d: gem_g_30d.length,
+      gemini_calls_total: gemini.length,
+      gemini_cost_usd_today: sumCost(gem_today),
+      gemini_cost_usd_30d: sumCost(gem_g_30d),
+      gemini_cost_usd_total: sumCost(gemini),
+      gemini_errors_30d: gem_g_30d.filter((g) => g.status !== "success").length,
+      gemini_avg_duration_ms_30d: avg_dur,
+    },
+    users: userStats,
+  };
+
+  return NextResponse.json(payload);
+}
