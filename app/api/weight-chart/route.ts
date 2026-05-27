@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 
 export interface ChartDay {
   date: string;
@@ -31,7 +32,8 @@ export async function GET() {
     supabase.from("user_settings").select("daily_goal_calories").eq("user_id", user.id).single(),
   ]);
 
-  const goal = settingsRes.data?.daily_goal_calories ?? 1820;
+  const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
+  const goalForDate = await buildGoalResolver(supabase, user.id, currentGoal);
 
   // Build weight map
   const weightMap = new Map<string, number>();
@@ -57,7 +59,7 @@ export async function GET() {
     const weight_kg = weightMap.has(dateStr) ? weightMap.get(dateStr)! : null;
     const consumed = calorieMap.get(dateStr) ?? null;
     const burned = activityMap.get(dateStr) ?? 0;
-    const balance = consumed !== null ? (consumed - burned) - goal : null;
+    const balance = consumed !== null ? (consumed - burned) - goalForDate(dateStr) : null;
 
     if (weight_kg !== null || consumed !== null) {
       days.push({ date: dateStr, label, weight_kg, balance });
@@ -66,5 +68,5 @@ export async function GET() {
     cur.setDate(cur.getDate() + 1);
   }
 
-  return NextResponse.json({ days, goal });
+  return NextResponse.json({ days, goal: currentGoal });
 }

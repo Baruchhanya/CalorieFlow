@@ -15,6 +15,7 @@ import MealCard from "@/components/MealCard";
 import EditModal from "@/components/EditModal";
 import ProfileModal from "@/components/ProfileModal";
 import UntrackedDayCard from "@/components/UntrackedDayCard";
+import YesterdayBurnModal from "@/components/YesterdayBurnModal";
 import { MealEntry, MealPreset, UserProfile, effectiveProteinGoal } from "@/types";
 import type { HistorySuggestion } from "@/types";
 import type { BalanceHistoryResponse } from "@/app/api/balance-history/route";
@@ -86,8 +87,11 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const [balanceHistory, setBalanceHistory] = useState<BalanceHistoryResponse | undefined>(undefined);
   const [mealPresets, setMealPresets] = useState<MealPreset[] | undefined>(undefined);
   const [mealSuggestions, setMealSuggestions] = useState<HistorySuggestion[] | undefined>(undefined);
+  // Yesterday burn-calories prompt state
+  const [yesterdayPrompt, setYesterdayPrompt] = useState<{ date: string; initial: number; baseGoal: number } | null>(null);
   // Track whether stable (non-date-specific) data has been loaded
   const stableLoadedRef = useRef(false);
+  const yesterdayCheckedRef = useRef(false);
 
   const today = getToday();
   const isToday = date === today;
@@ -184,6 +188,9 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
       if (activityRes.ok) {
         const data = await activityRes.json();
         setCaloriesBurned(data.calories_burned ?? 0);
+        if (typeof data.daily_goal_calories === "number") {
+          setGoalCalories(data.daily_goal_calories);
+        }
       }
     } catch { /* silent */ }
     finally { setLoading(false); }
@@ -198,6 +205,60 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
       fetchDateData(date);
     }
   }, [date, fetchAll, fetchDateData]);
+
+  // Yesterday-burn morning prompt: show once per day unless filled after 23:00 yesterday
+  useEffect(() => {
+    if (yesterdayCheckedRef.current) return;
+    if (!stableLoadedRef.current) return;
+    yesterdayCheckedRef.current = true;
+
+    const now = new Date();
+    const yDate = new Date(now);
+    yDate.setDate(yDate.getDate() - 1);
+    const yStr = `${yDate.getFullYear()}-${String(yDate.getMonth()+1).padStart(2,"0")}-${String(yDate.getDate()).padStart(2,"0")}`;
+
+    try {
+      const handled = localStorage.getItem("cf_yesterday_burn_handled");
+      if (handled === today) return;
+    } catch { /* ignore */ }
+
+    fetch(`/api/activity?date=${yStr}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data) return;
+        const deadline = new Date(yDate);
+        deadline.setHours(23, 0, 0, 0);
+        const updatedAt = data.updated_at ? new Date(data.updated_at) : null;
+        if (updatedAt && updatedAt >= deadline) return;
+        setYesterdayPrompt({
+          date: yStr,
+          initial: data.calories_burned ?? 0,
+          baseGoal: typeof data.daily_goal_calories === "number" ? data.daily_goal_calories : goalCalories,
+        });
+      })
+      .catch(() => { /* silent */ });
+  }, [loading, today]);
+
+  const markYesterdayHandled = useCallback(() => {
+    try { localStorage.setItem("cf_yesterday_burn_handled", today); } catch { /* ignore */ }
+  }, [today]);
+
+  const handleYesterdayBurnSaved = useCallback((burned: number, savedDate: string) => {
+    markYesterdayHandled();
+    setYesterdayPrompt(null);
+    // If currently viewing the day that was just updated, reflect it
+    if (savedDate === date) setCaloriesBurned(burned);
+    // Refresh balance history since yesterday's deficit may have changed
+    fetch("/api/balance-history")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setBalanceHistory(data); })
+      .catch(() => { /* silent */ });
+  }, [date, markYesterdayHandled]);
+
+  const handleYesterdayBurnSkip = useCallback(() => {
+    markYesterdayHandled();
+    setYesterdayPrompt(null);
+  }, [markYesterdayHandled]);
 
   // For pull-to-refresh — lightweight entries-only refresh
   const fetchEntries = useCallback(async () => {
@@ -414,7 +475,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           goalCalories={goalCalories}
           caloriesBurned={caloriesBurned}
           goalProtein={effectiveProteinGoal(userProfile)}
-          onGoalCaloriesChange={setGoalCalories}
+          onGoalCaloriesChange={isPast ? undefined : setGoalCalories}
         />
 
         <FoodInput
@@ -426,7 +487,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
 
         <DeficitCard
           consumed={totalCalories} burned={caloriesBurned} goalCalories={goalCalories}
-          date={date} onBurnedChange={setCaloriesBurned} onGoalChange={setGoalCalories}
+          date={date} onBurnedChange={setCaloriesBurned} onGoalChange={isPast ? undefined : setGoalCalories}
         />
 
         <CalorieHistorySection initialData={balanceHistory} />
@@ -523,6 +584,17 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           onSave={(p) => { setUserProfile(p); setShowProfile(false); }}
           onDailyGoalSaved={setGoalCalories}
           onClose={() => setShowProfile(false)}
+        />
+      )}
+
+      {yesterdayPrompt && (
+        <YesterdayBurnModal
+          date={yesterdayPrompt.date}
+          formattedDate={formatDate(yesterdayPrompt.date, lang)}
+          initialValue={yesterdayPrompt.initial}
+          baseGoal={yesterdayPrompt.baseGoal}
+          onSaved={handleYesterdayBurnSaved}
+          onClose={handleYesterdayBurnSkip}
         />
       )}
     </div>

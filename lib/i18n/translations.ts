@@ -192,6 +192,24 @@ const he = {
   untrackedRemove: "הסר סימון",
   untrackedSaving: "שומר...",
 
+  // Yesterday burn prompt (morning popup)
+  yesterdayBurnTitle: "כמה קלוריות שרפת אתמול?",
+  yesterdayBurnDesc: "לא מילאת קלוריות אקטיביות אתמול עד 23:00. עדכן את הסכום הסופי כדי שנחשב נכון את היום הקודם.",
+  yesterdayBurnFor: (d: string) => `עבור ${d}`,
+  yesterdayBurnPlaceholder: 'הזן קלוריות (קק"ל)',
+  yesterdayBurnSave: "שמור",
+  yesterdayBurnSkip: "דלג",
+  yesterdayBurnSaved: "אתמול עודכן",
+
+  // Burn mode (active vs total from smartwatch)
+  burnModeActive: "אקטיבי",
+  burnModeTotal: 'סה"כ',
+  burnModeActiveHint: "קלוריות שנשרפו בפעילות (מעבר ל-BMR)",
+  burnModeTotalHint: (bmr: number) =>
+    `סה"כ מהשעון — ננכה את היעד הבסיסי (${bmr.toLocaleString("he-IL")}) כדי לחשב פעילות`,
+  burnModeTotalBelowBmr: (bmr: number) =>
+    `הערך נמוך מהיעד הבסיסי (${bmr.toLocaleString("he-IL")}). פעילות תיחשב כ-0.`,
+
   poweredBy: "CalorieFlow · מופעל על ידי Gemini AI",
 
   // Admin page
@@ -405,6 +423,24 @@ const en: Translations = {
   untrackedAcknowledged: "Day acknowledged",
   untrackedRemove: "Remove mark",
   untrackedSaving: "Saving...",
+
+  // Yesterday burn prompt (morning popup)
+  yesterdayBurnTitle: "How many calories did you burn yesterday?",
+  yesterdayBurnDesc: "You didn't log active calories for yesterday by 11 PM. Update the final number so we can correctly compute the previous day.",
+  yesterdayBurnFor: (d: string) => `For ${d}`,
+  yesterdayBurnPlaceholder: "Enter calories (kcal)",
+  yesterdayBurnSave: "Save",
+  yesterdayBurnSkip: "Skip",
+  yesterdayBurnSaved: "Yesterday updated",
+
+  // Burn mode (active vs total from smartwatch)
+  burnModeActive: "Active",
+  burnModeTotal: "Total",
+  burnModeActiveHint: "Calories burned during activity (on top of BMR)",
+  burnModeTotalHint: (bmr: number) =>
+    `Total from smartwatch — we'll subtract your base goal (${bmr.toLocaleString()}) to get the active part`,
+  burnModeTotalBelowBmr: (bmr: number) =>
+    `Value is below your base goal (${bmr.toLocaleString()}). Active will be counted as 0.`,
 
   poweredBy: "CalorieFlow · Powered by Gemini AI",
 

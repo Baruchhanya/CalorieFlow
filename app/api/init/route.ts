@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { checkEmailAccess } from "@/lib/auth";
+import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 import type { BalanceDay, BalanceHistoryResponse } from "@/app/api/balance-history/route";
 
 async function readProfile(supabase: SupabaseClient, userId: string) {
@@ -101,7 +102,9 @@ export async function GET(request: NextRequest) {
         .lte("date", todayStr),
     ]);
 
-  const goal = settingsRes.data?.daily_goal_calories ?? 1820;
+  const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
+  const goalForDate = await buildGoalResolver(supabase, user.id, currentGoal);
+  const goalForSelectedDate = goalForDate(date);
 
   // Build balance history (same logic as /api/balance-history)
   const calorieMap = new Map<string, number>();
@@ -125,7 +128,7 @@ export async function GET(request: NextRequest) {
       const consumed = calorieMap.get(dateStr);
       if (consumed !== undefined) {
         const burned = activityMap.get(dateStr) ?? 0;
-        allDays.push({ date: dateStr, balance: Math.round((consumed - burned) - goal) });
+        allDays.push({ date: dateStr, balance: Math.round((consumed - burned) - goalForDate(dateStr)) });
       }
     }
     cur.setDate(cur.getDate() + 1);
@@ -144,7 +147,7 @@ export async function GET(request: NextRequest) {
     const consumed = calorieMap.get(dateStr);
     if (consumed !== undefined) {
       const burned = activityMap.get(dateStr) ?? 0;
-      chart_days.push({ date: dateStr, balance: Math.round((consumed - burned) - goal) });
+      chart_days.push({ date: dateStr, balance: Math.round((consumed - burned) - goalForDate(dateStr)) });
     } else if (ackMap.has(dateStr)) {
       chart_days.push({ date: dateStr, balance: ackMap.get(dateStr)!, estimated: true });
     }
@@ -185,7 +188,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     user: { email: user.email },
     entries: entriesRes.data ?? [],
-    daily_goal_calories: goal,
+    daily_goal_calories: goalForSelectedDate,
+    current_daily_goal_calories: currentGoal,
     profile,
     calories_burned: activityRes.data?.calories_burned ?? 0,
     is_admin: access.isAdmin,

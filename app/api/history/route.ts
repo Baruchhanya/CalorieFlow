@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 
 export async function GET() {
   const supabase = await createClient();
@@ -12,7 +13,8 @@ export async function GET() {
     supabase.from("user_settings").select("daily_goal_calories").eq("user_id", user.id).single(),
   ]);
 
-  const goalCalories = settingsRes.data?.daily_goal_calories ?? 1820;
+  const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
+  const goalForDate = await buildGoalResolver(supabase, user.id, currentGoal);
 
   // Build activity map
   const activityMap = new Map<string, number>();
@@ -43,7 +45,7 @@ export async function GET() {
     carbs: Math.round(g.carbs),
     fat: Math.round(g.fat),
     calories_burned: activityMap.get(g.date) ?? 0,
-    goal_calories: goalCalories,
+    goal_calories: goalForDate(g.date),
   }));
 
   return NextResponse.json(result);

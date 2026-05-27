@@ -5,13 +5,19 @@ import { Flame, Pencil, Check, X, CheckCircle2, TrendingDown, TrendingUp } from 
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
 
+function localTodayStr(): string {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+}
+
 interface DeficitCardProps {
   consumed: number;
   burned: number;
   goalCalories: number;
   date: string;
   onBurnedChange: (v: number) => void;
-  onGoalChange: (v: number) => void;
+  /** When omitted, the goal cannot be edited from this card (e.g. viewing a past day). */
+  onGoalChange?: (v: number) => void;
 }
 
 export default memo(function DeficitCard({ consumed, burned, goalCalories, date, onBurnedChange, onGoalChange }: DeficitCardProps) {
@@ -21,6 +27,7 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
   const [goalInput, setGoalInput] = useState(String(goalCalories));
   const [burnedInput, setBurnedInput] = useState(() => (burned === 0 ? "" : String(Math.round(burned))));
   const [savingBurned, setSavingBurned] = useState(false);
+  const [burnMode, setBurnMode] = useState<"active" | "total">("active");
 
   useEffect(() => {
     if (!editingGoal) setGoalInput(String(goalCalories));
@@ -28,6 +35,7 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
 
   useEffect(() => {
     setBurnedInput(burned === 0 ? "" : String(Math.round(burned)));
+    setBurnMode("active");
   }, [burned, date]);
 
   const net = consumed - burned;
@@ -38,15 +46,21 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
 
   const saveBurned = async (raw: string) => {
     const t = raw.trim();
-    const val = t === "" ? 0 : Number(t);
-    if (t !== "" && (isNaN(val) || val < 0)) {
+    const entered = t === "" ? 0 : Number(t);
+    if (t !== "" && (isNaN(entered) || entered < 0)) {
       showToast(lang === "he" ? "נא להזין מספר חיובי או להשאיר ריק" : "Enter a positive number or leave empty", "error");
       return;
     }
+    const val = burnMode === "total" ? Math.max(0, Math.round(entered - goalCalories)) : entered;
     setSavingBurned(true);
     try {
       await fetch("/api/activity", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date, calories_burned: val }) });
       onBurnedChange(val);
+      // After saving from total mode, switch the input to show the resolved active value.
+      if (burnMode === "total") {
+        setBurnedInput(val === 0 ? "" : String(val));
+        setBurnMode("active");
+      }
       showToast(lang === "he" ? "קלוריות שרופות נשמרו" : "Burned calories saved", "success");
     } finally { setSavingBurned(false); }
   };
@@ -57,8 +71,8 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
       showToast(T.calorieGoalInvalidRange, "error");
       return;
     }
-    await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ daily_goal_calories: val }) });
-    onGoalChange(val);
+    await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ daily_goal_calories: val, today_date: localTodayStr() }) });
+    onGoalChange?.(val);
     setEditingGoal(false);
     showToast(T.calorieGoalUpdated, "success");
   };
@@ -74,20 +88,26 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
       {/* Header */}
       <div className="px-6 pt-5 pb-4 flex items-center justify-between border-b border-slate-50">
         <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{T.balance}</span>
-        {editingGoal ? (
-          <div className="flex items-center gap-1.5">
-            <input type="number" value={goalInput} onChange={e => setGoalInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && saveGoal()}
-              className="w-24 text-sm border border-slate-200 rounded-xl px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-emerald-300" />
-            <button onClick={saveGoal} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-xl"><Check className="w-4 h-4" /></button>
-            <button onClick={() => { setGoalInput(String(goalCalories)); setEditingGoal(false); }} className="p-1.5 text-slate-400 hover:bg-slate-50 rounded-xl"><X className="w-4 h-4" /></button>
-          </div>
+        {onGoalChange ? (
+          editingGoal ? (
+            <div className="flex items-center gap-1.5">
+              <input type="number" value={goalInput} onChange={e => setGoalInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && saveGoal()}
+                className="w-24 text-sm border border-slate-200 rounded-xl px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+              <button onClick={saveGoal} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-xl"><Check className="w-4 h-4" /></button>
+              <button onClick={() => { setGoalInput(String(goalCalories)); setEditingGoal(false); }} className="p-1.5 text-slate-400 hover:bg-slate-50 rounded-xl"><X className="w-4 h-4" /></button>
+            </div>
+          ) : (
+            <button onClick={() => setEditingGoal(true)}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 px-2 py-1 hover:bg-slate-50 rounded-xl transition-colors">
+              <Pencil className="w-3 h-3" />
+              {T.calorieGoal}: <span className="font-bold text-slate-600">{goalCalories.toLocaleString()}</span> {T.kcal}
+            </button>
+          )
         ) : (
-          <button onClick={() => setEditingGoal(true)}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 px-2 py-1 hover:bg-slate-50 rounded-xl transition-colors">
-            <Pencil className="w-3 h-3" />
+          <span className="flex items-center gap-1.5 text-xs text-slate-400 px-2 py-1">
             {T.calorieGoal}: <span className="font-bold text-slate-600">{goalCalories.toLocaleString()}</span> {T.kcal}
-          </button>
+          </span>
         )}
       </div>
 
@@ -141,22 +161,49 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
         </div>
 
         {/* Burned input */}
-        <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
-          <Flame className="w-4 h-4 text-amber-500 shrink-0" />
-          <input
-            type="number" value={burnedInput}
-            onChange={e => setBurnedInput(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && saveBurned(burnedInput)}
-            placeholder={T.caloriesBurnedPlaceholder}
-            className="flex-1 text-sm bg-transparent focus:outline-none placeholder:text-amber-300"
-            disabled={savingBurned} min={0}
-          />
-          <span className="text-xs text-amber-400 shrink-0">{T.kcal}</span>
-          <button type="button" onClick={() => saveBurned(burnedInput)} disabled={savingBurned}
-            className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-2 rounded-xl active:scale-95 touch-manipulation transition-all disabled:opacity-50 shadow-sm">
-            {savingBurned ? <Flame className="w-3.5 h-3.5 animate-pulse" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-            OK
-          </button>
+        <div className="flex flex-col gap-1.5 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Flame className="w-4 h-4 text-amber-500 shrink-0" />
+            <input
+              type="number" value={burnedInput}
+              onChange={e => setBurnedInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && saveBurned(burnedInput)}
+              placeholder={T.caloriesBurnedPlaceholder}
+              className="flex-1 text-sm bg-transparent focus:outline-none placeholder:text-amber-300"
+              disabled={savingBurned} min={0}
+            />
+            <span className="text-xs text-amber-400 shrink-0">{T.kcal}</span>
+            <div className="flex shrink-0 rounded-xl border border-amber-200 bg-white overflow-hidden text-[10px] font-bold" role="group">
+              <button
+                type="button"
+                onClick={() => setBurnMode("active")}
+                disabled={savingBurned}
+                className={`px-2 py-1 transition-colors ${burnMode === "active" ? "bg-amber-500 text-white" : "text-amber-700 hover:bg-amber-50"}`}
+              >
+                {T.burnModeActive}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBurnMode("total")}
+                disabled={savingBurned}
+                className={`px-2 py-1 border-s border-amber-200 transition-colors ${burnMode === "total" ? "bg-amber-500 text-white" : "text-amber-700 hover:bg-amber-50"}`}
+              >
+                {T.burnModeTotal}
+              </button>
+            </div>
+            <button type="button" onClick={() => saveBurned(burnedInput)} disabled={savingBurned}
+              className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-2 rounded-xl active:scale-95 touch-manipulation transition-all disabled:opacity-50 shadow-sm">
+              {savingBurned ? <Flame className="w-3.5 h-3.5 animate-pulse" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+              OK
+            </button>
+          </div>
+          <p className="text-[10px] text-amber-600/80 leading-snug ps-6">
+            {burnMode === "total"
+              ? (Number(burnedInput) > 0 && Number(burnedInput) < goalCalories
+                ? T.burnModeTotalBelowBmr(goalCalories)
+                : T.burnModeTotalHint(goalCalories))
+              : T.burnModeActiveHint}
+          </p>
         </div>
       </div>
     </div>

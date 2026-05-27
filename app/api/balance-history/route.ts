@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 
 export interface BalanceDay {
   date: string;
@@ -53,7 +54,8 @@ export async function GET() {
       .lte("date", todayStr),
   ]);
 
-  const goal = settingsRes.data?.daily_goal_calories ?? 1820;
+  const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
+  const goalForDate = await buildGoalResolver(supabase, user.id, currentGoal);
 
   const calorieMap = new Map<string, number>();
   for (const m of mealsRes.data ?? []) {
@@ -79,7 +81,7 @@ export async function GET() {
       const consumed = calorieMap.get(dateStr);
       if (consumed !== undefined) {
         const burned = activityMap.get(dateStr) ?? 0;
-        allDays.push({ date: dateStr, balance: Math.round((consumed - burned) - goal) });
+        allDays.push({ date: dateStr, balance: Math.round((consumed - burned) - goalForDate(dateStr)) });
       }
     }
     cur.setDate(cur.getDate() + 1);
@@ -105,7 +107,7 @@ export async function GET() {
     const consumed = calorieMap.get(dateStr);
     if (consumed !== undefined) {
       const burned = activityMap.get(dateStr) ?? 0;
-      chart_days.push({ date: dateStr, balance: Math.round((consumed - burned) - goal) });
+      chart_days.push({ date: dateStr, balance: Math.round((consumed - burned) - goalForDate(dateStr)) });
     } else if (ackMap.has(dateStr)) {
       chart_days.push({ date: dateStr, balance: ackMap.get(dateStr)!, estimated: true });
     }

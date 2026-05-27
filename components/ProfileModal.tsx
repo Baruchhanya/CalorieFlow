@@ -6,6 +6,11 @@ import { UserProfile, calcProteinGoal } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
 
+function localTodayStr(): string {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+}
+
 interface ProfileModalProps {
   initialProfile: UserProfile | null;
   /** Current daily calorie target (from app state / settings). */
@@ -152,7 +157,7 @@ export default function ProfileModal({ initialProfile, dailyGoalCalories, onSave
         const sRes = await fetch("/api/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ daily_goal_calories: g }),
+          body: JSON.stringify({ daily_goal_calories: g, today_date: localTodayStr() }),
         });
         if (sRes.ok) onDailyGoalSaved?.(g);
         else showToast(T.saveError, "error");

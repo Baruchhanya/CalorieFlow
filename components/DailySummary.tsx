@@ -6,6 +6,11 @@ import { MealEntry, DEFAULT_TARGETS } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
 
+function localTodayStr(): string {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+}
+
 interface DailySummaryProps {
   entries: MealEntry[];
   goalCalories?: number;
@@ -139,7 +144,7 @@ export default memo(function DailySummary({ entries, goalCalories, caloriesBurne
       const res = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ daily_goal_calories: val }),
+        body: JSON.stringify({ daily_goal_calories: val, today_date: localTodayStr() }),
       });
       if (!res.ok) throw new Error("settings");
       onGoalCaloriesChange?.(val);
