@@ -27,6 +27,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "No allowed emails configured" }, { status: 500 });
   }
 
+  const filterEmail = new URL(req.url).searchParams.get("email")?.toLowerCase();
+  const targetEmails = filterEmail
+    ? allowedEmails.filter((e) => e === filterEmail)
+    : allowedEmails;
+  if (filterEmail && targetEmails.length === 0) {
+    return NextResponse.json({ error: `email ${filterEmail} not in allowed list` }, { status: 400 });
+  }
+
   const supabaseAdmin = createSupabaseClient(supabaseUrl, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -47,7 +55,7 @@ export async function GET(req: Request) {
 
   const results = [];
 
-  for (const email of allowedEmails) {
+  for (const email of targetEmails) {
     const user = (users as { id: string; email: string }[])
       .find((u) => u.email?.toLowerCase() === email);
 
