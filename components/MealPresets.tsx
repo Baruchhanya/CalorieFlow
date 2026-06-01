@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Bookmark, Plus, X, Loader2, History } from "lucide-react";
+import { Bookmark, Plus, X, Loader2, History, ChevronLeft } from "lucide-react";
 import type { MealPreset, MealEntry, HistorySuggestion } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+import MealHistoryModal from "@/components/MealHistoryModal";
 
 interface MealPresetsProps {
   currentDate: string;
@@ -26,6 +27,7 @@ export default function MealPresets({ currentDate, onAdded, initialPresets, init
   const [savingPresetKey, setSavingPresetKey] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [calories, setCalories] = useState("");
@@ -281,10 +283,18 @@ export default function MealPresets({ currentDate, onAdded, initialPresets, init
               <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
                 <History className="w-4 h-4 text-slate-600" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{T.recurringFromHistoryTitle}</h3>
                 <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">{T.recurringFromHistoryHint}</p>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(true)}
+                className="shrink-0 inline-flex items-center gap-0.5 text-emerald-700 text-xs font-bold hover:underline hover:text-emerald-800 transition-colors"
+              >
+                {T.historySeeAll}
+                <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-0 ltr:rotate-180" />
+              </button>
             </div>
             {loadingHistory ? (
               <div className="flex items-center justify-center py-4 text-slate-400">
@@ -421,6 +431,15 @@ export default function MealPresets({ currentDate, onAdded, initialPresets, init
           </div>
         )}
       </div>
+
+      <MealHistoryModal
+        open={showHistoryModal}
+        currentDate={currentDate}
+        presetNameKeys={presetNameKeys}
+        onAdded={(entries) => onAdded(entries)}
+        onPresetSaved={(preset) => setPresets((prev) => [...prev, preset])}
+        onClose={() => setShowHistoryModal(false)}
+      />
     </section>
   );
 }

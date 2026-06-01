@@ -2,17 +2,20 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 /** Recent distinct meals from the diary (by name), for one-tap re-add. */
-export async function GET() {
+export async function GET(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const limitParam = new URL(req.url).searchParams.get("limit");
+  const wantAll = limitParam === "all";
 
   const { data, error } = await supabase
     .from("meals")
     .select("name, calories, protein, carbs, fat, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
-    .limit(500);
+    .limit(wantAll ? 5000 : 500);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -40,7 +43,8 @@ export async function GET() {
   }
 
   // Preserve insertion order = most-recently-eaten first
-  const items = Array.from(map.values()).slice(0, 18);
+  const all = Array.from(map.values());
+  const items = wantAll ? all : all.slice(0, 18);
 
   return NextResponse.json({ items });
 }

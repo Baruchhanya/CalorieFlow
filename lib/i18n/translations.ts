@@ -169,6 +169,20 @@ const he = {
   recurringDeleted: "הוסר מהרשימה",
   deleteRecurringConfirm: (name: string) => `להסיר את "${name}" מהארוחות הקבועות?`,
 
+  // Meal history modal
+  historySeeAll: "ראה הכל",
+  historyModalTitle: "כל ההיסטוריה",
+  historyModalHint: "כל המאכלים שתיעדת — אפשר להוסיף ליום, לשמור כקבוע, או לערוך לפני שמירה.",
+  historySearchPlaceholder: "חיפוש לפי שם...",
+  historyEmpty: "אין עדיין מאכלים בהיסטוריה.",
+  historyNoMatch: "אין תוצאות התואמות את החיפוש.",
+  historyTimesEaten: (n: number) => `${n} פעמים`,
+  historyAddToDay: "הוסף ליום",
+  historySavePreset: "שמור כקבוע",
+  historyEditAndSave: "ערוך ושמור",
+  historyEditFormTitle: "ערוך לפני שמירה",
+  historyAlreadyPreset: "כבר ברשימה",
+
   // Calorie balance history section
   balanceHistory: "היסטוריית מאזן קלוריות",
   balanceHistoryHint: "7 הימים האחרונים שתועדו",
@@ -428,6 +442,20 @@ const en: Translations = {
   recurringSaved: "Saved to your recurring list",
   recurringDeleted: "Removed from list",
   deleteRecurringConfirm: (name: string) => `Remove "${name}" from recurring meals?`,
+
+  // Meal history modal
+  historySeeAll: "See all",
+  historyModalTitle: "All history",
+  historyModalHint: "Every meal you've logged — add to the day, save as preset, or edit before saving.",
+  historySearchPlaceholder: "Search by name...",
+  historyEmpty: "No meals in history yet.",
+  historyNoMatch: "No results match your search.",
+  historyTimesEaten: (n: number) => `${n} times`,
+  historyAddToDay: "Add to day",
+  historySavePreset: "Save as preset",
+  historyEditAndSave: "Edit & save",
+  historyEditFormTitle: "Edit before saving",
+  historyAlreadyPreset: "Already saved",
 
   // Calorie balance history section
   balanceHistory: "Calorie Balance History",
