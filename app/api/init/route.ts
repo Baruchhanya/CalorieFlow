@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { checkEmailAccess } from "@/lib/auth";
 import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
-import type { BalanceDay, BalanceHistoryResponse } from "@/app/api/balance-history/route";
+import { computeBalanceHistory } from "@/lib/balance";
 
 async function readProfile(supabase: SupabaseClient, userId: string) {
   const tryFull = await supabase
@@ -25,13 +25,36 @@ async function readProfile(supabase: SupabaseClient, userId: string) {
   return null;
 }
 
+// Lightweight step timer for per-phase / per-step latency logging.
+function makeTimer(label: string) {
+  const t0 = performance.now();
+  const marks: string[] = [];
+  let last = t0;
+  return {
+    mark(name: string) {
+      const now = performance.now();
+      marks.push(`${name}=${Math.round(now - last)}ms`);
+      last = now;
+    },
+    done(extra = "") {
+      const total = Math.round(performance.now() - t0);
+      console.log(`[perf] /api/init[${label}]: ${total}ms (${marks.join(" ")})${extra ? " " + extra : ""}`);
+    },
+  };
+}
+
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date") ?? new Date().toISOString().split("T")[0];
+  const phase = searchParams.get("phase") ?? "all"; // "critical" | "secondary" | "all"
+
+  const timer = makeTimer(phase);
+
+  const { data: { user } } = await supabase.auth.getUser();
+  timer.mark("auth");
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
@@ -39,6 +62,118 @@ export async function GET(request: NextRequest) {
   from30.setDate(from30.getDate() - 29);
   const fromStr = from30.toISOString().split("T")[0];
 
+  // ── CRITICAL phase: only what's needed to make the main UI usable ──
+  if (phase === "critical") {
+    const [entriesRes, settingsRes, profile, activityRes] = await Promise.all([
+      supabase
+        .from("meals")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("date", date)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("user_settings")
+        .select("daily_goal_calories")
+        .eq("user_id", user.id)
+        .single(),
+      readProfile(supabase, user.id),
+      supabase
+        .from("daily_activity")
+        .select("calories_burned")
+        .eq("user_id", user.id)
+        .eq("date", date)
+        .single(),
+    ]);
+    timer.mark("db");
+
+    const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
+    const goalForDate = await buildGoalResolver(supabase, user.id, currentGoal);
+    timer.mark("goal");
+    const goalForSelectedDate = goalForDate(date);
+
+    timer.done(`(date=${date})`);
+
+    return NextResponse.json({
+      user: { email: user.email },
+      entries: entriesRes.data ?? [],
+      daily_goal_calories: goalForSelectedDate,
+      current_daily_goal_calories: currentGoal,
+      profile,
+      calories_burned: activityRes.data?.calories_burned ?? 0,
+    });
+  }
+
+  // ── SECONDARY phase: heavier, below-the-fold data ──
+  if (phase === "secondary") {
+    const [settingsRes, access, histMealsRes, histActivityRes, presetsRes, suggestionsRes, acksRes] =
+      await Promise.all([
+        supabase
+          .from("user_settings")
+          .select("daily_goal_calories")
+          .eq("user_id", user.id)
+          .single(),
+        checkEmailAccess(user.email, supabase),
+        supabase
+          .from("meals")
+          .select("date, calories")
+          .eq("user_id", user.id)
+          .gte("date", fromStr)
+          .lte("date", todayStr),
+        supabase
+          .from("daily_activity")
+          .select("date, calories_burned")
+          .eq("user_id", user.id)
+          .gte("date", fromStr)
+          .lte("date", todayStr),
+        supabase
+          .from("meal_presets")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("meals")
+          .select("name, calories, protein, carbs, fat, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(500),
+        supabase
+          .from("day_acknowledgments")
+          .select("date, estimated_balance")
+          .eq("user_id", user.id)
+          .gte("date", fromStr)
+          .lte("date", todayStr),
+      ]);
+    timer.mark("db");
+
+    const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
+    const goalForDate = await buildGoalResolver(supabase, user.id, currentGoal);
+    timer.mark("goal");
+
+    const balanceHistory = computeBalanceHistory({
+      meals: histMealsRes.data ?? [],
+      activity: histActivityRes.data ?? [],
+      acks: acksRes.data ?? [],
+      goalForDate,
+      from: from30,
+      today,
+    });
+    timer.mark("balance");
+
+    const mealSuggestions = aggregateSuggestions(suggestionsRes.data ?? []);
+    timer.mark("suggestions");
+
+    timer.done(`(date=${date})`);
+
+    return NextResponse.json({
+      is_admin: access.isAdmin,
+      balance_history: balanceHistory,
+      meal_presets: presetsRes.data ?? [],
+      meal_suggestions: mealSuggestions,
+    });
+  }
+
+  // ── ALL phase (default): full payload in one round trip ──
   const [entriesRes, settingsRes, profile, activityRes, access,
          histMealsRes, histActivityRes, presetsRes, suggestionsRes, acksRes] =
     await Promise.all([
@@ -101,71 +236,48 @@ export async function GET(request: NextRequest) {
         .gte("date", fromStr)
         .lte("date", todayStr),
     ]);
+  timer.mark("db");
 
   const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
   const goalForDate = await buildGoalResolver(supabase, user.id, currentGoal);
+  timer.mark("goal");
   const goalForSelectedDate = goalForDate(date);
 
-  // Build balance history (same logic as /api/balance-history)
-  const calorieMap = new Map<string, number>();
-  for (const m of histMealsRes.data ?? []) {
-    calorieMap.set(m.date, (calorieMap.get(m.date) ?? 0) + (m.calories ?? 0));
-  }
-  const activityMap = new Map<string, number>();
-  for (const a of histActivityRes.data ?? []) {
-    activityMap.set(a.date, a.calories_burned ?? 0);
-  }
-  const ackMap = new Map<string, number>();
-  for (const a of acksRes.data ?? []) {
-    ackMap.set(a.date, a.estimated_balance);
-  }
+  const balanceHistory = computeBalanceHistory({
+    meals: histMealsRes.data ?? [],
+    activity: histActivityRes.data ?? [],
+    acks: acksRes.data ?? [],
+    goalForDate,
+    from: from30,
+    today,
+  });
+  timer.mark("balance");
 
-  const allDays: BalanceDay[] = [];
-  const cur = new Date(from30);
-  while (cur < today) {
-    const dateStr = cur.toISOString().split("T")[0];
-    if (dateStr !== todayStr) {
-      const consumed = calorieMap.get(dateStr);
-      if (consumed !== undefined) {
-        const burned = activityMap.get(dateStr) ?? 0;
-        allDays.push({ date: dateStr, balance: Math.round((consumed - burned) - goalForDate(dateStr)) });
-      }
-    }
-    cur.setDate(cur.getDate() + 1);
-  }
+  const mealSuggestions = aggregateSuggestions(suggestionsRes.data ?? []);
+  timer.mark("suggestions");
 
-  const days7 = allDays.slice(-7);
-  const weeklySum = days7.reduce((s, d) => s + d.balance, 0);
-  const monthlySum = allDays.reduce((s, d) => s + d.balance, 0);
+  timer.done(`(date=${date})`);
 
-  // chart_days: last 7 calendar days with any data (tracked or acknowledged)
-  const chart_days: BalanceDay[] = [];
-  for (let i = 7; i >= 1; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split("T")[0];
-    const consumed = calorieMap.get(dateStr);
-    if (consumed !== undefined) {
-      const burned = activityMap.get(dateStr) ?? 0;
-      chart_days.push({ date: dateStr, balance: Math.round((consumed - burned) - goalForDate(dateStr)) });
-    } else if (ackMap.has(dateStr)) {
-      chart_days.push({ date: dateStr, balance: ackMap.get(dateStr)!, estimated: true });
-    }
-  }
+  return NextResponse.json({
+    user: { email: user.email },
+    entries: entriesRes.data ?? [],
+    daily_goal_calories: goalForSelectedDate,
+    current_daily_goal_calories: currentGoal,
+    profile,
+    calories_burned: activityRes.data?.calories_burned ?? 0,
+    is_admin: access.isAdmin,
+    balance_history: balanceHistory,
+    meal_presets: presetsRes.data ?? [],
+    meal_suggestions: mealSuggestions,
+  });
+}
 
-  const balanceHistory: BalanceHistoryResponse = {
-    days7,
-    chart_days,
-    weekly_avg: days7.length > 0 ? Math.round(weeklySum / days7.length) : null,
-    weekly_total: days7.length > 0 ? Math.round(weeklySum) : null,
-    monthly_avg: allDays.length > 0 ? Math.round(monthlySum / allDays.length) : null,
-    monthly_total: allDays.length > 0 ? Math.round(monthlySum) : null,
-  };
-
-  // Aggregate meal suggestions (distinct meals by name, most recent first)
-  type SuggestionRow = { name: string; calories: number; protein: number; carbs: number; fat: number; count: number };
+// Aggregate meal suggestions (distinct meals by name, most recent first).
+type SuggestionInput = { name?: string | null; calories?: number; protein?: number; carbs?: number; fat?: number };
+type SuggestionRow = { name: string; calories: number; protein: number; carbs: number; fat: number; count: number };
+function aggregateSuggestions(rows: SuggestionInput[]): SuggestionRow[] {
   const suggestionMap = new Map<string, SuggestionRow>();
-  for (const row of suggestionsRes.data ?? []) {
+  for (const row of rows) {
     const raw = row.name?.trim();
     if (!raw) continue;
     const key = raw.toLowerCase();
@@ -183,18 +295,5 @@ export async function GET(request: NextRequest) {
       existing.count += 1;
     }
   }
-  const mealSuggestions = Array.from(suggestionMap.values()).slice(0, 18);
-
-  return NextResponse.json({
-    user: { email: user.email },
-    entries: entriesRes.data ?? [],
-    daily_goal_calories: goalForSelectedDate,
-    current_daily_goal_calories: currentGoal,
-    profile,
-    calories_burned: activityRes.data?.calories_burned ?? 0,
-    is_admin: access.isAdmin,
-    balance_history: balanceHistory,
-    meal_presets: presetsRes.data ?? [],
-    meal_suggestions: mealSuggestions,
-  });
+  return Array.from(suggestionMap.values()).slice(0, 18);
 }

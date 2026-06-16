@@ -1,23 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
+import { computeBalanceHistory } from "@/lib/balance";
 
-export interface BalanceDay {
-  date: string;
-  balance: number; // (consumed - burned) - goal; negative = deficit, positive = surplus
-  estimated?: boolean; // true when balance comes from user acknowledgment, not actual meal data
-}
-
-export interface BalanceHistoryResponse {
-  days7: BalanceDay[];        // last ≤7 tracked days (for stat tiles — only real meal data)
-  chart_days: BalanceDay[];   // last 7 calendar days with any data (tracked + acknowledged)
-  weekly_avg: number | null;  // mean balance over days7
-  weekly_total: number | null; // sum balance over days7
-  monthly_avg: number | null; // mean balance over all tracked days in last 30 days
-  monthly_total: number | null; // sum balance over all tracked days in last 30 days
-}
+export type { BalanceDay, BalanceHistoryResponse } from "@/lib/balance";
 
 export async function GET() {
+  const t0 = performance.now();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -57,61 +46,16 @@ export async function GET() {
   const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
   const goalForDate = await buildGoalResolver(supabase, user.id, currentGoal);
 
-  const calorieMap = new Map<string, number>();
-  for (const m of mealsRes.data ?? []) {
-    calorieMap.set(m.date, (calorieMap.get(m.date) ?? 0) + (m.calories ?? 0));
-  }
+  const balanceHistory = computeBalanceHistory({
+    meals: mealsRes.data ?? [],
+    activity: activityRes.data ?? [],
+    acks: acksRes.data ?? [],
+    goalForDate,
+    from: from30,
+    today,
+  });
 
-  const activityMap = new Map<string, number>();
-  for (const a of activityRes.data ?? []) {
-    activityMap.set(a.date, a.calories_burned ?? 0);
-  }
+  console.log(`[perf] /api/balance-history: ${Math.round(performance.now() - t0)}ms`);
 
-  const ackMap = new Map<string, number>();
-  for (const a of acksRes.data ?? []) {
-    ackMap.set(a.date, a.estimated_balance);
-  }
-
-  // Build per-day entries — only days with real meal data, EXCLUDING today
-  const allDays: BalanceDay[] = [];
-  const cur = new Date(from30);
-  while (cur < today) {
-    const dateStr = cur.toISOString().split("T")[0];
-    if (dateStr !== todayStr) {
-      const consumed = calorieMap.get(dateStr);
-      if (consumed !== undefined) {
-        const burned = activityMap.get(dateStr) ?? 0;
-        allDays.push({ date: dateStr, balance: Math.round((consumed - burned) - goalForDate(dateStr)) });
-      }
-    }
-    cur.setDate(cur.getDate() + 1);
-  }
-
-  const days7 = allDays.slice(-7);
-
-  const weeklySum = days7.reduce((s, d) => s + d.balance, 0);
-  const monthlySum = allDays.reduce((s, d) => s + d.balance, 0);
-
-  const weekly_avg = days7.length > 0 ? Math.round(weeklySum / days7.length) : null;
-  const weekly_total = days7.length > 0 ? Math.round(weeklySum) : null;
-  const monthly_avg = allDays.length > 0 ? Math.round(monthlySum / allDays.length) : null;
-  const monthly_total = allDays.length > 0 ? Math.round(monthlySum) : null;
-
-  // Build chart_days: last 7 calendar days (not today) with any data (tracked or acknowledged)
-  const chart_days: BalanceDay[] = [];
-  for (let i = 7; i >= 1; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split("T")[0];
-
-    const consumed = calorieMap.get(dateStr);
-    if (consumed !== undefined) {
-      const burned = activityMap.get(dateStr) ?? 0;
-      chart_days.push({ date: dateStr, balance: Math.round((consumed - burned) - goalForDate(dateStr)) });
-    } else if (ackMap.has(dateStr)) {
-      chart_days.push({ date: dateStr, balance: ackMap.get(dateStr)!, estimated: true });
-    }
-  }
-
-  return NextResponse.json({ days7, chart_days, weekly_avg, weekly_total, monthly_avg, monthly_total } satisfies BalanceHistoryResponse);
+  return NextResponse.json(balanceHistory);
 }

@@ -10,6 +10,7 @@ import { GeminiResponse, FoodItem, MealEntry, MealPreset } from "@/types";
 import type { HistorySuggestion } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+import { getToday } from "@/lib/dates";
 import MealPresets from "@/components/MealPresets";
 
 type Tab = "text" | "image" | "audio" | "manual";
@@ -72,11 +73,6 @@ function compressImage(file: File, maxWidth = 1024, quality = 0.8): Promise<stri
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-}
-
-function localDateStr(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
 }
 
 // ─── Selective Result Preview ────────────────────────────────────────────────
@@ -477,7 +473,7 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
 
   const saveItems = async (items: FoodItem[]) => {
     setAdding(true);
-    const date = currentDate ?? localDateStr();
+    const date = currentDate ?? getToday();
     try {
       const payload = items.map((item) => ({
         date, name: item.name, quantity: item.quantity || null,
@@ -532,7 +528,7 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
 
       <div className="mb-4 -mx-1">
         <MealPresets
-          currentDate={currentDate ?? localDateStr()}
+          currentDate={currentDate ?? getToday()}
           onAdded={onEntriesAdded}
           initialPresets={initialPresets}
           initialSuggestions={initialSuggestions}

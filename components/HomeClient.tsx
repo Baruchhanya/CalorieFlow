@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -22,24 +22,7 @@ import type { BalanceHistoryResponse } from "@/app/api/balance-history/route";
 import { createClient } from "@/lib/supabase/client";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
-
-function getToday() {
-  const n = new Date();
-  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;
-}
-
-function formatDate(dateStr: string, lang: string) {
-  return new Date(dateStr + "T12:00:00").toLocaleDateString(
-    lang === "he" ? "he-IL" : "en-US",
-    { weekday: "long", month: "long", day: "numeric" }
-  );
-}
-
-function offsetDate(dateStr: string, days: number) {
-  const d = new Date(dateStr + "T12:00:00");
-  d.setDate(d.getDate() + days);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-}
+import { getToday, offsetDate, formatDate } from "@/lib/dates";
 
 function getInitials(email: string) {
   return email.split("@")[0].slice(0, 2).toUpperCase();
@@ -92,11 +75,15 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   // Track whether stable (non-date-specific) data has been loaded
   const stableLoadedRef = useRef(false);
   const yesterdayCheckedRef = useRef(false);
+  // Monotonic request id — guards against stale critical/secondary responses
+  // overwriting newer data when the user changes date / refreshes quickly.
+  const reqSeqRef = useRef(0);
 
   const today = getToday();
   const isToday = date === today;
   const isPast = date < today;
-  const totalCalories = entries.reduce((s, e) => s + e.calories, 0);
+  const totalCalories = useMemo(() => entries.reduce((s, e) => s + e.calories, 0), [entries]);
+  const goalProtein = useMemo(() => effectiveProteinGoal(userProfile), [userProfile]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -147,64 +134,55 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
     };
   }, []);
 
-  // Full init fetch — loads everything (first load only for stable data)
-  const fetchAll = useCallback(async (targetDate: string) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/init?date=${targetDate}`);
-      if (!res.ok) return;
-      const d = await res.json();
-      // Date-specific data (always update)
-      setEntries(Array.isArray(d.entries) ? d.entries : []);
-      setCaloriesBurned(d.calories_burned ?? 0);
-      // Stable data (only set on first load or full refresh)
-      if (!stableLoadedRef.current) {
-        setUserEmail(d.user?.email ?? null);
-        setGoalCalories(typeof d.daily_goal_calories === "number" ? d.daily_goal_calories : 1820);
-        setUserProfile(d.profile ?? null);
+  // Secondary (non-critical) data for a given date — never blocks the UI.
+  // Tagged with a request id so a stale response can't overwrite newer data.
+  const loadSecondary = useCallback((targetDate: string, seq: number) => {
+    fetch(`/api/init?date=${targetDate}&phase=secondary`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d || seq !== reqSeqRef.current) return;
         setIsAdmin(!!d.is_admin);
         if (d.balance_history) setBalanceHistory(d.balance_history);
         setMealPresets(Array.isArray(d.meal_presets) ? d.meal_presets : []);
         setMealSuggestions(Array.isArray(d.meal_suggestions) ? d.meal_suggestions : []);
+      })
+      .catch(() => { /* silent */ });
+  }, []);
+
+  // Critical data for a given date — gates the meal-list / summary skeletons.
+  const loadCritical = useCallback(async (targetDate: string, seq: number) => {
+    try {
+      const res = await fetch(`/api/init?date=${targetDate}&phase=critical`);
+      if (!res.ok) return;
+      const d = await res.json();
+      if (seq !== reqSeqRef.current) return; // a newer request superseded us
+      setEntries(Array.isArray(d.entries) ? d.entries : []);
+      setCaloriesBurned(d.calories_burned ?? 0);
+      if (typeof d.daily_goal_calories === "number") setGoalCalories(d.daily_goal_calories);
+      if (!stableLoadedRef.current) {
+        setUserEmail(d.user?.email ?? null);
+        setUserProfile(d.profile ?? null);
         if (!d.profile?.weight_kg) setShowProfile(true);
         stableLoadedRef.current = true;
       }
     } catch { /* silent */ }
-    finally { setLoading(false); }
+    finally {
+      if (seq === reqSeqRef.current) setLoading(false);
+    }
   }, []);
 
-  // Lightweight date-only fetch — entries + activity for a specific date
-  const fetchDateData = useCallback(async (targetDate: string) => {
+  // Unified refresh: critical unblocks the UI; secondary fills in below the fold.
+  // Used for first load, date changes, and pull-to-refresh alike.
+  const refresh = useCallback((targetDate: string) => {
+    const seq = ++reqSeqRef.current;
     setLoading(true);
-    try {
-      const [entriesRes, activityRes] = await Promise.all([
-        fetch(`/api/entries?date=${targetDate}`),
-        fetch(`/api/activity?date=${targetDate}`),
-      ]);
-      if (entriesRes.ok) {
-        const data = await entriesRes.json();
-        setEntries(Array.isArray(data) ? data : []);
-      }
-      if (activityRes.ok) {
-        const data = await activityRes.json();
-        setCaloriesBurned(data.calories_burned ?? 0);
-        if (typeof data.daily_goal_calories === "number") {
-          setGoalCalories(data.daily_goal_calories);
-        }
-      }
-    } catch { /* silent */ }
-    finally { setLoading(false); }
-  }, []);
+    loadSecondary(targetDate, seq);
+    loadCritical(targetDate, seq);
+  }, [loadCritical, loadSecondary]);
 
   useEffect(() => {
-    if (!stableLoadedRef.current) {
-      // First load: get everything
-      fetchAll(date);
-    } else {
-      // Subsequent date changes: only entries + activity
-      fetchDateData(date);
-    }
-  }, [date, fetchAll, fetchDateData]);
+    refresh(date);
+  }, [date, refresh]);
 
   // Yesterday-burn morning prompt: show once per day unless filled after 23:00 yesterday
   useEffect(() => {
@@ -260,16 +238,11 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
     setYesterdayPrompt(null);
   }, [markYesterdayHandled]);
 
-  // For pull-to-refresh — lightweight entries-only refresh
-  const fetchEntries = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/entries?date=${date}`);
-      const data = await res.json();
-      setEntries(Array.isArray(data) ? data : []);
-    } catch { /* silent */ }
-    finally { setLoading(false); }
-  }, [date]);
+  // For pull-to-refresh / header refresh — full phased refresh of the current
+  // date: critical data updates the visible UI first, secondary fills in after.
+  const fetchEntries = useCallback(() => {
+    refresh(date);
+  }, [refresh, date]);
 
   /* Pull-down to refresh (mobile): when at top of page, drag down ~100px */
   useEffect(() => {
@@ -309,8 +282,8 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const handleNewEntries = useCallback((newEntries: MealEntry[]) => {
     setEntries(prev => [...prev, ...newEntries]);
   }, []);
-  const handleDelete = (id: string) => setEntries(prev => prev.filter(e => e.id !== id));
-  const handleSave = (updated: MealEntry) => { setEntries(prev => prev.map(e => e.id === updated.id ? updated : e)); setEditingEntry(null); };
+  const handleDelete = useCallback((id: string) => setEntries(prev => prev.filter(e => e.id !== id)), []);
+  const handleSave = useCallback((updated: MealEntry) => { setEntries(prev => prev.map(e => e.id === updated.id ? updated : e)); setEditingEntry(null); }, []);
 
   const handleClearAll = async () => {
     if (!entries.length || !confirm(T.clearAllConfirm(entries.length))) return;
@@ -474,7 +447,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           entries={entries}
           goalCalories={goalCalories}
           caloriesBurned={caloriesBurned}
-          goalProtein={effectiveProteinGoal(userProfile)}
+          goalProtein={goalProtein}
           onGoalCaloriesChange={isPast ? undefined : setGoalCalories}
         />
 
