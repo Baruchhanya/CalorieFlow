@@ -28,6 +28,17 @@ function getInitials(email: string) {
   return email.split("@")[0].slice(0, 2).toUpperCase();
 }
 
+// Defined fallback so secondary children render their empty state instead of
+// hanging in a skeleton when the secondary fetch fails or returns nothing.
+const EMPTY_BALANCE_HISTORY: BalanceHistoryResponse = {
+  days7: [],
+  chart_days: [],
+  weekly_avg: null,
+  weekly_total: null,
+  monthly_avg: null,
+  monthly_total: null,
+};
+
 // Bottom nav item
 function NavItem({ icon, label, active, onClick, href }: {
   icon: React.ReactNode; label: string; active?: boolean;
@@ -140,13 +151,21 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
     fetch(`/api/init?date=${targetDate}&phase=secondary`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (!d || seq !== reqSeqRef.current) return;
-        setIsAdmin(!!d.is_admin);
-        if (d.balance_history) setBalanceHistory(d.balance_history);
-        setMealPresets(Array.isArray(d.meal_presets) ? d.meal_presets : []);
-        setMealSuggestions(Array.isArray(d.meal_suggestions) ? d.meal_suggestions : []);
+        if (seq !== reqSeqRef.current) return;
+        // Children no longer self-fetch, so always resolve their props to a
+        // defined value — even on a failed/empty response — so their skeletons
+        // clear instead of hanging forever.
+        setIsAdmin(!!d?.is_admin);
+        setBalanceHistory(d?.balance_history ?? EMPTY_BALANCE_HISTORY);
+        setMealPresets(Array.isArray(d?.meal_presets) ? d.meal_presets : []);
+        setMealSuggestions(Array.isArray(d?.meal_suggestions) ? d.meal_suggestions : []);
       })
-      .catch(() => { /* silent */ });
+      .catch(() => {
+        if (seq !== reqSeqRef.current) return;
+        setBalanceHistory(EMPTY_BALANCE_HISTORY);
+        setMealPresets([]);
+        setMealSuggestions([]);
+      });
   }, []);
 
   // Critical data for a given date — gates the meal-list / summary skeletons.

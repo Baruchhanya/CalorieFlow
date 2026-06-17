@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Bookmark, Plus, X, Loader2, History, ChevronLeft } from "lucide-react";
 import type { MealPreset, MealEntry, HistorySuggestion } from "@/types";
 import { useLang } from "@/lib/i18n/context";
@@ -35,42 +35,23 @@ export default function MealPresets({ currentDate, onAdded, initialPresets, init
   const [carbs, setCarbs] = useState("");
   const [fat, setFat] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/meal-presets", { cache: "no-store" });
-      if (!res.ok) throw new Error("load");
-      const data = await res.json();
-      setPresets(Array.isArray(data) ? data : []);
-    } catch {
-      setPresets([]);
-    } finally {
+  // Parent supplies presets/suggestions via initial* props (from /api/init
+  // phase=secondary). Track them here and clear the skeletons once they arrive.
+  // The component no longer self-fetches on mount — that duplicated the
+  // secondary request. Mutations below update local state directly.
+  useEffect(() => {
+    if (initialPresets) {
+      setPresets(initialPresets);
       setLoading(false);
     }
-  }, []);
+  }, [initialPresets]);
 
   useEffect(() => {
-    if (!initialPresets) load();
-  }, [load, initialPresets]);
-
-  const loadHistory = useCallback(async () => {
-    setLoadingHistory(true);
-    try {
-      const res = await fetch("/api/meal-suggestions", { cache: "no-store" });
-      if (!res.ok) throw new Error("load");
-      const data = await res.json();
-      const items: HistorySuggestion[] = Array.isArray(data.items) ? data.items : [];
-      setHistoryItems(items);
-    } catch {
-      setHistoryItems([]);
-    } finally {
+    if (initialSuggestions) {
+      setHistoryItems(initialSuggestions);
       setLoadingHistory(false);
     }
-  }, []);
-
-  useEffect(() => {
-    if (!initialSuggestions) loadHistory();
-  }, [loadHistory, initialSuggestions]);
+  }, [initialSuggestions]);
 
   const presetNameKeys = new Set(presets.map((p) => p.name.trim().toLowerCase()));
   const historyFiltered = historyItems.filter((h) => !presetNameKeys.has(h.name.trim().toLowerCase()));

@@ -193,9 +193,14 @@ export default memo(function CalorieHistorySection({ initialData }: { initialDat
   const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState(false);
 
-  // React to parent re-fetching and passing fresh initialData (e.g. after acknowledgment saved)
+  // Parent supplies balance data via initialData (from /api/init phase=secondary).
+  // Track it here and clear the skeleton once it arrives. The component no longer
+  // self-fetches on mount — that would duplicate the secondary request.
   useEffect(() => {
-    if (initialData) setData(initialData);
+    if (initialData) {
+      setData(initialData);
+      setLoading(false);
+    }
   }, [initialData]);
 
   const load = useCallback(async () => {
@@ -211,10 +216,6 @@ export default memo(function CalorieHistorySection({ initialData }: { initialDat
       setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    if (!initialData) load();
-  }, [initialData, load]);
 
   if (loading) return <LoadingSkeleton />;
 

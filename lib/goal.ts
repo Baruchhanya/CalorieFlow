@@ -8,12 +8,37 @@ export interface GoalHistoryRow {
 }
 
 /**
- * Builds a resolver that, given a YYYY-MM-DD date string, returns the daily
- * goal effective on that date. Loads goal_history once per call site.
+ * Pure resolver: given pre-fetched goal_history rows (ascending by
+ * effective_date) and the current goal, returns a function mapping a
+ * YYYY-MM-DD date to the goal effective on that date.
  *
  * Resolution: pick the row with the greatest effective_date <= the given date.
  * If no row applies (history is empty or all rows are in the future), fall
- * back to user_settings.daily_goal_calories (the current goal).
+ * back to the current goal.
+ *
+ * Use this when the goal_history rows have already been fetched (e.g. folded
+ * into a parallel Promise.all) so the query doesn't sit serially on the path.
+ */
+export function resolveGoalFromHistory(
+  history: GoalHistoryRow[],
+  currentGoal: number,
+): (date: string) => number {
+  return (date: string): number => {
+    if (history.length === 0) return currentGoal;
+    let resolved: number | null = null;
+    for (const row of history) {
+      if (row.effective_date <= date) resolved = row.daily_goal_calories;
+      else break;
+    }
+    return resolved ?? currentGoal;
+  };
+}
+
+/**
+ * Fetches goal_history once, then builds the resolver via
+ * {@link resolveGoalFromHistory}. Prefer fetching goal_history inside an
+ * existing Promise.all and calling resolveGoalFromHistory directly when you
+ * want the query to overlap with other work.
  */
 export async function buildGoalResolver(
   supabase: SupabaseClient,
@@ -26,15 +51,5 @@ export async function buildGoalResolver(
     .eq("user_id", userId)
     .order("effective_date", { ascending: true });
 
-  const history: GoalHistoryRow[] = data ?? [];
-
-  return (date: string): number => {
-    if (history.length === 0) return currentGoal;
-    let resolved: number | null = null;
-    for (const row of history) {
-      if (row.effective_date <= date) resolved = row.daily_goal_calories;
-      else break;
-    }
-    return resolved ?? currentGoal;
-  };
+  return resolveGoalFromHistory(data ?? [], currentGoal);
 }

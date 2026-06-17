@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { checkEmailAccess } from "@/lib/auth";
-import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
+import { buildGoalResolver, resolveGoalFromHistory, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 import { computeBalanceHistory } from "@/lib/balance";
 
 async function readProfile(supabase: SupabaseClient, userId: string) {
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
   // ── CRITICAL phase: only what's needed to make the main UI usable ──
   if (phase === "critical") {
-    const [entriesRes, settingsRes, profile, activityRes] = await Promise.all([
+    const [entriesRes, settingsRes, profile, activityRes, goalHistoryRes] = await Promise.all([
       supabase
         .from("meals")
         .select("*")
@@ -83,11 +83,16 @@ export async function GET(request: NextRequest) {
         .eq("user_id", user.id)
         .eq("date", date)
         .single(),
+      supabase
+        .from("goal_history")
+        .select("effective_date, daily_goal_calories")
+        .eq("user_id", user.id)
+        .order("effective_date", { ascending: true }),
     ]);
     timer.mark("db");
 
     const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
-    const goalForDate = await buildGoalResolver(supabase, user.id, currentGoal);
+    const goalForDate = resolveGoalFromHistory(goalHistoryRes.data ?? [], currentGoal);
     timer.mark("goal");
     const goalForSelectedDate = goalForDate(date);
 
