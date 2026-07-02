@@ -1,23 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
-  ResponsiveContainer, AreaChart, Area, BarChart, Bar, Cell,
+  AreaChart, Area, BarChart, Bar, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
 } from "recharts";
 import { ArrowRight, Scale, TrendingDown, TrendingUp, Plus, Trash2, Calendar, Pencil } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+import { getToday } from "@/lib/dates";
 import type { ChartDay } from "@/app/api/weight-chart/route";
 
 interface WeightEntry { id: string; date: string; weight_kg: number }
-
-function getToday() {
-  const n = new Date();
-  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;
-}
 
 function parseIsoDate(iso: string): { y: number; m: number; d: number } | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
@@ -54,12 +50,35 @@ function formatDayLabel(dateStr: string, lang: string) {
   return d.toLocaleDateString(lang === "he" ? "he-IL" : "en-US", { month: "short", day: "numeric" });
 }
 
+const CHART_DAY_WIDTH = 44;
+
+function useChartScrollWidth(dayCount: number) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(320);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setContainerWidth(el.clientWidth));
+    ro.observe(el);
+    setContainerWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  const chartWidth = Math.max(containerWidth, dayCount * CHART_DAY_WIDTH);
+  const isScrollable = chartWidth > containerWidth;
+
+  return { containerRef, chartWidth, isScrollable };
+}
+
 // Custom tooltip for weight chart
-function WeightTooltip({ active, payload, label, lang }: { active?: boolean; payload?: {value: number}[]; label?: string; lang: string }) {
+function WeightTooltip({ active, payload, lang }: { active?: boolean; payload?: { value: number; payload?: ChartDay }[]; lang: string }) {
   if (!active || !payload?.length) return null;
+  const point = payload[0]?.payload;
+  const dateLabel = point?.date ? formatDayLabel(point.date, lang) : "";
   return (
     <div className="bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-lg text-sm">
-      <p className="text-slate-500 text-xs mb-1">{label}</p>
+      <p className="text-slate-500 text-xs mb-1">{dateLabel}</p>
       {payload[0]?.value != null && (
         <p className="font-bold text-emerald-600">{payload[0].value.toFixed(1)} {lang === "he" ? "ק״ג" : "kg"}</p>
       )}
@@ -68,17 +87,19 @@ function WeightTooltip({ active, payload, label, lang }: { active?: boolean; pay
 }
 
 // Custom tooltip for balance chart
-function BalanceTooltip({ active, payload, label, lang }: { active?: boolean; payload?: {value: number}[]; label?: string; lang: string }) {
+function BalanceTooltip({ active, payload, lang }: { active?: boolean; payload?: { value: number; payload?: ChartDay }[]; lang: string }) {
   if (!active || !payload?.length) return null;
   const v = payload[0]?.value;
   if (v == null) return null;
+  const point = payload[0]?.payload;
+  const dateLabel = point?.date ? formatDayLabel(point.date, lang) : "";
   const isDeficit = v < 0;
   const kcal = lang === "he" ? 'קק"ל' : "kcal";
   const defLabel = lang === "he" ? "גרעון" : "Deficit";
   const surLabel = lang === "he" ? "עודף" : "Surplus";
   return (
     <div className="bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-lg text-sm">
-      <p className="text-slate-500 text-xs mb-1">{label}</p>
+      <p className="text-slate-500 text-xs mb-1">{dateLabel}</p>
       <p className={`font-bold ${isDeficit ? "text-emerald-600" : "text-red-500"}`}>
         {isDeficit ? defLabel : surLabel}: {Math.abs(Math.round(v)).toLocaleString()} {kcal}
       </p>
@@ -135,6 +156,7 @@ export function WeightTrackerPage() {
     dateOrderHint: "סדר אירופי: יום · חודש · שנה (משמאל לימין)",
     weightSection: "משקל",
     saveWeighIn: "שמור שקילה",
+    scrollChartsHint: "גלול ימינה ושמאלה לראות את כל ההיסטוריה",
   } : {
     title: "Weight Tracking",
     subtitle: "Track your weight changes over time",
@@ -172,6 +194,7 @@ export function WeightTrackerPage() {
     dateOrderHint: "European order: day · month · year (left to right)",
     weightSection: "Weight",
     saveWeighIn: "Save weigh-in",
+    scrollChartsHint: "Scroll left and right to see full history",
   };
 
   const fetchData = useCallback(async () => {
@@ -256,6 +279,26 @@ export function WeightTrackerPage() {
 
   const hasWeightData = entries.length > 0;
   const hasChartData = chartData.length > 0;
+
+  const { containerRef: chartContainerRef, chartWidth, isScrollable } = useChartScrollWidth(chartData.length);
+  const chartScrollRef = useRef<HTMLDivElement>(null);
+  const syncingScroll = useRef(false);
+
+  useEffect(() => {
+    const el = chartScrollRef.current;
+    if (!el || !isScrollable) return;
+    el.scrollLeft = el.scrollWidth - el.clientWidth;
+  }, [chartData, isScrollable]);
+
+  const syncChartScroll = (source: HTMLDivElement) => {
+    if (syncingScroll.current) return;
+    syncingScroll.current = true;
+    const left = source.scrollLeft;
+    document.querySelectorAll<HTMLDivElement>("[data-weight-chart-scroll]").forEach((el) => {
+      if (el !== source) el.scrollLeft = left;
+    });
+    syncingScroll.current = false;
+  };
 
   const tp = todayParts();
   const dm = parseIsoDate(logDate) ?? parseIsoDate(getToday())!;
@@ -447,6 +490,9 @@ export function WeightTrackerPage() {
         {/* Charts */}
         {hasChartData ? (
           <div className="flex flex-col gap-4">
+            {isScrollable && (
+              <p className="text-xs text-slate-400 text-center px-2">{T.scrollChartsHint}</p>
+            )}
             {/* Weight chart */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
               <div className="flex items-center justify-between mb-4">
@@ -455,25 +501,36 @@ export function WeightTrackerPage() {
                   {trendLabel}
                 </span>
               </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                  <YAxis domain={[weightMin, weightMax]} tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} tickFormatter={v => `${v}`} width={35} />
-                  <Tooltip content={<WeightTooltip lang={lang} />} />
-                  <Area
-                    type="monotone" dataKey="weight_kg" stroke="#3b82f6" strokeWidth={2.5}
-                    fill="url(#weightGrad)" dot={{ r: 3, fill: "#3b82f6", strokeWidth: 0 }}
-                    activeDot={{ r: 5, fill: "#3b82f6" }} connectNulls
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <div ref={chartContainerRef}>
+                <div
+                  ref={chartScrollRef}
+                  data-weight-chart-scroll
+                  onScroll={(e) => syncChartScroll(e.currentTarget)}
+                  className="overflow-x-auto overflow-y-hidden -mx-1 px-1 overscroll-x-contain"
+                  style={{ WebkitOverflowScrolling: "touch" }}
+                  dir="ltr"
+                >
+                  <div style={{ width: chartWidth, minWidth: chartWidth }}>
+                    <AreaChart width={chartWidth} height={200} data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={CHART_DAY_WIDTH - 8} />
+                    <YAxis domain={[weightMin, weightMax]} tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} tickFormatter={v => `${v}`} width={35} />
+                    <Tooltip content={<WeightTooltip lang={lang} />} />
+                    <Area
+                      type="monotone" dataKey="weight_kg" stroke="#3b82f6" strokeWidth={2.5}
+                      fill="url(#weightGrad)" dot={{ r: 3, fill: "#3b82f6", strokeWidth: 0 }}
+                      activeDot={{ r: 5, fill: "#3b82f6" }} connectNulls
+                    />
+                  </AreaChart>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Balance chart */}
@@ -490,10 +547,17 @@ export function WeightTrackerPage() {
                 <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-400 inline-block" /> {T.deficit}</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-400 inline-block" /> {T.surplus}</span>
               </div>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+              <div
+                data-weight-chart-scroll
+                onScroll={(e) => syncChartScroll(e.currentTarget)}
+                className="overflow-x-auto overflow-y-hidden -mx-1 px-1 overscroll-x-contain"
+                style={{ WebkitOverflowScrolling: "touch" }}
+                dir="ltr"
+              >
+                <div style={{ width: chartWidth, minWidth: chartWidth }}>
+                <BarChart width={chartWidth} height={180} data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={CHART_DAY_WIDTH - 8} />
                   <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} tickFormatter={v => v === 0 ? "0" : `${v > 0 ? "+" : ""}${Math.round(v/100)*100}`} width={40} />
                   <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={1.5} />
                   <Tooltip content={<BalanceTooltip lang={lang} />} />
@@ -503,7 +567,8 @@ export function WeightTrackerPage() {
                     ))}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
+                </div>
+              </div>
             </div>
           </div>
         ) : loading ? (
@@ -527,8 +592,8 @@ export function WeightTrackerPage() {
             <div className="px-5 py-4 border-b border-slate-50">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">{T.history}</h3>
             </div>
-            <div className="divide-y divide-slate-50">
-              {[...entries].reverse().slice(0, 20).map((e) => {
+            <div className="divide-y divide-slate-50 max-h-[28rem] overflow-y-auto">
+              {[...entries].reverse().map((e) => {
                 const idx = entries.findIndex(x => x.id === e.id);
                 const prev = idx > 0 ? entries[idx - 1].weight_kg : null;
                 const diff = prev != null ? e.weight_kg - prev : null;

@@ -14,22 +14,34 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Date range: last 60 days
   const to = new Date();
-  const from = new Date();
-  from.setDate(from.getDate() - 59);
-  const fromStr = from.toISOString().split("T")[0];
   const toStr = to.toISOString().split("T")[0];
+  const defaultFrom = new Date();
+  defaultFrom.setDate(defaultFrom.getDate() - 59);
+  const defaultFromStr = defaultFrom.toISOString().split("T")[0];
 
-  // Fetch all data in parallel
-  const [weightRes, mealsRes, activityRes, settingsRes] = await Promise.all([
-    supabase.from("weight_log").select("date, weight_kg").eq("user_id", user.id)
-      .gte("date", fromStr).lte("date", toStr).order("date"),
+  // Discover earliest date across weight, meals, and activity
+  const [weightRes, earliestMealRes, earliestActivityRes, settingsRes] = await Promise.all([
+    supabase.from("weight_log").select("date, weight_kg").eq("user_id", user.id).order("date"),
+    supabase.from("meals").select("date").eq("user_id", user.id).order("date", { ascending: true }).limit(1),
+    supabase.from("daily_activity").select("date").eq("user_id", user.id).order("date", { ascending: true }).limit(1),
+    supabase.from("user_settings").select("daily_goal_calories").eq("user_id", user.id).single(),
+  ]);
+
+  const candidateFrom = [
+    weightRes.data?.[0]?.date,
+    earliestMealRes.data?.[0]?.date,
+    earliestActivityRes.data?.[0]?.date,
+  ].filter((d): d is string => Boolean(d));
+  const fromStr = candidateFrom.length > 0
+    ? candidateFrom.sort()[0]
+    : defaultFromStr;
+
+  const [mealsRes, activityRes] = await Promise.all([
     supabase.from("meals").select("date, calories").eq("user_id", user.id)
       .gte("date", fromStr).lte("date", toStr),
     supabase.from("daily_activity").select("date, calories_burned").eq("user_id", user.id)
       .gte("date", fromStr).lte("date", toStr),
-    supabase.from("user_settings").select("daily_goal_calories").eq("user_id", user.id).single(),
   ]);
 
   const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
@@ -51,8 +63,9 @@ export async function GET() {
 
   // Build day-by-day array — only include days that have weight OR calorie data
   const days: ChartDay[] = [];
-  const cur = new Date(from);
-  while (cur <= to) {
+  const cur = new Date(fromStr + "T12:00:00");
+  const toDate = new Date(toStr + "T12:00:00");
+  while (cur <= toDate) {
     const dateStr = cur.toISOString().split("T")[0];
     const [y, m, d] = dateStr.split("-");
     const label = `${d}/${m}`;
