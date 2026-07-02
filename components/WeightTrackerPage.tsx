@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -10,7 +10,7 @@ import {
 import { ArrowRight, Scale, TrendingDown, TrendingUp, Plus, Trash2, Calendar, Pencil } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
-import { getToday } from "@/lib/dates";
+import { getToday, offsetDate } from "@/lib/dates";
 import type { ChartDay } from "@/app/api/weight-chart/route";
 
 interface WeightEntry { id: string; date: string; weight_kg: number }
@@ -52,7 +52,20 @@ function formatDayLabel(dateStr: string, lang: string) {
 
 const CHART_DAY_WIDTH = 44;
 
-function useChartScrollWidth(dayCount: number) {
+type ChartPeriod = "1m" | "2m" | "max";
+
+const PERIOD_DAYS: Record<Exclude<ChartPeriod, "max">, number> = {
+  "1m": 30,
+  "2m": 60,
+};
+
+function filterChartByPeriod(days: ChartDay[], period: ChartPeriod): ChartDay[] {
+  if (period === "max" || days.length === 0) return days;
+  const cutoff = offsetDate(getToday(), -(PERIOD_DAYS[period] - 1));
+  return days.filter((d) => d.date >= cutoff);
+}
+
+function useChartScrollWidth(dayCount: number, period: ChartPeriod) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(320);
 
@@ -65,8 +78,10 @@ function useChartScrollWidth(dayCount: number) {
     return () => ro.disconnect();
   }, []);
 
-  const chartWidth = Math.max(containerWidth, dayCount * CHART_DAY_WIDTH);
-  const isScrollable = chartWidth > containerWidth;
+  const chartWidth = period === "max"
+    ? Math.max(containerWidth, dayCount * CHART_DAY_WIDTH)
+    : containerWidth;
+  const isScrollable = period === "max" && chartWidth > containerWidth;
 
   return { containerRef, chartWidth, isScrollable };
 }
@@ -118,6 +133,7 @@ export function WeightTrackerPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("2m");
 
   const T = lang === "he" ? {
     title: "מעקב משקל",
@@ -157,6 +173,9 @@ export function WeightTrackerPage() {
     weightSection: "משקל",
     saveWeighIn: "שמור שקילה",
     scrollChartsHint: "גלול ימינה ושמאלה לראות את כל ההיסטוריה",
+    period1m: "חודש",
+    period2m: "חודשיים",
+    periodMax: "מקסימום",
   } : {
     title: "Weight Tracking",
     subtitle: "Track your weight changes over time",
@@ -195,6 +214,15 @@ export function WeightTrackerPage() {
     weightSection: "Weight",
     saveWeighIn: "Save weigh-in",
     scrollChartsHint: "Scroll left and right to see full history",
+    period1m: "1 Month",
+    period2m: "2 Months",
+    periodMax: "Max",
+  };
+
+  const periodLabels: Record<ChartPeriod, string> = {
+    "1m": T.period1m,
+    "2m": T.period2m,
+    max: T.periodMax,
   };
 
   const fetchData = useCallback(async () => {
@@ -264,23 +292,36 @@ export function WeightTrackerPage() {
   const trend = recent.length >= 2
     ? recent.at(-1)! - recent.at(0)!
     : 0;
-  const trendLabel = Math.abs(trend) < 0.3 ? T.trendFlat : trend < 0 ? T.trendDown : T.trendUp;
 
-  // Balance stats
-  const balanceDays = chartData.filter(d => d.balance != null);
+  const filteredChartData = useMemo(
+    () => filterChartByPeriod(chartData, chartPeriod),
+    [chartData, chartPeriod]
+  );
+
+  const periodWeightValues = filteredChartData
+    .filter((d) => d.weight_kg != null)
+    .map((d) => d.weight_kg!);
+  const periodTrend = periodWeightValues.length >= 2
+    ? periodWeightValues.at(-1)! - periodWeightValues.at(0)!
+    : trend;
+  const trendLabel = Math.abs(periodTrend) < 0.3 ? T.trendFlat : periodTrend < 0 ? T.trendDown : T.trendUp;
+
+  // Balance stats for selected period
+  const balanceDays = filteredChartData.filter((d) => d.balance != null);
   const avgBalance = balanceDays.length
     ? Math.round(balanceDays.reduce((s, d) => s + d.balance!, 0) / balanceDays.length)
     : null;
 
   // Y-axis domain for weight (tight zoom)
-  const weightValues = chartData.filter(d => d.weight_kg != null).map(d => d.weight_kg!);
+  const weightValues = periodWeightValues;
   const weightMin = weightValues.length ? Math.floor(Math.min(...weightValues) - 1) : 50;
   const weightMax = weightValues.length ? Math.ceil(Math.max(...weightValues) + 1) : 100;
 
   const hasWeightData = entries.length > 0;
   const hasChartData = chartData.length > 0;
+  const hasPeriodChartData = filteredChartData.length > 0;
 
-  const { containerRef: chartContainerRef, chartWidth, isScrollable } = useChartScrollWidth(chartData.length);
+  const { containerRef: chartContainerRef, chartWidth, isScrollable } = useChartScrollWidth(filteredChartData.length, chartPeriod);
   const chartScrollRef = useRef<HTMLDivElement>(null);
   const syncingScroll = useRef(false);
 
@@ -288,7 +329,7 @@ export function WeightTrackerPage() {
     const el = chartScrollRef.current;
     if (!el || !isScrollable) return;
     el.scrollLeft = el.scrollWidth - el.clientWidth;
-  }, [chartData, isScrollable]);
+  }, [filteredChartData, chartPeriod, isScrollable]);
 
   const syncChartScroll = (source: HTMLDivElement) => {
     if (syncingScroll.current) return;
@@ -490,6 +531,22 @@ export function WeightTrackerPage() {
         {/* Charts */}
         {hasChartData ? (
           <div className="flex flex-col gap-4">
+            <div className="flex rounded-xl bg-slate-100 p-1 gap-1" dir="ltr">
+              {(["1m", "2m", "max"] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setChartPeriod(p)}
+                  className={`flex-1 min-h-[2.5rem] rounded-lg text-xs font-bold transition-colors touch-manipulation ${
+                    chartPeriod === p
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {periodLabels[p]}
+                </button>
+              ))}
+            </div>
             {isScrollable && (
               <p className="text-xs text-slate-400 text-center px-2">{T.scrollChartsHint}</p>
             )}
@@ -497,10 +554,11 @@ export function WeightTrackerPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">{T.weightChart}</h3>
-                <span className={`text-xs font-bold px-2 py-1 rounded-full ${Math.abs(trend) < 0.3 ? "bg-slate-100 text-slate-600" : trend < 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                <span className={`text-xs font-bold px-2 py-1 rounded-full ${Math.abs(periodTrend) < 0.3 ? "bg-slate-100 text-slate-600" : periodTrend < 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
                   {trendLabel}
                 </span>
               </div>
+              {hasPeriodChartData ? (
               <div ref={chartContainerRef}>
                 <div
                   ref={chartScrollRef}
@@ -511,7 +569,7 @@ export function WeightTrackerPage() {
                   dir="ltr"
                 >
                   <div style={{ width: chartWidth, minWidth: chartWidth }}>
-                    <AreaChart width={chartWidth} height={200} data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                    <AreaChart width={chartWidth} height={200} data={filteredChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
@@ -531,6 +589,9 @@ export function WeightTrackerPage() {
                   </div>
                 </div>
               </div>
+              ) : (
+                <p className="text-sm text-slate-400 text-center py-8">{T.noData}</p>
+              )}
             </div>
 
             {/* Balance chart */}
@@ -547,6 +608,7 @@ export function WeightTrackerPage() {
                 <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-400 inline-block" /> {T.deficit}</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-400 inline-block" /> {T.surplus}</span>
               </div>
+              {hasPeriodChartData ? (
               <div
                 data-weight-chart-scroll
                 onScroll={(e) => syncChartScroll(e.currentTarget)}
@@ -555,20 +617,23 @@ export function WeightTrackerPage() {
                 dir="ltr"
               >
                 <div style={{ width: chartWidth, minWidth: chartWidth }}>
-                <BarChart width={chartWidth} height={180} data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <BarChart width={chartWidth} height={180} data={filteredChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={CHART_DAY_WIDTH - 8} />
                   <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} tickFormatter={v => v === 0 ? "0" : `${v > 0 ? "+" : ""}${Math.round(v/100)*100}`} width={40} />
                   <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={1.5} />
                   <Tooltip content={<BalanceTooltip lang={lang} />} />
                   <Bar dataKey="balance" radius={[3, 3, 0, 0]}>
-                    {chartData.map((d, i) => (
+                    {filteredChartData.map((d, i) => (
                       <Cell key={i} fill={d.balance == null ? "transparent" : d.balance < 0 ? "#34d399" : "#f87171"} />
                     ))}
                   </Bar>
                 </BarChart>
                 </div>
               </div>
+              ) : (
+                <p className="text-sm text-slate-400 text-center py-8">{T.noData}</p>
+              )}
             </div>
           </div>
         ) : loading ? (
