@@ -18,9 +18,13 @@ interface Props {
 export default function YesterdayBurnModal({ date, formattedDate, initialValue, baseGoal, onSaved, onClose }: Props) {
   const { T } = useLang();
   const { showToast } = useToast();
-  const [value, setValue] = useState(initialValue && initialValue > 0 ? String(Math.round(initialValue)) : "");
+  const [mode, setMode] = useState<"active" | "total">("total");
+  const [value, setValue] = useState(
+    initialValue && initialValue > 0
+      ? String(Math.round(initialValue + baseGoal))
+      : ""
+  );
   const [saving, setSaving] = useState(false);
-  const [mode, setMode] = useState<"active" | "total">("active");
 
   useEffect(() => {
     const prevOverflow = document.body.style.overflow;
@@ -34,6 +38,18 @@ export default function YesterdayBurnModal({ date, formattedDate, initialValue, 
       window.removeEventListener("keydown", onKey);
     };
   }, [onClose, saving]);
+
+  const switchMode = (next: "active" | "total") => {
+    if (next === mode) return;
+    const num = value.trim() === "" ? NaN : Number(value);
+    if (!Number.isNaN(num) && num >= 0) {
+      const converted = next === "total"
+        ? Math.round(num + baseGoal)
+        : Math.max(0, Math.round(num - baseGoal));
+      setValue(String(converted));
+    }
+    setMode(next);
+  };
 
   const handleSave = async () => {
     const num = parseInt(value, 10);
@@ -92,7 +108,7 @@ export default function YesterdayBurnModal({ date, formattedDate, initialValue, 
           <div className="flex rounded-xl border border-slate-200 bg-slate-50 overflow-hidden text-xs font-bold" role="group">
             <button
               type="button"
-              onClick={() => setMode("active")}
+              onClick={() => switchMode("active")}
               disabled={saving}
               className={`flex-1 py-2 transition-colors ${mode === "active" ? "bg-amber-500 text-white" : "text-slate-600 hover:bg-slate-100"}`}
             >
@@ -100,7 +116,7 @@ export default function YesterdayBurnModal({ date, formattedDate, initialValue, 
             </button>
             <button
               type="button"
-              onClick={() => setMode("total")}
+              onClick={() => switchMode("total")}
               disabled={saving}
               className={`flex-1 py-2 border-s border-slate-200 transition-colors ${mode === "total" ? "bg-amber-500 text-white" : "text-slate-600 hover:bg-slate-100"}`}
             >

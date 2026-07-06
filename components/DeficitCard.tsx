@@ -25,24 +25,38 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
   const { showToast } = useToast();
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState(String(goalCalories));
-  const [burnedInput, setBurnedInput] = useState(() => (burned === 0 ? "" : String(Math.round(burned))));
+  const [burnMode, setBurnMode] = useState<"active" | "total">("total");
+  const [burnedInput, setBurnedInput] = useState(() =>
+    burned === 0 ? "" : String(Math.round(burned + goalCalories))
+  );
   const [savingBurned, setSavingBurned] = useState(false);
-  const [burnMode, setBurnMode] = useState<"active" | "total">("active");
 
   useEffect(() => {
     if (!editingGoal) setGoalInput(String(goalCalories));
   }, [goalCalories, editingGoal]);
 
   useEffect(() => {
-    setBurnedInput(burned === 0 ? "" : String(Math.round(burned)));
-    setBurnMode("active");
-  }, [burned, date]);
+    setBurnMode("total");
+    setBurnedInput(burned === 0 ? "" : String(Math.round(burned + goalCalories)));
+  }, [burned, goalCalories, date]);
 
   const net = consumed - burned;
   const diff = goalCalories - net;
   const isDeficit = diff > 0;
   const diffAbs = Math.abs(Math.round(diff));
   const progressPct = Math.min((net / goalCalories) * 100, 100);
+
+  const switchBurnMode = (next: "active" | "total") => {
+    if (next === burnMode) return;
+    const num = burnedInput.trim() === "" ? NaN : Number(burnedInput);
+    if (!Number.isNaN(num) && num >= 0) {
+      const converted = next === "total"
+        ? Math.round(num + goalCalories)
+        : Math.max(0, Math.round(num - goalCalories));
+      setBurnedInput(String(converted));
+    }
+    setBurnMode(next);
+  };
 
   const saveBurned = async (raw: string) => {
     const t = raw.trim();
@@ -51,15 +65,16 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
       showToast(lang === "he" ? "נא להזין מספר חיובי או להשאיר ריק" : "Enter a positive number or leave empty", "error");
       return;
     }
-    const val = burnMode === "total" ? Math.max(0, Math.round(entered - goalCalories)) : entered;
+    const active = burnMode === "total" ? Math.max(0, Math.round(entered - goalCalories)) : entered;
     setSavingBurned(true);
     try {
-      await fetch("/api/activity", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date, calories_burned: val }) });
-      onBurnedChange(val);
-      // After saving from total mode, switch the input to show the resolved active value.
+      await fetch("/api/activity", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date, calories_burned: active }) });
+      onBurnedChange(active);
+      // Keep the input consistent with the current mode after save.
       if (burnMode === "total") {
-        setBurnedInput(val === 0 ? "" : String(val));
-        setBurnMode("active");
+        setBurnedInput(active === 0 ? "" : String(Math.round(active + goalCalories)));
+      } else {
+        setBurnedInput(active === 0 ? "" : String(active));
       }
       showToast(lang === "he" ? "קלוריות שרופות נשמרו" : "Burned calories saved", "success");
     } finally { setSavingBurned(false); }
@@ -171,7 +186,7 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
             <div className="flex shrink-0 rounded-lg border border-amber-200 bg-white overflow-hidden text-[11px] font-bold" role="group">
               <button
                 type="button"
-                onClick={() => setBurnMode("active")}
+                onClick={() => switchBurnMode("active")}
                 disabled={savingBurned}
                 className={`px-2.5 py-1 transition-colors ${burnMode === "active" ? "bg-amber-500 text-white" : "text-amber-700 hover:bg-amber-50"}`}
               >
@@ -179,7 +194,7 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
               </button>
               <button
                 type="button"
-                onClick={() => setBurnMode("total")}
+                onClick={() => switchBurnMode("total")}
                 disabled={savingBurned}
                 className={`px-2.5 py-1 border-s border-amber-200 transition-colors ${burnMode === "total" ? "bg-amber-500 text-white" : "text-amber-700 hover:bg-amber-50"}`}
               >

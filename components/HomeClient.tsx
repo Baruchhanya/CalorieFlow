@@ -16,6 +16,7 @@ import EditModal from "@/components/EditModal";
 import ProfileModal from "@/components/ProfileModal";
 import UntrackedDayCard from "@/components/UntrackedDayCard";
 import YesterdayBurnModal from "@/components/YesterdayBurnModal";
+import MorningWeightModal from "@/components/MorningWeightModal";
 import { MealEntry, MealPreset, UserProfile, effectiveProteinGoal } from "@/types";
 import type { HistorySuggestion } from "@/types";
 import type { BalanceHistoryResponse } from "@/app/api/balance-history/route";
@@ -83,9 +84,12 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const [mealSuggestions, setMealSuggestions] = useState<HistorySuggestion[] | undefined>(undefined);
   // Yesterday burn-calories prompt state
   const [yesterdayPrompt, setYesterdayPrompt] = useState<{ date: string; initial: number; baseGoal: number } | null>(null);
+  // Morning weight prompt state
+  const [morningWeightPrompt, setMorningWeightPrompt] = useState<{ date: string } | null>(null);
   // Track whether stable (non-date-specific) data has been loaded
   const stableLoadedRef = useRef(false);
   const yesterdayCheckedRef = useRef(false);
+  const morningWeightCheckedRef = useRef(false);
   // Monotonic request id — guards against stale critical/secondary responses
   // overwriting newer data when the user changes date / refreshes quickly.
   const reqSeqRef = useRef(0);
@@ -239,6 +243,44 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const markYesterdayHandled = useCallback(() => {
     try { localStorage.setItem("cf_yesterday_burn_handled", today); } catch { /* ignore */ }
   }, [today]);
+
+  // Morning weight prompt: 05:00–12:00 local, once per day, only if today has no weight entry
+  useEffect(() => {
+    if (morningWeightCheckedRef.current) return;
+    if (!stableLoadedRef.current) return;
+    morningWeightCheckedRef.current = true;
+
+    const hour = new Date().getHours();
+    if (hour < 5 || hour >= 12) return;
+
+    try {
+      const handled = localStorage.getItem("cf_morning_weight_handled");
+      if (handled === today) return;
+    } catch { /* ignore */ }
+
+    fetch("/api/weight", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((entries: { date: string }[] | null) => {
+        if (!Array.isArray(entries)) return;
+        if (entries.some((e) => e.date === today)) return;
+        setMorningWeightPrompt({ date: today });
+      })
+      .catch(() => { /* silent */ });
+  }, [loading, today]);
+
+  const markMorningWeightHandled = useCallback(() => {
+    try { localStorage.setItem("cf_morning_weight_handled", today); } catch { /* ignore */ }
+  }, [today]);
+
+  const handleMorningWeightSaved = useCallback(() => {
+    markMorningWeightHandled();
+    setMorningWeightPrompt(null);
+  }, [markMorningWeightHandled]);
+
+  const handleMorningWeightSkip = useCallback(() => {
+    markMorningWeightHandled();
+    setMorningWeightPrompt(null);
+  }, [markMorningWeightHandled]);
 
   const handleYesterdayBurnSaved = useCallback((burned: number, savedDate: string) => {
     markYesterdayHandled();
@@ -579,7 +621,16 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
         />
       )}
 
-      {yesterdayPrompt && (
+      {morningWeightPrompt && (
+        <MorningWeightModal
+          date={morningWeightPrompt.date}
+          formattedDate={formatDate(morningWeightPrompt.date, lang)}
+          onSaved={handleMorningWeightSaved}
+          onClose={handleMorningWeightSkip}
+        />
+      )}
+
+      {!morningWeightPrompt && yesterdayPrompt && (
         <YesterdayBurnModal
           date={yesterdayPrompt.date}
           formattedDate={formatDate(yesterdayPrompt.date, lang)}

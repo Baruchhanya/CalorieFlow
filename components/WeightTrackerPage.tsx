@@ -10,10 +10,47 @@ import {
 import { ArrowRight, Scale, TrendingDown, TrendingUp, Plus, Trash2, Calendar, Pencil } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
-import { getToday, offsetDate } from "@/lib/dates";
+import { getToday, offsetDate, toLocalIso } from "@/lib/dates";
 import type { ChartDay } from "@/app/api/weight-chart/route";
 
 interface WeightEntry { id: string; date: string; weight_kg: number }
+
+interface WeightWeek {
+  weekStart: string;
+  weekEnd: string;
+  label: string;
+  avg_kg: number;
+  count: number;
+}
+
+/** Sunday of the calendar week containing `dateStr`, as YYYY-MM-DD. */
+function weekStartIso(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00");
+  d.setDate(d.getDate() - d.getDay());
+  return toLocalIso(d);
+}
+
+function computeWeeklyAverages(entries: WeightEntry[], lang: string): WeightWeek[] {
+  const buckets = new Map<string, { sum: number; count: number }>();
+  for (const e of entries) {
+    const key = weekStartIso(e.date);
+    const cur = buckets.get(key) ?? { sum: 0, count: 0 };
+    cur.sum += Number(e.weight_kg);
+    cur.count += 1;
+    buckets.set(key, cur);
+  }
+  return [...buckets.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([weekStart, { sum, count }]) => {
+      const weekEnd = offsetDate(weekStart, 6);
+      const [, mS, dS] = weekStart.split("-");
+      const [, mE, dE] = weekEnd.split("-");
+      const label = lang === "he"
+        ? `${dS}/${mS}–${dE}/${mE}`
+        : `${dS}/${mS}–${dE}/${mE}`;
+      return { weekStart, weekEnd, label, avg_kg: sum / count, count };
+    });
+}
 
 function parseIsoDate(iso: string): { y: number; m: number; d: number } | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
@@ -51,6 +88,7 @@ function formatDayLabel(dateStr: string, lang: string) {
 }
 
 const CHART_DAY_WIDTH = 44;
+const CHART_WEEK_WIDTH = 64;
 
 type ChartPeriod = "1m" | "2m" | "max";
 
@@ -65,7 +103,14 @@ function filterChartByPeriod(days: ChartDay[], period: ChartPeriod): ChartDay[] 
   return days.filter((d) => d.date >= cutoff);
 }
 
-function useChartScrollWidth(dayCount: number, period: ChartPeriod) {
+function filterWeeksByPeriod(weeks: WeightWeek[], period: ChartPeriod): WeightWeek[] {
+  if (period === "max" || weeks.length === 0) return weeks;
+  const cutoffDay = offsetDate(getToday(), -(PERIOD_DAYS[period] - 1));
+  const cutoffWeek = weekStartIso(cutoffDay);
+  return weeks.filter((w) => w.weekStart >= cutoffWeek);
+}
+
+function useChartScrollWidth(pointCount: number, pointWidth: number, period: ChartPeriod) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(320);
 
@@ -79,24 +124,30 @@ function useChartScrollWidth(dayCount: number, period: ChartPeriod) {
   }, []);
 
   const chartWidth = period === "max"
-    ? Math.max(containerWidth, dayCount * CHART_DAY_WIDTH)
+    ? Math.max(containerWidth, pointCount * pointWidth)
     : containerWidth;
   const isScrollable = period === "max" && chartWidth > containerWidth;
 
   return { containerRef, chartWidth, isScrollable };
 }
 
-// Custom tooltip for weight chart
-function WeightTooltip({ active, payload, lang }: { active?: boolean; payload?: { value: number; payload?: ChartDay }[]; lang: string }) {
+// Custom tooltip for weekly-average weight chart
+function WeightTooltip({ active, payload, lang }: { active?: boolean; payload?: { value: number; payload?: WeightWeek }[]; lang: string }) {
   if (!active || !payload?.length) return null;
   const point = payload[0]?.payload;
-  const dateLabel = point?.date ? formatDayLabel(point.date, lang) : "";
+  const startLabel = point?.weekStart ? formatDayLabel(point.weekStart, lang) : "";
+  const endLabel = point?.weekEnd ? formatDayLabel(point.weekEnd, lang) : "";
+  const rangeLabel = startLabel && endLabel ? `${startLabel} – ${endLabel}` : "";
+  const countLabel = point?.count
+    ? (lang === "he" ? `${point.count} שקילות` : `${point.count} weigh-ins`)
+    : "";
   return (
     <div className="bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-lg text-sm">
-      <p className="text-slate-500 text-xs mb-1">{dateLabel}</p>
+      <p className="text-slate-500 text-xs mb-1">{rangeLabel}</p>
       {payload[0]?.value != null && (
         <p className="font-bold text-emerald-600">{payload[0].value.toFixed(1)} {lang === "he" ? "ק״ג" : "kg"}</p>
       )}
+      {countLabel && <p className="text-[10px] text-slate-400 mt-0.5">{countLabel}</p>}
     </div>
   );
 }
@@ -137,12 +188,12 @@ export function WeightTrackerPage() {
 
   const T = lang === "he" ? {
     title: "מעקב משקל",
-    subtitle: "עקוב אחר שינויי המשקל שלך לאורך זמן",
+    subtitle: "כל התצוגות הן ממוצע שבועי (לפי שבוע קלנדרי)",
     logWeight: "הזן משקל",
     weightLabel: "משקל (ק״ג)",
     save: "שמור",
     saving: "שומר...",
-    weightChart: "משקל לאורך זמן",
+    weightChart: "ממוצע משקל שבועי",
     balanceChart: "מאזן קלורי יומי",
     deficit: "גרעון",
     surplus: "עודף",
@@ -154,7 +205,7 @@ export function WeightTrackerPage() {
     min: "מינימום",
     max: "מקסימום",
     change: "שינוי",
-    history: "היסטוריית שקילות",
+    history: "יומן שקילות (כניסות בודדות)",
     today: "היום",
     avgBalance: "מאזן ממוצע",
     trend: "מגמה",
@@ -178,12 +229,12 @@ export function WeightTrackerPage() {
     periodMax: "מקסימום",
   } : {
     title: "Weight Tracking",
-    subtitle: "Track your weight changes over time",
+    subtitle: "All values are weekly averages (calendar week)",
     logWeight: "Log Weight",
     weightLabel: "Weight (kg)",
     save: "Save",
     saving: "Saving...",
-    weightChart: "Weight Over Time",
+    weightChart: "Weekly Weight Average",
     balanceChart: "Daily Caloric Balance",
     deficit: "Deficit",
     surplus: "Surplus",
@@ -195,7 +246,7 @@ export function WeightTrackerPage() {
     min: "Min",
     max: "Max",
     change: "Change",
-    history: "Weigh-in History",
+    history: "Weigh-in Log (raw)",
     today: "Today",
     avgBalance: "Avg. Balance",
     trend: "Trend",
@@ -279,67 +330,70 @@ export function WeightTrackerPage() {
     showToast(lang === "he" ? "השקילה נמחקה" : "Weigh-in removed", "info");
   };
 
-  // Stats
-  const weights = entries.map(e => e.weight_kg);
-  const currentWeight = weights.at(-1) ?? null;
-  const minWeight = weights.length ? Math.min(...weights) : null;
-  const maxWeight = weights.length ? Math.max(...weights) : null;
-  const firstWeight = weights.at(0) ?? null;
-  const totalChange = currentWeight != null && firstWeight != null ? currentWeight - firstWeight : null;
+  // Weekly averages: calendar week (Sun-Sat), one point per week that has entries
+  const weeklyWeights = useMemo(() => computeWeeklyAverages(entries, lang), [entries, lang]);
 
-  // Trend (last 7 entries)
-  const recent = weights.slice(-7);
-  const trend = recent.length >= 2
-    ? recent.at(-1)! - recent.at(0)!
-    : 0;
+  // Stats (based on weekly averages, matching the chart)
+  const weeklyAvgs = weeklyWeights.map((w) => w.avg_kg);
+  const currentWeight = weeklyAvgs.at(-1) ?? null;
+  const firstWeight = weeklyAvgs.at(0) ?? null;
+  const minWeight = weeklyAvgs.length ? Math.min(...weeklyAvgs) : null;
+  const maxWeight = weeklyAvgs.length ? Math.max(...weeklyAvgs) : null;
+  const totalChange = currentWeight != null && firstWeight != null ? currentWeight - firstWeight : null;
 
   const filteredChartData = useMemo(
     () => filterChartByPeriod(chartData, chartPeriod),
     [chartData, chartPeriod]
   );
+  const filteredWeeklyWeights = useMemo(
+    () => filterWeeksByPeriod(weeklyWeights, chartPeriod),
+    [weeklyWeights, chartPeriod]
+  );
 
-  const periodWeightValues = filteredChartData
-    .filter((d) => d.weight_kg != null)
-    .map((d) => d.weight_kg!);
+  const periodWeightValues = filteredWeeklyWeights.map((w) => w.avg_kg);
   const periodTrend = periodWeightValues.length >= 2
     ? periodWeightValues.at(-1)! - periodWeightValues.at(0)!
-    : trend;
+    : 0;
   const trendLabel = Math.abs(periodTrend) < 0.3 ? T.trendFlat : periodTrend < 0 ? T.trendDown : T.trendUp;
 
-  // Balance stats for selected period
+  // Balance stats for selected period (still per-day)
   const balanceDays = filteredChartData.filter((d) => d.balance != null);
   const avgBalance = balanceDays.length
     ? Math.round(balanceDays.reduce((s, d) => s + d.balance!, 0) / balanceDays.length)
     : null;
 
-  // Y-axis domain for weight (tight zoom)
-  const weightValues = periodWeightValues;
-  const weightMin = weightValues.length ? Math.floor(Math.min(...weightValues) - 1) : 50;
-  const weightMax = weightValues.length ? Math.ceil(Math.max(...weightValues) + 1) : 100;
+  // Y-axis domain for weekly weight chart (tight zoom)
+  const weightMin = periodWeightValues.length ? Math.floor(Math.min(...periodWeightValues) - 1) : 50;
+  const weightMax = periodWeightValues.length ? Math.ceil(Math.max(...periodWeightValues) + 1) : 100;
 
-  const hasWeightData = entries.length > 0;
-  const hasChartData = chartData.length > 0;
+  const hasWeightData = weeklyWeights.length > 0;
+  const hasChartData = chartData.length > 0 || weeklyWeights.length > 0;
   const hasPeriodChartData = filteredChartData.length > 0;
+  const hasPeriodWeeklyData = filteredWeeklyWeights.length > 0;
 
-  const { containerRef: chartContainerRef, chartWidth, isScrollable } = useChartScrollWidth(filteredChartData.length, chartPeriod);
-  const chartScrollRef = useRef<HTMLDivElement>(null);
-  const syncingScroll = useRef(false);
+  const {
+    containerRef: weightChartContainerRef,
+    chartWidth: weightChartWidth,
+    isScrollable: isWeightScrollable,
+  } = useChartScrollWidth(filteredWeeklyWeights.length, CHART_WEEK_WIDTH, chartPeriod);
+  const {
+    containerRef: balanceChartContainerRef,
+    chartWidth: balanceChartWidth,
+    isScrollable: isBalanceScrollable,
+  } = useChartScrollWidth(filteredChartData.length, CHART_DAY_WIDTH, chartPeriod);
+  const isScrollable = isWeightScrollable || isBalanceScrollable;
+  const weightScrollRef = useRef<HTMLDivElement>(null);
+  const balanceScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const el = chartScrollRef.current;
-    if (!el || !isScrollable) return;
-    el.scrollLeft = el.scrollWidth - el.clientWidth;
-  }, [filteredChartData, chartPeriod, isScrollable]);
+    const el = weightScrollRef.current;
+    if (el && isWeightScrollable) el.scrollLeft = el.scrollWidth - el.clientWidth;
+  }, [filteredWeeklyWeights, chartPeriod, isWeightScrollable]);
 
-  const syncChartScroll = (source: HTMLDivElement) => {
-    if (syncingScroll.current) return;
-    syncingScroll.current = true;
-    const left = source.scrollLeft;
-    document.querySelectorAll<HTMLDivElement>("[data-weight-chart-scroll]").forEach((el) => {
-      if (el !== source) el.scrollLeft = left;
-    });
-    syncingScroll.current = false;
-  };
+  useEffect(() => {
+    const el = balanceScrollRef.current;
+    if (el && isBalanceScrollable) el.scrollLeft = el.scrollWidth - el.clientWidth;
+  }, [filteredChartData, chartPeriod, isBalanceScrollable]);
 
   const tp = todayParts();
   const dm = parseIsoDate(logDate) ?? parseIsoDate(getToday())!;
@@ -558,18 +612,16 @@ export function WeightTrackerPage() {
                   {trendLabel}
                 </span>
               </div>
-              {hasPeriodChartData ? (
-              <div ref={chartContainerRef}>
+              {hasPeriodWeeklyData ? (
+              <div ref={weightChartContainerRef}>
                 <div
-                  ref={chartScrollRef}
-                  data-weight-chart-scroll
-                  onScroll={(e) => syncChartScroll(e.currentTarget)}
+                  ref={weightScrollRef}
                   className="overflow-x-auto overflow-y-hidden -mx-1 px-1 overscroll-x-contain"
                   style={{ WebkitOverflowScrolling: "touch" }}
                   dir="ltr"
                 >
-                  <div style={{ width: chartWidth, minWidth: chartWidth }}>
-                    <AreaChart width={chartWidth} height={200} data={filteredChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <div style={{ width: weightChartWidth, minWidth: weightChartWidth }}>
+                    <AreaChart width={weightChartWidth} height={200} data={filteredWeeklyWeights} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
@@ -577,11 +629,11 @@ export function WeightTrackerPage() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={CHART_DAY_WIDTH - 8} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={CHART_WEEK_WIDTH - 8} />
                     <YAxis domain={[weightMin, weightMax]} tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} tickFormatter={v => `${v}`} width={35} />
                     <Tooltip content={<WeightTooltip lang={lang} />} />
                     <Area
-                      type="monotone" dataKey="weight_kg" stroke="#3b82f6" strokeWidth={2.5}
+                      type="monotone" dataKey="avg_kg" stroke="#3b82f6" strokeWidth={2.5}
                       fill="url(#weightGrad)" dot={{ r: 3, fill: "#3b82f6", strokeWidth: 0 }}
                       activeDot={{ r: 5, fill: "#3b82f6" }} connectNulls
                     />
@@ -609,15 +661,15 @@ export function WeightTrackerPage() {
                 <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-400 inline-block" /> {T.surplus}</span>
               </div>
               {hasPeriodChartData ? (
+              <div ref={balanceChartContainerRef}>
               <div
-                data-weight-chart-scroll
-                onScroll={(e) => syncChartScroll(e.currentTarget)}
+                ref={balanceScrollRef}
                 className="overflow-x-auto overflow-y-hidden -mx-1 px-1 overscroll-x-contain"
                 style={{ WebkitOverflowScrolling: "touch" }}
                 dir="ltr"
               >
-                <div style={{ width: chartWidth, minWidth: chartWidth }}>
-                <BarChart width={chartWidth} height={180} data={filteredChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <div style={{ width: balanceChartWidth, minWidth: balanceChartWidth }}>
+                <BarChart width={balanceChartWidth} height={180} data={filteredChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={CHART_DAY_WIDTH - 8} />
                   <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} tickFormatter={v => v === 0 ? "0" : `${v > 0 ? "+" : ""}${Math.round(v/100)*100}`} width={40} />
@@ -630,6 +682,7 @@ export function WeightTrackerPage() {
                   </Bar>
                 </BarChart>
                 </div>
+              </div>
               </div>
               ) : (
                 <p className="text-sm text-slate-400 text-center py-8">{T.noData}</p>

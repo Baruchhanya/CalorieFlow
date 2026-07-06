@@ -215,6 +215,16 @@ const he = {
   yesterdayBurnSkip: "דלג",
   yesterdayBurnSaved: "אתמול עודכן",
 
+  // Morning weight prompt
+  morningWeightTitle: "כמה אתה שוקל הבוקר?",
+  morningWeightDesc: "שקילה יומית שומרת על המעקב מדויק — הממוצע השבועי מתחשב בכל הכניסות של השבוע.",
+  morningWeightFor: (d: string) => `עבור ${d}`,
+  morningWeightPlaceholder: "75.3",
+  morningWeightSave: "שמור",
+  morningWeightSkip: "לא היום",
+  morningWeightSaved: "המשקל נשמר",
+  morningWeightUnit: "ק״ג",
+
   // Burn mode (active vs total from smartwatch)
   burnModeActive: "אקטיבי",
   burnModeTotal: 'סה"כ',
@@ -488,6 +498,16 @@ const en: Translations = {
   yesterdayBurnSave: "Save",
   yesterdayBurnSkip: "Skip",
   yesterdayBurnSaved: "Yesterday updated",
+
+  // Morning weight prompt
+  morningWeightTitle: "What do you weigh this morning?",
+  morningWeightDesc: "A daily weigh-in keeps the weekly average accurate — every reading in the week counts.",
+  morningWeightFor: (d: string) => `For ${d}`,
+  morningWeightPlaceholder: "75.3",
+  morningWeightSave: "Save",
+  morningWeightSkip: "Not today",
+  morningWeightSaved: "Weight saved",
+  morningWeightUnit: "kg",
 
   // Burn mode (active vs total from smartwatch)
   burnModeActive: "Active",
