@@ -22,8 +22,8 @@ export async function GET() {
 
 /**
  * POST — connect a Mi Fitness account.
- * Body: { email, password }
- * Authenticates against the Huami API, stores the resulting appToken + userId.
+ * Body option A: { email, password }   — auto-login via Huami API
+ * Body option B: { appToken, userId }  — manual token entry (for Xiaomi accounts)
  */
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -31,19 +31,30 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const email    = typeof body.email    === "string" ? body.email.trim()    : "";
-  const password = typeof body.password === "string" ? body.password         : "";
 
-  if (!email || !password) {
-    return NextResponse.json({ error: "email and password required" }, { status: 400 });
-  }
+  let credentials: { appToken: string; userId: string };
 
-  let credentials;
-  try {
-    credentials = await mifitLogin(email, password);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Login failed";
-    return NextResponse.json({ error: msg }, { status: 400 });
+  // Option B: manual token
+  if (typeof body.appToken === "string" && typeof body.userId === "string") {
+    const appToken = body.appToken.trim();
+    const userId   = body.userId.trim();
+    if (!appToken || !userId) {
+      return NextResponse.json({ error: "appToken and userId required" }, { status: 400 });
+    }
+    credentials = { appToken, userId };
+  } else {
+    // Option A: email + password
+    const email    = typeof body.email    === "string" ? body.email.trim() : "";
+    const password = typeof body.password === "string" ? body.password     : "";
+    if (!email || !password) {
+      return NextResponse.json({ error: "email and password required" }, { status: 400 });
+    }
+    try {
+      credentials = await mifitLogin(email, password);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Login failed";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
   }
 
   const { error } = await supabase

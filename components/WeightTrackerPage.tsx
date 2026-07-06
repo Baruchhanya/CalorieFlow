@@ -161,6 +161,10 @@ export function WeightTrackerPage() {
   const [mifitConnecting, setMifitConnecting] = useState(false);
   const [mifitSyncing, setMifitSyncing] = useState(false);
   const [mifitDisconnecting, setMifitDisconnecting] = useState(false);
+  const [mifitManualMode, setMifitManualMode] = useState(false);
+  const [mifitManualToken, setMifitManualToken] = useState("");
+  const [mifitManualUserId, setMifitManualUserId] = useState("");
+  const [mifitApiError, setMifitApiError] = useState<string | null>(null);
 
   const T = lang === "he" ? {
     title: "מעקב משקל",
@@ -217,10 +221,15 @@ export function WeightTrackerPage() {
     mifitLastSync: (d: string) => `סנכרון אחרון: ${d}`,
     mifitSyncSuccess: (n: number) => `סונכרנו ${n} שקילות`,
     mifitSyncNone: "אין שקילות חדשות",
-    mifitConnectError: "שגיאה — בדוק אימייל וסיסמה",
+    mifitConnectError: "שגיאה בהתחברות",
     mifitConnectSuccess: "החשבון חובר",
     mifitDisconnectSuccess: "החשבון נותק",
     mifitRegionLabel: "אזור שרת",
+    mifitManualMode: "הזנה ידנית (apptoken)",
+    mifitAutoMode: "אימייל וסיסמה",
+    mifitTokenLabel: "apptoken",
+    mifitUserIdLabel: "userId",
+    mifitTokenHint: "מופק מ-user.huami.com/privacy2 (ראה הוראות)",
   } : {
     title: "Weight Tracking",
     subtitle: "All values are weekly averages (calendar week)",
@@ -276,10 +285,15 @@ export function WeightTrackerPage() {
     mifitLastSync: (d: string) => `Last sync: ${d}`,
     mifitSyncSuccess: (n: number) => `${n} weigh-in${n === 1 ? "" : "s"} synced`,
     mifitSyncNone: "No new weigh-ins",
-    mifitConnectError: "Failed — check email and password",
+    mifitConnectError: "Connection failed",
     mifitConnectSuccess: "Account connected",
     mifitDisconnectSuccess: "Account disconnected",
     mifitRegionLabel: "Server region",
+    mifitManualMode: "Enter token manually",
+    mifitAutoMode: "Email & password",
+    mifitTokenLabel: "apptoken",
+    mifitUserIdLabel: "userId",
+    mifitTokenHint: "From user.huami.com/privacy2 (see instructions)",
   };
 
   const periodLabels: Record<ChartPeriod, string> = {
@@ -315,24 +329,51 @@ export function WeightTrackerPage() {
   const handleMifitConnect = useCallback(async () => {
     if (!mifitEmail || !mifitPassword) return;
     setMifitConnecting(true);
+    setMifitApiError(null);
     try {
       const res = await fetch("/api/integrations/mifit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: mifitEmail, password: mifitPassword }),
       });
+      const json = await res.json() as { connected?: boolean; error?: string };
       if (res.ok) {
         setMifitStatus({ connected: true, lastSync: null });
         setMifitEmail("");
         setMifitPassword("");
         showToast(T.mifitConnectSuccess, "success");
       } else {
-        showToast(T.mifitConnectError, "error");
+        setMifitApiError(json.error ?? T.mifitConnectError);
       }
     } finally {
       setMifitConnecting(false);
     }
   }, [mifitEmail, mifitPassword, showToast, T]);
+
+  const handleMifitConnectManual = useCallback(async () => {
+    if (!mifitManualToken || !mifitManualUserId) return;
+    setMifitConnecting(true);
+    setMifitApiError(null);
+    try {
+      const res = await fetch("/api/integrations/mifit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appToken: mifitManualToken, userId: mifitManualUserId }),
+      });
+      const json = await res.json() as { connected?: boolean; error?: string };
+      if (res.ok) {
+        setMifitStatus({ connected: true, lastSync: null });
+        setMifitManualToken("");
+        setMifitManualUserId("");
+        setMifitManualMode(false);
+        showToast(T.mifitConnectSuccess, "success");
+      } else {
+        setMifitApiError(json.error ?? T.mifitConnectError);
+      }
+    } finally {
+      setMifitConnecting(false);
+    }
+  }, [mifitManualToken, mifitManualUserId, showToast, T]);
 
   const handleMifitDisconnect = useCallback(async () => {
     setMifitDisconnecting(true);
@@ -931,20 +972,61 @@ export function WeightTrackerPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                <input type="email" value={mifitEmail} onChange={(e) => setMifitEmail(e.target.value)}
-                  placeholder={T.mifitEmailLabel}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  dir="ltr" />
-                <input type="password" value={mifitPassword} onChange={(e) => setMifitPassword(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleMifitConnect(); }}
-                  placeholder={T.mifitPasswordLabel}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  dir="ltr" />
-                <button type="button" onClick={handleMifitConnect}
-                  disabled={mifitConnecting || !mifitEmail || !mifitPassword}
-                  className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-200 text-white text-sm font-semibold rounded-xl transition-colors">
-                  {mifitConnecting ? T.mifitConnecting : T.mifitConnectBtn}
-                </button>
+                {/* Toggle between auto (email/password) and manual (apptoken) */}
+                <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-semibold">
+                  <button type="button"
+                    onClick={() => { setMifitManualMode(false); setMifitApiError(null); }}
+                    className={`flex-1 py-2 transition-colors ${!mifitManualMode ? "bg-blue-500 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
+                    {T.mifitAutoMode}
+                  </button>
+                  <button type="button"
+                    onClick={() => { setMifitManualMode(true); setMifitApiError(null); }}
+                    className={`flex-1 py-2 border-s border-slate-200 transition-colors ${mifitManualMode ? "bg-blue-500 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
+                    {T.mifitManualMode}
+                  </button>
+                </div>
+
+                {mifitApiError && (
+                  <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-2.5 text-xs text-red-600 break-all">
+                    {mifitApiError}
+                  </div>
+                )}
+
+                {!mifitManualMode ? (
+                  <>
+                    <input type="email" value={mifitEmail} onChange={(e) => setMifitEmail(e.target.value)}
+                      placeholder={T.mifitEmailLabel}
+                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      dir="ltr" />
+                    <input type="password" value={mifitPassword} onChange={(e) => setMifitPassword(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleMifitConnect(); }}
+                      placeholder={T.mifitPasswordLabel}
+                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      dir="ltr" />
+                    <button type="button" onClick={handleMifitConnect}
+                      disabled={mifitConnecting || !mifitEmail || !mifitPassword}
+                      className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-200 text-white text-sm font-semibold rounded-xl transition-colors">
+                      {mifitConnecting ? T.mifitConnecting : T.mifitConnectBtn}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs text-slate-400">{T.mifitTokenHint}</p>
+                    <input type="text" value={mifitManualToken} onChange={(e) => setMifitManualToken(e.target.value)}
+                      placeholder={T.mifitTokenLabel}
+                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300 font-mono"
+                      dir="ltr" />
+                    <input type="text" value={mifitManualUserId} onChange={(e) => setMifitManualUserId(e.target.value)}
+                      placeholder={T.mifitUserIdLabel}
+                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300 font-mono"
+                      dir="ltr" />
+                    <button type="button" onClick={handleMifitConnectManual}
+                      disabled={mifitConnecting || !mifitManualToken || !mifitManualUserId}
+                      className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-200 text-white text-sm font-semibold rounded-xl transition-colors">
+                      {mifitConnecting ? T.mifitConnecting : T.mifitConnectBtn}
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
