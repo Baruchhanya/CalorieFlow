@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Shield, ShieldCheck, UserPlus, Trash2, Loader2, ArrowLeft,
   AlertCircle, Crown, Mail, BarChart3, RefreshCw, Sparkles,
@@ -200,20 +200,23 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
     return candidates.reduce((a, b) => (a > b ? a : b));
   };
 
-  const allRows = [
-    // env super-admins that don't have a DB row — show them as locked rows on top
-    ...envAdmins
-      .filter((e) => !users.some((u) => u.email.toLowerCase() === e))
-      .map<AllowedUser>((email) => ({
-        id: `env:${email}`,
-        email,
-        is_admin: true,
-        is_env_admin: true,
-        added_by: null,
-        created_at: "",
-      })),
-    ...users,
-  ];
+  const allRows = useMemo(() => {
+    const userEmailSet = new Set(users.map((u) => u.email.toLowerCase()));
+    return [
+      // env super-admins that don't have a DB row — show them as locked rows on top
+      ...envAdmins
+        .filter((e) => !userEmailSet.has(e))
+        .map<AllowedUser>((email) => ({
+          id: `env:${email}`,
+          email,
+          is_admin: true,
+          is_env_admin: true,
+          added_by: null,
+          created_at: "",
+        })),
+      ...users,
+    ];
+  }, [envAdmins, users]);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-16">

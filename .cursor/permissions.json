@@ -1,0 +1,12 @@
+{
+  "autoRun": {
+    "allow_instructions": [
+      "Allow Next.js dev server, build, and start commands for this project.",
+      "Allow vitest test runs.",
+      "Allow eslint on components, lib, and app directories."
+    ],
+    "block_instructions": [
+      "Every vercel deploy or production publish should go through approval first."
+    ]
+  }
+}

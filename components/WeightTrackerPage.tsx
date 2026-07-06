@@ -153,6 +153,15 @@ export function WeightTrackerPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("2m");
 
+  // Mi Fitness integration state
+  const [mifitStatus, setMifitStatus] = useState<{ connected: boolean; lastSync: string | null } | null>(null);
+  const [mifitEmail, setMifitEmail] = useState("");
+  const [mifitPassword, setMifitPassword] = useState("");
+  const [mifitRegion, setMifitRegion] = useState<"eu" | "us" | "de" | "cn">("eu");
+  const [mifitConnecting, setMifitConnecting] = useState(false);
+  const [mifitSyncing, setMifitSyncing] = useState(false);
+  const [mifitDisconnecting, setMifitDisconnecting] = useState(false);
+
   const T = lang === "he" ? {
     title: "מעקב משקל",
     subtitle: "כל התצוגות הן ממוצע שבועי (לפי שבוע קלנדרי)",
@@ -194,6 +203,24 @@ export function WeightTrackerPage() {
     period1m: "חודש",
     period2m: "חודשיים",
     periodMax: "מקסימום",
+    mifitTitle: "Mi Fitness / Zepp Life",
+    mifitDesc: "התחבר למשקל שיאומי שלך לסנכרון אוטומטי.",
+    mifitEmailLabel: "אימייל Mi Fitness",
+    mifitPasswordLabel: "סיסמה",
+    mifitConnectBtn: "התחבר",
+    mifitConnecting: "מתחבר...",
+    mifitDisconnectBtn: "נתק חשבון",
+    mifitSyncBtn: "סנכרן עכשיו",
+    mifitSyncing: "מסנכרן...",
+    mifitConnected: "מחובר",
+    mifitNotConnected: "לא מחובר",
+    mifitLastSync: (d: string) => `סנכרון אחרון: ${d}`,
+    mifitSyncSuccess: (n: number) => `סונכרנו ${n} שקילות`,
+    mifitSyncNone: "אין שקילות חדשות",
+    mifitConnectError: "שגיאה — בדוק אימייל וסיסמה",
+    mifitConnectSuccess: "החשבון חובר",
+    mifitDisconnectSuccess: "החשבון נותק",
+    mifitRegionLabel: "אזור שרת",
   } : {
     title: "Weight Tracking",
     subtitle: "All values are weekly averages (calendar week)",
@@ -235,6 +262,24 @@ export function WeightTrackerPage() {
     period1m: "1 Month",
     period2m: "2 Months",
     periodMax: "Max",
+    mifitTitle: "Mi Fitness / Zepp Life",
+    mifitDesc: "Connect your Xiaomi scale for automatic sync.",
+    mifitEmailLabel: "Mi Fitness email",
+    mifitPasswordLabel: "Password",
+    mifitConnectBtn: "Connect",
+    mifitConnecting: "Connecting…",
+    mifitDisconnectBtn: "Disconnect account",
+    mifitSyncBtn: "Sync now",
+    mifitSyncing: "Syncing…",
+    mifitConnected: "Connected",
+    mifitNotConnected: "Not connected",
+    mifitLastSync: (d: string) => `Last sync: ${d}`,
+    mifitSyncSuccess: (n: number) => `${n} weigh-in${n === 1 ? "" : "s"} synced`,
+    mifitSyncNone: "No new weigh-ins",
+    mifitConnectError: "Failed — check email and password",
+    mifitConnectSuccess: "Account connected",
+    mifitDisconnectSuccess: "Account disconnected",
+    mifitRegionLabel: "Server region",
   };
 
   const periodLabels: Record<ChartPeriod, string> = {
@@ -258,6 +303,69 @@ export function WeightTrackerPage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Load Mi Fitness connection status
+  useEffect(() => {
+    fetch("/api/integrations/mifit")
+      .then((r) => r.json())
+      .then((d) => setMifitStatus({ connected: !!d.connected, lastSync: d.lastSync ?? null }))
+      .catch(() => {});
+  }, []);
+
+  const handleMifitConnect = useCallback(async () => {
+    if (!mifitEmail || !mifitPassword) return;
+    setMifitConnecting(true);
+    try {
+      const res = await fetch("/api/integrations/mifit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: mifitEmail, password: mifitPassword }),
+      });
+      if (res.ok) {
+        setMifitStatus({ connected: true, lastSync: null });
+        setMifitEmail("");
+        setMifitPassword("");
+        showToast(T.mifitConnectSuccess, "success");
+      } else {
+        showToast(T.mifitConnectError, "error");
+      }
+    } finally {
+      setMifitConnecting(false);
+    }
+  }, [mifitEmail, mifitPassword, showToast, T]);
+
+  const handleMifitDisconnect = useCallback(async () => {
+    setMifitDisconnecting(true);
+    try {
+      await fetch("/api/integrations/mifit", { method: "DELETE" });
+      setMifitStatus({ connected: false, lastSync: null });
+      showToast(T.mifitDisconnectSuccess, "success");
+    } finally {
+      setMifitDisconnecting(false);
+    }
+  }, [showToast, T]);
+
+  const handleMifitSync = useCallback(async () => {
+    setMifitSyncing(true);
+    try {
+      const res = await fetch("/api/integrations/mifit/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ region: mifitRegion, days: 90 }),
+      });
+      const json = await res.json() as { synced?: number; error?: string };
+      if (res.ok) {
+        const now = new Date().toISOString();
+        setMifitStatus((prev) => prev ? { ...prev, lastSync: now } : { connected: true, lastSync: now });
+        showToast(json.synced ? T.mifitSyncSuccess(json.synced) : T.mifitSyncNone, "success");
+        if (json.synced) fetchData();
+      } else {
+        showToast(json.error ?? T.mifitConnectError, "error");
+      }
+    } finally {
+      setMifitSyncing(false);
+    }
+  }, [mifitRegion, showToast, T, fetchData]);
 
   /* מילוי/ניקוי לפי תאריך: אם יש רשומה ליום — מציגים אותה; אם כבר יש נתונים בשרת אבל לא ליום הזה — שדה ריק; לא מאפסים כש-entries עדיין [] לפני טעינה ראשונה */
   useEffect(() => {
@@ -776,6 +884,71 @@ export function WeightTrackerPage() {
             </div>
           </div>
         )}
+
+        {/* Mi Fitness / Zepp Life integration */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-50 flex items-center gap-2">
+            <Scale className="w-4 h-4 text-slate-400" />
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">{T.mifitTitle}</h3>
+            <span className={`ms-auto text-xs font-semibold px-2 py-0.5 rounded-full ${mifitStatus?.connected ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>
+              {mifitStatus?.connected ? T.mifitConnected : T.mifitNotConnected}
+            </span>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <p className="text-sm text-slate-500">{T.mifitDesc}</p>
+
+            {mifitStatus?.connected ? (
+              <div className="space-y-3">
+                {mifitStatus.lastSync && (
+                  <p className="text-xs text-slate-400">
+                    {T.mifitLastSync(new Date(mifitStatus.lastSync).toLocaleString(lang === "he" ? "he-IL" : "en-GB"))}
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-slate-500 whitespace-nowrap">{T.mifitRegionLabel}:</label>
+                  <select
+                    value={mifitRegion}
+                    onChange={(e) => setMifitRegion(e.target.value as "eu" | "us" | "de" | "cn")}
+                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 text-slate-700 bg-white"
+                  >
+                    <option value="eu">Europe</option>
+                    <option value="us">US</option>
+                    <option value="de">Germany</option>
+                    <option value="cn">China</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={handleMifitSync} disabled={mifitSyncing}
+                    className="flex-1 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm font-semibold rounded-xl transition-colors">
+                    {mifitSyncing ? T.mifitSyncing : T.mifitSyncBtn}
+                  </button>
+                  <button type="button" onClick={handleMifitDisconnect} disabled={mifitDisconnecting}
+                    className="px-4 py-2.5 bg-slate-100 hover:bg-red-50 hover:text-red-500 text-slate-500 text-sm font-semibold rounded-xl transition-colors">
+                    {mifitDisconnecting ? "..." : T.mifitDisconnectBtn}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <input type="email" value={mifitEmail} onChange={(e) => setMifitEmail(e.target.value)}
+                  placeholder={T.mifitEmailLabel}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  dir="ltr" />
+                <input type="password" value={mifitPassword} onChange={(e) => setMifitPassword(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleMifitConnect(); }}
+                  placeholder={T.mifitPasswordLabel}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  dir="ltr" />
+                <button type="button" onClick={handleMifitConnect}
+                  disabled={mifitConnecting || !mifitEmail || !mifitPassword}
+                  className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-200 text-white text-sm font-semibold rounded-xl transition-colors">
+                  {mifitConnecting ? T.mifitConnecting : T.mifitConnectBtn}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </main>
     </div>
   );

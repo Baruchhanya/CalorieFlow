@@ -83,6 +83,7 @@ interface AllowedRow {
 }
 
 export async function GET() {
+  const t0 = performance.now();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -135,50 +136,76 @@ export async function GET() {
     }
   }
 
+  // Precompute each gemini row's cost once (was computed twice per user before).
+  const gemCost = new Map<GeminiRow, number>();
+  for (const g of gemini) {
+    gemCost.set(
+      g,
+      estimateUsageCost({
+        promptTokens: g.prompt_tokens ?? 0,
+        candidatesTokens: g.candidates_tokens ?? 0,
+        totalTokens: g.total_tokens ?? 0,
+      })
+    );
+  }
+
+  // Group rows by owner in single passes (was O(users × rows) of repeated filters).
+  const mealsByUser = new Map<string, MealRow[]>();
+  for (const m of meals) {
+    if (!m.user_id) continue;
+    const arr = mealsByUser.get(m.user_id);
+    if (arr) arr.push(m);
+    else mealsByUser.set(m.user_id, [m]);
+  }
+  // Gemini rows are attributed by user_id when present, else by lowercased email.
+  const gemByUserId = new Map<string, GeminiRow[]>();
+  const gemByEmail = new Map<string, GeminiRow[]>();
+  for (const g of gemini) {
+    if (g.user_id) {
+      const arr = gemByUserId.get(g.user_id);
+      if (arr) arr.push(g);
+      else gemByUserId.set(g.user_id, [g]);
+    } else if (g.user_email) {
+      const key = g.user_email.toLowerCase();
+      const arr = gemByEmail.get(key);
+      if (arr) arr.push(g);
+      else gemByEmail.set(key, [g]);
+    }
+  }
+
   // Per-user aggregates
   const userStats: UserStat[] = Array.from(byEmail.values()).map((r) => {
-    const userMeals = r.user_id ? meals.filter((m) => m.user_id === r.user_id) : [];
-    const userGem = gemini.filter((g) =>
-      (r.user_id && g.user_id === r.user_id) ||
-      (!r.user_id && g.user_email?.toLowerCase() === r.email)
-    );
+    const userMeals = r.user_id ? mealsByUser.get(r.user_id) ?? [] : [];
+    const userGem = r.user_id
+      ? gemByUserId.get(r.user_id) ?? []
+      : gemByEmail.get(r.email) ?? [];
 
-    const meals_30d = userMeals.filter((m) => m.created_at >= start30d).length;
-    const meals_7d = userMeals.filter((m) => m.created_at >= start7d).length;
-    const days_tracked = new Set(userMeals.map((m) => m.date).filter(Boolean)).size;
-    const last_meal_at = userMeals.reduce<string | null>(
-      (acc, m) => (acc === null || m.created_at > acc ? m.created_at : acc),
-      null
-    );
+    let meals_30d = 0, meals_7d = 0;
+    let last_meal_at: string | null = null;
+    const daySet = new Set<string>();
+    for (const m of userMeals) {
+      if (m.created_at >= start30d) meals_30d++;
+      if (m.created_at >= start7d) meals_7d++;
+      if (m.date) daySet.add(m.date);
+      if (last_meal_at === null || m.created_at > last_meal_at) last_meal_at = m.created_at;
+    }
+    const days_tracked = daySet.size;
 
-    const gem_30d = userGem.filter((g) => g.created_at >= start30d);
-    const gem_7d = userGem.filter((g) => g.created_at >= start7d);
-
-    const tokens_30d = gem_30d.reduce((s, g) => s + (g.total_tokens ?? 0), 0);
-    const cost_30d = gem_30d.reduce(
-      (s, g) =>
-        s +
-        estimateUsageCost({
-          promptTokens: g.prompt_tokens ?? 0,
-          candidatesTokens: g.candidates_tokens ?? 0,
-          totalTokens: g.total_tokens ?? 0,
-        }),
-      0
-    );
-    const cost_total = userGem.reduce(
-      (s, g) =>
-        s +
-        estimateUsageCost({
-          promptTokens: g.prompt_tokens ?? 0,
-          candidatesTokens: g.candidates_tokens ?? 0,
-          totalTokens: g.total_tokens ?? 0,
-        }),
-      0
-    );
-    const last_gemini_at = userGem.reduce<string | null>(
-      (acc, g) => (acc === null || g.created_at > acc ? g.created_at : acc),
-      null
-    );
+    let gemini_calls_30d = 0, gemini_calls_7d = 0;
+    let tokens_30d = 0, cost_30d = 0, cost_total = 0, errors_30d = 0;
+    let last_gemini_at: string | null = null;
+    for (const g of userGem) {
+      const c = gemCost.get(g) ?? 0;
+      cost_total += c;
+      if (g.created_at >= start30d) {
+        gemini_calls_30d++;
+        tokens_30d += g.total_tokens ?? 0;
+        cost_30d += c;
+        if (g.status !== "success") errors_30d++;
+      }
+      if (g.created_at >= start7d) gemini_calls_7d++;
+      if (last_gemini_at === null || g.created_at > last_gemini_at) last_gemini_at = g.created_at;
+    }
 
     return {
       user_id: r.user_id,
@@ -191,12 +218,12 @@ export async function GET() {
       days_tracked,
       last_meal_at,
       gemini_calls_total: userGem.length,
-      gemini_calls_30d: gem_30d.length,
-      gemini_calls_7d: gem_7d.length,
+      gemini_calls_30d,
+      gemini_calls_7d,
       gemini_tokens_30d: tokens_30d,
       gemini_cost_usd_30d: cost_30d,
       gemini_cost_usd_total: cost_total,
-      gemini_errors_30d: gem_30d.filter((g) => g.status !== "success").length,
+      gemini_errors_30d: errors_30d,
       last_gemini_at,
     };
   });
@@ -214,16 +241,7 @@ export async function GET() {
   const gem_g_30d = gemini.filter((g) => g.created_at >= start30d);
 
   const sumCost = (rows: GeminiRow[]) =>
-    rows.reduce(
-      (s, g) =>
-        s +
-        estimateUsageCost({
-          promptTokens: g.prompt_tokens ?? 0,
-          candidatesTokens: g.candidates_tokens ?? 0,
-          totalTokens: g.total_tokens ?? 0,
-        }),
-      0
-    );
+    rows.reduce((s, g) => s + (gemCost.get(g) ?? 0), 0);
 
   const durations = gem_g_30d.map((g) => g.duration_ms ?? 0).filter((d) => d > 0);
   const avg_dur = durations.length === 0 ? null : Math.round(durations.reduce((s, d) => s + d, 0) / durations.length);
@@ -243,6 +261,8 @@ export async function GET() {
     },
     users: userStats,
   };
+
+  console.log(`[perf] /api/admin/stats: ${Math.round(performance.now() - t0)}ms (users=${userStats.length}, meals=${meals.length}, gemini=${gemini.length})`);
 
   return NextResponse.json(payload);
 }

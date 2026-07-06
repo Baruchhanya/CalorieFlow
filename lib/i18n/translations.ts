@@ -236,6 +236,31 @@ const he = {
 
   poweredBy: "CalorieFlow · מופעל על ידי Gemini AI",
 
+  // Mi Fitness / Zepp integration
+  mifitSectionTitle: "Mi Fitness / Zepp Life",
+  mifitSectionDesc: "התחבר למשקל שיאומי שלך כדי לסנכרן שקילות אוטומטית.",
+  mifitConnected: "מחובר",
+  mifitNotConnected: "לא מחובר",
+  mifitEmailLabel: "אימייל Mi Fitness",
+  mifitPasswordLabel: "סיסמה",
+  mifitConnectButton: "התחבר",
+  mifitConnecting: "מתחבר...",
+  mifitDisconnectButton: "נתק חשבון",
+  mifitDisconnecting: "מנתק...",
+  mifitSyncButton: "סנכרן עכשיו",
+  mifitSyncing: "מסנכרן...",
+  mifitLastSync: (d: string) => `סנכרון אחרון: ${d}`,
+  mifitSyncSuccess: (n: number) => `סונכרנו ${n} שקילות`,
+  mifitSyncNone: "אין שקילות חדשות לסנכרן",
+  mifitConnectError: "שגיאה בהתחברות — בדוק אימייל וסיסמה",
+  mifitConnectSuccess: "החשבון חובר בהצלחה",
+  mifitDisconnectSuccess: "החשבון נותק",
+  mifitRegionLabel: "אזור שרת",
+  mifitRegionEu: "אירופה (ברירת מחדל)",
+  mifitRegionUs: "ארה״ב",
+  mifitRegionDe: "גרמניה",
+  mifitRegionCn: "סין",
+
   // Admin page
   adminNavLabel: "ניהול",
   adminPageTitle: "ניהול משתמשים",
@@ -519,6 +544,31 @@ const en: Translations = {
     `Value is below your base goal (${bmr.toLocaleString()}). Active will be counted as 0.`,
 
   poweredBy: "CalorieFlow · Powered by Gemini AI",
+
+  // Mi Fitness / Zepp integration
+  mifitSectionTitle: "Mi Fitness / Zepp Life",
+  mifitSectionDesc: "Connect your Xiaomi scale to auto-sync weigh-ins.",
+  mifitConnected: "Connected",
+  mifitNotConnected: "Not connected",
+  mifitEmailLabel: "Mi Fitness email",
+  mifitPasswordLabel: "Password",
+  mifitConnectButton: "Connect",
+  mifitConnecting: "Connecting…",
+  mifitDisconnectButton: "Disconnect account",
+  mifitDisconnecting: "Disconnecting…",
+  mifitSyncButton: "Sync now",
+  mifitSyncing: "Syncing…",
+  mifitLastSync: (d: string) => `Last sync: ${d}`,
+  mifitSyncSuccess: (n: number) => `${n} weigh-in${n === 1 ? "" : "s"} synced`,
+  mifitSyncNone: "No new weigh-ins to sync",
+  mifitConnectError: "Connection failed — check your email and password",
+  mifitConnectSuccess: "Account connected",
+  mifitDisconnectSuccess: "Account disconnected",
+  mifitRegionLabel: "Server region",
+  mifitRegionEu: "Europe (default)",
+  mifitRegionUs: "US",
+  mifitRegionDe: "Germany",
+  mifitRegionCn: "China",
 
   // Admin page
   adminNavLabel: "Admin",
