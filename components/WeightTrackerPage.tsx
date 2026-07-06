@@ -424,6 +424,32 @@ export function WeightTrackerPage() {
   const maxDayCurrent = maxDayForMonth(dm.y, dm.m);
   const monthOptions = Array.from({ length: maxMonthForYear(dm.y) }, (_, i) => i + 1);
 
+  // Current-week hero: this-week avg + delta from previous week
+  const thisWeekStart = weekStartIso(getToday());
+  const thisWeek = weeklyWeights.find((w) => w.weekStart === thisWeekStart);
+  const prevWeek = thisWeek
+    ? [...weeklyWeights].reverse().find((w) => w.weekStart < thisWeek.weekStart)
+    : null;
+  const thisWeekDelta = thisWeek && prevWeek ? thisWeek.avg_kg - prevWeek.avg_kg : null;
+  const thisWeekRangeLabel = thisWeek
+    ? (() => {
+        const [, mS, dS] = thisWeek.weekStart.split("-");
+        const [, mE, dE] = thisWeek.weekEnd.split("-");
+        return `${dS}/${mS}–${dE}/${mE}`;
+      })()
+    : (() => {
+        const start = thisWeekStart;
+        const end = offsetDate(start, 6);
+        const [, mS, dS] = start.split("-");
+        const [, mE, dE] = end.split("-");
+        return `${dS}/${mS}–${dE}/${mE}`;
+      })();
+  const thisWeekCountLabel = thisWeek
+    ? (lang === "he"
+        ? `ממוצע של ${thisWeek.count} ${thisWeek.count === 1 ? "שקילה" : "שקילות"}`
+        : `avg of ${thisWeek.count} weigh-in${thisWeek.count === 1 ? "" : "s"}`)
+    : (lang === "he" ? "אין שקילות השבוע — הוסף אחת למטה" : "No weigh-ins this week — add one below");
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
@@ -442,6 +468,46 @@ export function WeightTrackerPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-5 flex flex-col gap-5 pb-12">
+        {/* Weekly average hero */}
+        <div className="rounded-2xl p-5 shadow-sm border border-blue-100 bg-gradient-to-br from-blue-50 via-indigo-50 to-white">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-sm shrink-0">
+              <Scale className="w-4 h-4 text-blue-500" />
+            </div>
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+              {lang === "he" ? "ממוצע שבועי — השבוע" : "Weekly average — this week"}
+            </h2>
+          </div>
+          <div className="flex items-end gap-3 flex-wrap">
+            <p className="text-5xl font-black leading-none text-blue-600 tabular-nums">
+              {thisWeek ? thisWeek.avg_kg.toFixed(1) : "–"}
+              <span className="text-lg font-semibold text-slate-400 ms-1.5">{T.kg}</span>
+            </p>
+            {thisWeekDelta != null && (
+              <span
+                className={`text-xs font-bold px-2 py-1 rounded-full ${
+                  Math.abs(thisWeekDelta) < 0.05
+                    ? "bg-slate-100 text-slate-600"
+                    : thisWeekDelta < 0
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-red-100 text-red-600"
+                }`}
+              >
+                {thisWeekDelta > 0 ? "+" : ""}
+                {thisWeekDelta.toFixed(1)} {T.kg}{" "}
+                <span className="font-medium opacity-75">
+                  {lang === "he" ? "מהשבוע הקודם" : "vs last week"}
+                </span>
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            <span className="font-semibold text-slate-600 tabular-nums">{thisWeekRangeLabel}</span>
+            <span className="mx-1.5 text-slate-300">·</span>
+            <span>{thisWeekCountLabel}</span>
+          </p>
+        </div>
+
         {/* Input card */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 space-y-6">
           <div className="flex items-center gap-2">
