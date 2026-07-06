@@ -57,7 +57,7 @@ export async function POST(req: Request) {
   // Only upsert dates up to today
   const rows = records
     .filter((r) => r.date <= today)
-    .map((r) => ({ user_id: user.id, date: r.date, weight_kg: r.weight_kg }));
+    .map((r) => ({ user_id: user.id, date: r.date, weight_kg: r.weight_kg, source: "mifit" }));
 
   if (rows.length === 0) {
     return NextResponse.json({ synced: 0 });

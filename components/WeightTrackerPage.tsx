@@ -14,6 +14,7 @@ import { getToday, offsetDate } from "@/lib/dates";
 import {
   computeWeeklyAverages,
   weekStartIso,
+  WEIGHT_SOURCE_LABELS,
   type WeightEntry,
   type WeightWeek,
 } from "@/lib/weight";
@@ -904,7 +905,14 @@ export function WeightTrackerPage() {
                       {formatDayLabel(e.date, lang)}
                       {isToday && <span className="ms-1 text-blue-500 font-bold">·{lang === "he" ? "היום" : "today"}</span>}
                     </div>
-                    <p className="flex-1 font-black text-slate-800">{Number(e.weight_kg).toFixed(1)}<span className="text-xs text-slate-400 font-normal ms-1">{T.kg}</span></p>
+                    <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                      e.source === "mifit"
+                        ? "bg-orange-50 text-orange-600"
+                        : "bg-slate-100 text-slate-400"
+                    }`}>
+                      {WEIGHT_SOURCE_LABELS[e.source === "mifit" ? "mifit" : "manual"][lang === "he" ? "he" : "en"]}
+                    </span>
+                    <p className="flex-1 font-black text-slate-800 min-w-0">{Number(e.weight_kg).toFixed(1)}<span className="text-xs text-slate-400 font-normal ms-1">{T.kg}</span></p>
                     {diff != null && (
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${Math.abs(diff) < 0.05 ? "bg-slate-100 text-slate-500" : diff < 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-500"}`}>
                         {diff > 0 ? "+" : ""}{diff.toFixed(1)}

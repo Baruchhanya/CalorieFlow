@@ -1,10 +1,18 @@
 import { offsetDate, toLocalIso } from "@/lib/dates";
 
+export type WeightSource = "manual" | "mifit";
+
 export interface WeightEntry {
   id: string;
   date: string;
   weight_kg: number;
+  source?: WeightSource | null;
 }
+
+export const WEIGHT_SOURCE_LABELS: Record<WeightSource, { he: string; en: string }> = {
+  manual: { he: "ידני",      en: "Manual" },
+  mifit:  { he: "Mi Fitness", en: "Mi Fitness" },
+};
 
 export interface WeightWeek {
   weekStart: string;

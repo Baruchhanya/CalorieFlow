@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data } = await supabase
     .from("weight_log")
-    .select("id, date, weight_kg")
+    .select("id, date, weight_kg, source")
     .eq("user_id", user.id)
     .order("date", { ascending: true });
 
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   const { data, error } = await supabase
     .from("weight_log")
     .upsert(
-      { user_id: user.id, date, weight_kg },
+      { user_id: user.id, date, weight_kg, source: "manual" },
       { onConflict: "user_id,date" }
     )
     .select()
