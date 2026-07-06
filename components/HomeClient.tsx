@@ -17,6 +17,7 @@ import ProfileModal from "@/components/ProfileModal";
 import UntrackedDayCard from "@/components/UntrackedDayCard";
 import YesterdayBurnModal from "@/components/YesterdayBurnModal";
 import MorningWeightModal from "@/components/MorningWeightModal";
+import WeeklyWeightCard from "@/components/WeeklyWeightCard";
 import { MealEntry, MealPreset, UserProfile, effectiveProteinGoal } from "@/types";
 import type { HistorySuggestion } from "@/types";
 import type { BalanceHistoryResponse } from "@/app/api/balance-history/route";
@@ -526,18 +527,8 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
 
         <CalorieHistorySection initialData={balanceHistory} />
 
-        {/* קישור בולט למעקב משקל + גרפים (במיוחד כשה-bottom nav פחות מורגש) */}
-        <a href="/weight"
-          className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 shadow-sm hover:shadow-md hover:border-blue-200 active:scale-[0.99] touch-manipulation transition-all">
-          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm shrink-0">
-            <Scale className="w-5 h-5 text-blue-500" />
-          </div>
-          <div className="flex-1 min-w-0 text-start">
-            <p className="text-sm font-bold text-slate-800">{T.weightCardTitle}</p>
-            <p className="text-xs text-slate-500 mt-0.5 leading-snug">{T.weightCardDesc}</p>
-          </div>
-          <span className="text-xs font-bold text-blue-600 shrink-0">{T.weightCardCta} →</span>
-        </a>
+        {/* Weekly weight average — links to the full weight tracker */}
+        <WeeklyWeightCard />
 
         {/* Meal list */}
         <section className="animate-slide-up">

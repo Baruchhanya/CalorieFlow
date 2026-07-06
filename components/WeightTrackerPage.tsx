@@ -10,47 +10,14 @@ import {
 import { ArrowRight, Scale, TrendingDown, TrendingUp, Plus, Trash2, Calendar, Pencil } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
-import { getToday, offsetDate, toLocalIso } from "@/lib/dates";
+import { getToday, offsetDate } from "@/lib/dates";
+import {
+  computeWeeklyAverages,
+  weekStartIso,
+  type WeightEntry,
+  type WeightWeek,
+} from "@/lib/weight";
 import type { ChartDay } from "@/app/api/weight-chart/route";
-
-interface WeightEntry { id: string; date: string; weight_kg: number }
-
-interface WeightWeek {
-  weekStart: string;
-  weekEnd: string;
-  label: string;
-  avg_kg: number;
-  count: number;
-}
-
-/** Sunday of the calendar week containing `dateStr`, as YYYY-MM-DD. */
-function weekStartIso(dateStr: string): string {
-  const d = new Date(dateStr + "T12:00:00");
-  d.setDate(d.getDate() - d.getDay());
-  return toLocalIso(d);
-}
-
-function computeWeeklyAverages(entries: WeightEntry[], lang: string): WeightWeek[] {
-  const buckets = new Map<string, { sum: number; count: number }>();
-  for (const e of entries) {
-    const key = weekStartIso(e.date);
-    const cur = buckets.get(key) ?? { sum: 0, count: 0 };
-    cur.sum += Number(e.weight_kg);
-    cur.count += 1;
-    buckets.set(key, cur);
-  }
-  return [...buckets.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([weekStart, { sum, count }]) => {
-      const weekEnd = offsetDate(weekStart, 6);
-      const [, mS, dS] = weekStart.split("-");
-      const [, mE, dE] = weekEnd.split("-");
-      const label = lang === "he"
-        ? `${dS}/${mS}–${dE}/${mE}`
-        : `${dS}/${mS}–${dE}/${mE}`;
-      return { weekStart, weekEnd, label, avg_kg: sum / count, count };
-    });
-}
 
 function parseIsoDate(iso: string): { y: number; m: number; d: number } | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
@@ -331,7 +298,7 @@ export function WeightTrackerPage() {
   };
 
   // Weekly averages: calendar week (Sun-Sat), one point per week that has entries
-  const weeklyWeights = useMemo(() => computeWeeklyAverages(entries, lang), [entries, lang]);
+  const weeklyWeights = useMemo(() => computeWeeklyAverages(entries), [entries]);
 
   // Stats (based on weekly averages, matching the chart)
   const weeklyAvgs = weeklyWeights.map((w) => w.avg_kg);
