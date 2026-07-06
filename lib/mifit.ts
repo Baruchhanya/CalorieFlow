@@ -18,9 +18,16 @@ const MIFIT_HOSTS: Record<string, string> = {
   cn: "api-mifit-cn2.huami.com",
 };
 
-export type MiFitRegion = keyof typeof MIFIT_HOSTS;
+/** Dedicated weight endpoint host (newer Mi Fitness / Zepp apps). */
+const WEIGHT_HOSTS = [
+  "api-mifit.zepp.com",
+  "api-mifit.huami.com",
+  "api-mifit-de2.huami.com",
+  "api-mifit-de2.zepp.com",
+  "api-mifit-cn2.huami.com",
+];
 
-const REGION_FALLBACK_ORDER: MiFitRegion[] = ["us", "de", "eu", "cn"];
+export type MiFitRegion = keyof typeof MIFIT_HOSTS;
 
 export interface MiFitCredentials {
   appToken: string;
@@ -162,41 +169,102 @@ export interface WeightRecord {
 }
 
 interface RawWeightRecord {
-  /** Some implementations return grams (int), others return kg (float) — handle both */
-  weight:      number;
-  measureTime: number;
-  bmi?:        number;
-  fat?:        number;
-  /** Member/user ID — present on multi-profile accounts. Used to filter to the owner only. */
-  memberId?:   number | string;
-  userId?:     number | string;
+  weight?:           number;
+  measureTime?:      number;
+  generateTime?:     number;
+  generatedTime?:    number;
+  createTime?:       number;
+  bmi?:              number;
+  fat?:              number;
+  memberId?:         number | string;
+  userId?:           number | string;
+  summary?:          { weight?: number; bmi?: number; fatRate?: number };
 }
 
-interface WeightApiResponse {
-  code?:    number;
-  message?: string;
-  data?:    RawWeightRecord[] | { weightRecords?: RawWeightRecord[] };
+type WeightApiResponse = Record<string, unknown>;
+
+function normalizeTimestamp(ts: number): number {
+  // API may return seconds (10 digits) or milliseconds (13 digits).
+  return ts > 1_000_000_000_000 ? Math.floor(ts / 1000) : ts;
 }
 
-/**
- * Fetch weight records from Mi Fitness / Zepp Life API.
- *
- * @param fromTime  Unix timestamp (seconds) — inclusive lower bound.
- * @param toTime    Unix timestamp (seconds) — inclusive upper bound.
- * @param region    API region key (default "eu").
- */
+function extractWeightKg(raw: number | undefined, summaryWeight?: number): number | null {
+  const w = summaryWeight ?? raw;
+  if (w == null || w <= 0) return null;
+  // Values > 500 are almost certainly grams.
+  return w > 500 ? Math.round((w / 1000) * 10) / 10 : Math.round(w * 10) / 10;
+}
+
+function timestampToDate(tsSec: number): string {
+  const d = new Date(tsSec * 1000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Parse all known weightRecords response shapes into a flat list. */
+function parseWeightApiResponse(json: WeightApiResponse, accountUserId: string): WeightRecord[] {
+  const userIdStr = String(accountUserId);
+  const candidates: Array<{ ts: number; weight_kg: number; memberId?: string; userId?: string }> = [];
+
+  const push = (item: RawWeightRecord) => {
+    const tsRaw =
+      item.generatedTime ?? item.generateTime ?? item.measureTime ?? item.createTime ?? 0;
+    const ts = normalizeTimestamp(Number(tsRaw));
+    const weight_kg = extractWeightKg(item.weight, item.summary?.weight);
+    if (!ts || weight_kg == null) return;
+    candidates.push({
+      ts,
+      weight_kg,
+      memberId: item.memberId != null ? String(item.memberId) : undefined,
+      userId:   item.userId   != null ? String(item.userId)   : undefined,
+    });
+  };
+
+  // New format: { items: [{ generatedTime, summary: { weight } }] }
+  const items = json.items;
+  if (Array.isArray(items)) {
+    for (const item of items) push(item as RawWeightRecord);
+  }
+
+  // Legacy: { data: [...] } or { data: { weightRecords: [...] } }
+  const data = json.data;
+  if (Array.isArray(data)) {
+    for (const item of data) push(item as RawWeightRecord);
+  } else if (data && typeof data === "object" && "weightRecords" in data) {
+    const wr = (data as { weightRecords?: unknown }).weightRecords;
+    if (Array.isArray(wr)) {
+      for (const item of wr) push(item as RawWeightRecord);
+    }
+  }
+
+  // Filter family members only when memberId is present and differs from account.
+  const filtered = candidates.filter((r) => {
+    if (r.memberId && r.memberId !== userIdStr && r.memberId !== "-1") return false;
+    if (r.userId   && r.userId   !== userIdStr && r.userId   !== "-1") return false;
+    return true;
+  });
+
+  // Deduplicate: one entry per calendar day — keep the latest reading.
+  const byDate = new Map<string, WeightRecord>();
+  for (const r of filtered) {
+    const date = timestampToDate(r.ts);
+    const existing = byDate.get(date);
+    if (!existing || r.ts > existing.measureTime) {
+      byDate.set(date, { measureTime: r.ts, weight_kg: r.weight_kg, date });
+    }
+  }
+
+  return [...byDate.values()].sort((a, b) => a.measureTime - b.measureTime);
+}
+
 async function fetchWeightFromHost(
   host: string,
   appToken: string,
   userId: string,
   fromTime: number,
-  toTime: number,
 ): Promise<WeightApiResponse> {
   const params = new URLSearchParams({
-    fromTime:  String(fromTime),
-    toTime:    String(toTime),
-    limit:     "500",
-    isForward: "0",
+    fromTime: String(fromTime),
+    limit:    "500",
   });
 
   const url = `https://${host}/users/${userId}/members/-1/weightRecords?${params}`;
@@ -228,60 +296,31 @@ export async function fetchMiFitWeightRecords(
   appToken: string,
   userId:   string,
   fromTime: number,
-  toTime:   number,
+  _toTime:  number,
   region:   MiFitRegion = "us",
 ): Promise<WeightRecord[]> {
   const preferred = MIFIT_HOSTS[region] ?? MIFIT_HOSTS.us;
   const hosts = [
+    "api-mifit.zepp.com",
     preferred,
-    ...REGION_FALLBACK_ORDER
-      .map((r) => MIFIT_HOSTS[r])
-      .filter((h) => h !== preferred),
+    ...WEIGHT_HOSTS.filter((h) => h !== preferred && h !== "api-mifit.zepp.com"),
   ];
 
-  let json: WeightApiResponse | null = null;
   let lastError: Error | null = null;
 
   for (const host of hosts) {
     try {
-      json = await fetchWeightFromHost(host, appToken, userId, fromTime, toTime);
-      lastError = null;
-      break;
+      const json = await fetchWeightFromHost(host, appToken, userId, fromTime);
+      const records = parseWeightApiResponse(json, userId);
+      if (records.length > 0) return records;
+      // Empty but valid — try next host in case data lives elsewhere.
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      // Retry on network/DNS failures; stop on auth errors.
       if (lastError.message.includes("token expired")) throw lastError;
     }
   }
 
-  if (!json) {
-    throw lastError ?? new Error("Mi Fitness API unreachable");
-  }
-
-  // Normalise the two possible shapes: array or { weightRecords: [] }
-  let raw: RawWeightRecord[] = [];
-  if (Array.isArray(json.data)) {
-    raw = json.data;
-  } else if (json.data && "weightRecords" in json.data && Array.isArray(json.data.weightRecords)) {
-    raw = json.data.weightRecords;
-  }
-
-  const userIdStr = String(userId);
-
-  return raw
-    // Filter to the account owner only — skip family-member records if present.
-    .filter((r) => {
-      if (r.memberId != null)  return String(r.memberId) === userIdStr;
-      if (r.userId   != null)  return String(r.userId)   === userIdStr;
-      return true; // single-user account — no member field present
-    })
-    .filter((r) => r.weight > 0 && r.measureTime > 0)
-    .map((r): WeightRecord => {
-      // The API may return weight in grams (e.g. 75300) or kg (e.g. 75.3).
-      // Heuristic: values > 500 are almost certainly grams.
-      const weight_kg = r.weight > 500 ? r.weight / 1000 : r.weight;
-      const d = new Date(r.measureTime * 1000);
-      const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      return { measureTime: r.measureTime, weight_kg: Math.round(weight_kg * 10) / 10, date };
-    });
+  // All hosts returned empty — not an error, just no data in range.
+  if (!lastError) return [];
+  throw lastError;
 }
