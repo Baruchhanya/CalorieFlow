@@ -157,7 +157,7 @@ export function WeightTrackerPage() {
   const [mifitStatus, setMifitStatus] = useState<{ connected: boolean; lastSync: string | null } | null>(null);
   const [mifitEmail, setMifitEmail] = useState("");
   const [mifitPassword, setMifitPassword] = useState("");
-  const [mifitRegion, setMifitRegion] = useState<"eu" | "us" | "de" | "cn">("eu");
+  const [mifitRegion, setMifitRegion] = useState<"eu" | "us" | "de" | "cn">("us");
   const [mifitConnecting, setMifitConnecting] = useState(false);
   const [mifitSyncing, setMifitSyncing] = useState(false);
   const [mifitDisconnecting, setMifitDisconnecting] = useState(false);
@@ -953,8 +953,8 @@ export function WeightTrackerPage() {
                     onChange={(e) => setMifitRegion(e.target.value as "eu" | "us" | "de" | "cn")}
                     className="text-xs border border-slate-200 rounded-lg px-2 py-1 text-slate-700 bg-white"
                   >
-                    <option value="eu">Europe</option>
-                    <option value="us">US</option>
+                    <option value="us">US (ברירת מחדל)</option>
+                    <option value="eu">Europe (DE)</option>
                     <option value="de">Germany</option>
                     <option value="cn">China</option>
                   </select>

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
   const days   = typeof body.days   === "number" ? Math.min(Math.max(1, body.days), 365) : 30;
-  const region = (typeof body.region === "string" ? body.region : "eu") as MiFitRegion;
+  const region = (typeof body.region === "string" ? body.region : "us") as MiFitRegion;
 
   const toTime   = Math.floor(Date.now() / 1000);
   const fromTime = toTime - days * 86400;

@@ -10,15 +10,17 @@
 const REGISTRATION_HOST = "api-user.huami.com";
 const LOGIN_HOST = "account.huami.com";
 
-// Regional API hosts (weight data)
+// Regional API hosts (weight data). "eu" maps to DE2 — there is no api-mifit-eu host.
 const MIFIT_HOSTS: Record<string, string> = {
-  us:  "api-mifit.huami.com",
-  eu:  "api-mifit-eu.huami.com",
-  de:  "api-mifit-de2.huami.com",
-  cn:  "api-mifit-cn2.huami.com",
+  us: "api-mifit.huami.com",
+  eu: "api-mifit-de2.huami.com",
+  de: "api-mifit-de2.huami.com",
+  cn: "api-mifit-cn2.huami.com",
 };
 
 export type MiFitRegion = keyof typeof MIFIT_HOSTS;
+
+const REGION_FALLBACK_ORDER: MiFitRegion[] = ["us", "de", "eu", "cn"];
 
 export interface MiFitCredentials {
   appToken: string;
@@ -183,14 +185,13 @@ interface WeightApiResponse {
  * @param toTime    Unix timestamp (seconds) — inclusive upper bound.
  * @param region    API region key (default "eu").
  */
-export async function fetchMiFitWeightRecords(
+async function fetchWeightFromHost(
+  host: string,
   appToken: string,
-  userId:   string,
+  userId: string,
   fromTime: number,
-  toTime:   number,
-  region:   MiFitRegion = "eu",
-): Promise<WeightRecord[]> {
-  const host = MIFIT_HOSTS[region] ?? MIFIT_HOSTS.eu;
+  toTime: number,
+): Promise<WeightApiResponse> {
   const params = new URLSearchParams({
     fromTime:  String(fromTime),
     toTime:    String(toTime),
@@ -200,18 +201,62 @@ export async function fetchMiFitWeightRecords(
 
   const url = `https://${host}/users/${userId}/members/-1/weightRecords?${params}`;
 
-  const res = await fetch(url, {
-    headers: {
-      apptoken:    appToken,
-      appPlatform: "web",
-      appname:     "com.xiaomi.hm.health",
-      accept:      "application/json",
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: {
+        apptoken:    appToken,
+        appPlatform: "web",
+        appname:     "com.xiaomi.hm.health",
+        accept:      "application/json",
+      },
+    });
+  } catch (err) {
+    const cause = err instanceof Error ? err.message : String(err);
+    throw new Error(`Network error reaching ${host}: ${cause}`);
+  }
 
-  if (!res.ok) throw new Error(`Mi Fitness weight API error: ${res.status}`);
+  if (res.status === 401) {
+    throw new Error("Mi Fitness token expired — reconnect with a fresh apptoken from user.huami.com");
+  }
+  if (!res.ok) throw new Error(`Mi Fitness weight API error (${host}): ${res.status}`);
 
-  const json = await res.json() as WeightApiResponse;
+  return res.json() as Promise<WeightApiResponse>;
+}
+
+export async function fetchMiFitWeightRecords(
+  appToken: string,
+  userId:   string,
+  fromTime: number,
+  toTime:   number,
+  region:   MiFitRegion = "us",
+): Promise<WeightRecord[]> {
+  const preferred = MIFIT_HOSTS[region] ?? MIFIT_HOSTS.us;
+  const hosts = [
+    preferred,
+    ...REGION_FALLBACK_ORDER
+      .map((r) => MIFIT_HOSTS[r])
+      .filter((h) => h !== preferred),
+  ];
+
+  let json: WeightApiResponse | null = null;
+  let lastError: Error | null = null;
+
+  for (const host of hosts) {
+    try {
+      json = await fetchWeightFromHost(host, appToken, userId, fromTime, toTime);
+      lastError = null;
+      break;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      // Retry on network/DNS failures; stop on auth errors.
+      if (lastError.message.includes("token expired")) throw lastError;
+    }
+  }
+
+  if (!json) {
+    throw lastError ?? new Error("Mi Fitness API unreachable");
+  }
 
   // Normalise the two possible shapes: array or { weightRecords: [] }
   let raw: RawWeightRecord[] = [];
