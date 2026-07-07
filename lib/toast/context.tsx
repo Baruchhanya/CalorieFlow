@@ -52,9 +52,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const colors = {
-    success: "bg-emerald-600 text-white border-emerald-500",
-    error: "bg-red-600 text-white border-red-500",
-    info: "bg-slate-800 text-white border-slate-700",
+    success: "bg-brand-600 text-white border-brand-500",
+    error: "bg-over text-white border-over",
+    info: "bg-ink text-white border-ink-2",
   };
 
   const Icon = toast?.variant === "success" ? CheckCircle2 : toast?.variant === "error" ? AlertCircle : Info;

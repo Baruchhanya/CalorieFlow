@@ -5,6 +5,7 @@ import { X, User, Save, Ruler, Weight, Calendar, Info, Flame, Beef } from "lucid
 import { UserProfile, calcProteinGoal } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+import Modal from "@/components/ui/Modal";
 
 function localTodayStr(): string {
   const n = new Date();
@@ -172,145 +173,148 @@ export default function ProfileModal({ initialProfile, dailyGoalCalories, onSave
   const factor = (Number(age) || 0) >= 60 ? 1.4 : 1.2;
   const hasWeight = Boolean(weight && Number(weight) > 0);
 
+  const fieldWrapCls =
+    "flex items-center border border-line rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-brand-500/40";
+  const unitCls = "px-3 text-xs text-ink-3 font-medium bg-canvas border-s border-line py-2.5";
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-sm max-h-[92vh] overflow-y-auto animate-in scale-in duration-200">
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-5 text-white relative sticky top-0 z-10">
-          <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-3">
-            <User className="w-6 h-6" />
-          </div>
-          <h2 className="text-lg font-black leading-tight">{T.title}</h2>
-          <p className="text-blue-100 text-sm mt-1">{T.subtitle}</p>
-          {!isFirstTime && (
-            <button onClick={onClose} className="absolute top-4 end-4 p-1.5 rounded-xl bg-white/20 hover:bg-white/30 transition-colors">
-              <X className="w-4 h-4" />
-            </button>
-          )}
+    <Modal open onClose={onClose} closeDisabled={saving} maxWidthClass="sm:max-w-sm">
+      {/* Brand header */}
+      <div className="bg-brand-700 px-6 py-5 text-white relative sticky top-0 z-10">
+        <div className="w-12 h-12 bg-white/15 rounded-2xl flex items-center justify-center mb-3">
+          <User className="w-6 h-6" />
         </div>
-
-        <div className="p-6 flex flex-col gap-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-sm text-red-600">{error}</div>
-          )}
-
-          {[
-            { icon: <Ruler className="w-4 h-4 text-slate-400" />, label: T.height, val: height, set: setHeight, placeholder: T.heightPlaceholder, unit: "cm" },
-            { icon: <Weight className="w-4 h-4 text-blue-500" />, label: T.weight, val: weight, set: setWeight, placeholder: T.weightPlaceholder, unit: "kg" },
-            { icon: <Calendar className="w-4 h-4 text-slate-400" />, label: T.age, val: age, set: setAge, placeholder: T.agePlaceholder, unit: lang === "he" ? "שנים" : "years" },
-          ].map((f) => (
-            <div key={f.label} className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-                {f.icon}{f.label}
-              </label>
-              <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-300">
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={f.val}
-                  onChange={(e) => f.set(e.target.value)}
-                  placeholder={f.placeholder}
-                  min={0}
-                  className="flex-1 px-4 py-2.5 text-sm focus:outline-none"
-                />
-                <span className="px-3 text-xs text-slate-400 font-medium bg-slate-50 border-s border-slate-200 py-2.5">{f.unit}</span>
-              </div>
-            </div>
-          ))}
-
-          {/* Daily protein goal (NEW: editable, with auto fallback) */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-              <Beef className="w-4 h-4 text-blue-500" />
-              {T.proteinGoalLabel}
-              <span className={`ms-auto inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                usingManual ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"
-              }`}>
-                {usingManual ? T.badgeManual : T.badgeAuto}
-              </span>
-            </label>
-            <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-300">
-              <input
-                type="number"
-                inputMode="numeric"
-                value={proteinGoalStr}
-                onChange={(e) => setProteinGoalStr(e.target.value)}
-                placeholder={T.proteinPlaceholder(autoProteinGoal)}
-                min={10}
-                max={500}
-                className="flex-1 px-4 py-2.5 text-sm focus:outline-none"
-              />
-              <span className="px-3 text-xs text-slate-400 font-medium bg-slate-50 border-s border-slate-200 py-2.5">g</span>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              {usingManual
-                ? T.proteinHintManual(manualProteinNum, autoProteinGoal)
-                : T.proteinHintAuto(autoProteinGoal)}
-            </p>
-          </div>
-
-          {/* Daily calorie target */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-              <Flame className="w-4 h-4 text-orange-500" />
-              {T.dailyCalorieTarget}
-            </label>
-            <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-300">
-              <input
-                type="number"
-                inputMode="numeric"
-                value={dailyGoalStr}
-                onChange={(e) => setDailyGoalStr(e.target.value)}
-                placeholder={T.goalPlaceholder}
-                min={500}
-                max={10000}
-                className="flex-1 px-4 py-2.5 text-sm focus:outline-none"
-              />
-              <span className="px-3 text-xs text-slate-400 font-medium bg-slate-50 border-s border-slate-200 py-2.5">{T.kcal}</span>
-            </div>
-            <p className="text-[11px] text-slate-400">{T.dailyCalorieTargetHint}</p>
-          </div>
-
-          {/* Protein preview / summary */}
-          <div className={`rounded-2xl p-4 border transition-all duration-300 ${hasWeight || usingManual ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-100"}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <Info className="w-4 h-4 text-blue-500 shrink-0" />
-              <p className="text-xs font-bold text-blue-700 uppercase tracking-wide">{T.proteinTitle}</p>
-            </div>
-            {hasWeight || usingManual ? (
-              <>
-                <p className="text-xs text-blue-500 mb-1">
-                  {usingManual ? (
-                    <span className="font-black text-blue-700 text-base">{Math.round(effectiveProtein)}g</span>
-                  ) : (
-                    <>
-                      {Number(weight)} {lang === "he" ? "ק״ג" : "kg"} × {factor} ={" "}
-                      <span className="font-black text-blue-700 text-base">{Math.round(effectiveProtein)}g</span>
-                    </>
-                  )}
-                </p>
-                {!usingManual && (
-                  <p className="text-[11px] text-blue-400">{T.factorNote(Number(age) || 0)}</p>
-                )}
-              </>
-            ) : (
-              <p className="text-sm text-slate-400">{T.proteinNote}...</p>
-            )}
-          </div>
-
-          <button onClick={handleSave} disabled={saving}
-            className="w-full py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 shadow-sm">
-            <Save className="w-4 h-4" />
-            {saving ? (lang === "he" ? "שומר..." : "Saving...") : T.save}
+        <h2 className="text-lg font-bold leading-tight">{T.title}</h2>
+        <p className="text-brand-100/90 text-sm mt-1">{T.subtitle}</p>
+        {!isFirstTime && (
+          <button onClick={onClose} className="absolute top-4 end-4 p-1.5 rounded-xl bg-white/15 hover:bg-white/25 transition-colors">
+            <X className="w-4 h-4" />
           </button>
-          {isFirstTime && (
-            <button onClick={onClose} className="w-full py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors">
-              {T.skip}
-            </button>
-          )}
-          {/* Safe-area spacer for iPhone home indicator */}
-          <div style={{ height: "env(safe-area-inset-bottom, 0px)" }} />
-        </div>
+        )}
       </div>
-    </div>
+
+      <div className="p-6 flex flex-col gap-4">
+        {error && (
+          <div className="bg-over/10 border border-over/20 rounded-xl px-3 py-2 text-sm text-over">{error}</div>
+        )}
+
+        {[
+          { icon: <Ruler className="w-4 h-4 text-ink-3" />, label: T.height, val: height, set: setHeight, placeholder: T.heightPlaceholder, unit: "cm" },
+          { icon: <Weight className="w-4 h-4 text-brand-600" />, label: T.weight, val: weight, set: setWeight, placeholder: T.weightPlaceholder, unit: "kg" },
+          { icon: <Calendar className="w-4 h-4 text-ink-3" />, label: T.age, val: age, set: setAge, placeholder: T.agePlaceholder, unit: lang === "he" ? "שנים" : "years" },
+        ].map((f) => (
+          <div key={f.label} className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold text-ink-2 uppercase tracking-wide flex items-center gap-1.5">
+              {f.icon}{f.label}
+            </label>
+            <div className={fieldWrapCls}>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={f.val}
+                onChange={(e) => f.set(e.target.value)}
+                placeholder={f.placeholder}
+                min={0}
+                className="flex-1 px-4 py-2.5 text-sm tabular-nums focus:outline-none"
+              />
+              <span className={unitCls}>{f.unit}</span>
+            </div>
+          </div>
+        ))}
+
+        {/* Daily protein goal (editable, with auto fallback) */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-semibold text-ink-2 uppercase tracking-wide flex items-center gap-1.5">
+            <Beef className="w-4 h-4 text-protein" />
+            {T.proteinGoalLabel}
+            <span className={`ms-auto inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+              usingManual ? "bg-protein/10 text-protein" : "bg-canvas text-ink-3 border border-line"
+            }`}>
+              {usingManual ? T.badgeManual : T.badgeAuto}
+            </span>
+          </label>
+          <div className={fieldWrapCls}>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={proteinGoalStr}
+              onChange={(e) => setProteinGoalStr(e.target.value)}
+              placeholder={T.proteinPlaceholder(autoProteinGoal)}
+              min={10}
+              max={500}
+              className="flex-1 px-4 py-2.5 text-sm tabular-nums focus:outline-none"
+            />
+            <span className={unitCls}>g</span>
+          </div>
+          <p className="text-[11px] text-ink-3">
+            {usingManual
+              ? T.proteinHintManual(manualProteinNum, autoProteinGoal)
+              : T.proteinHintAuto(autoProteinGoal)}
+          </p>
+        </div>
+
+        {/* Daily calorie target */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-semibold text-ink-2 uppercase tracking-wide flex items-center gap-1.5">
+            <Flame className="w-4 h-4 text-fat" />
+            {T.dailyCalorieTarget}
+          </label>
+          <div className={fieldWrapCls}>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={dailyGoalStr}
+              onChange={(e) => setDailyGoalStr(e.target.value)}
+              placeholder={T.goalPlaceholder}
+              min={500}
+              max={10000}
+              className="flex-1 px-4 py-2.5 text-sm tabular-nums focus:outline-none"
+            />
+            <span className={unitCls}>{T.kcal}</span>
+          </div>
+          <p className="text-[11px] text-ink-3">{T.dailyCalorieTargetHint}</p>
+        </div>
+
+        {/* Protein preview / summary */}
+        <div className={`rounded-xl p-4 border transition-all duration-300 ${hasWeight || usingManual ? "bg-brand-50 border-brand-100" : "bg-canvas border-line"}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Info className="w-4 h-4 text-brand-600 shrink-0" />
+            <p className="text-[11px] font-semibold text-brand-700 uppercase tracking-wide">{T.proteinTitle}</p>
+          </div>
+          {hasWeight || usingManual ? (
+            <>
+              <p className="text-xs text-ink-2 mb-1 tabular-nums">
+                {usingManual ? (
+                  <span className="font-bold text-brand-700 text-base">{Math.round(effectiveProtein)}g</span>
+                ) : (
+                  <>
+                    {Number(weight)} {lang === "he" ? "ק״ג" : "kg"} × {factor} ={" "}
+                    <span className="font-bold text-brand-700 text-base">{Math.round(effectiveProtein)}g</span>
+                  </>
+                )}
+              </p>
+              {!usingManual && (
+                <p className="text-[11px] text-ink-3">{T.factorNote(Number(age) || 0)}</p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-ink-3">{T.proteinNote}...</p>
+          )}
+        </div>
+
+        <button onClick={handleSave} disabled={saving}
+          className="w-full py-3 bg-brand-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-brand-700 transition-colors disabled:opacity-50">
+          <Save className="w-4 h-4" />
+          {saving ? (lang === "he" ? "שומר..." : "Saving...") : T.save}
+        </button>
+        {isFirstTime && (
+          <button onClick={onClose} className="w-full py-2 text-sm text-ink-3 hover:text-ink-2 transition-colors">
+            {T.skip}
+          </button>
+        )}
+        {/* Safe-area spacer for iPhone home indicator */}
+        <div style={{ height: "env(safe-area-inset-bottom, 0px)" }} />
+      </div>
+    </Modal>
   );
 }

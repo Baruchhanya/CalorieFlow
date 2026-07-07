@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Shield, ShieldCheck, UserPlus, Trash2, Loader2, ArrowLeft,
   AlertCircle, Crown, Mail, BarChart3, RefreshCw, Sparkles,
@@ -219,21 +220,21 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
   }, [envAdmins, users]);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-16">
-      <header className="sticky top-0 z-40 bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md">
+    <div className="min-h-screen bg-canvas pb-16">
+      <header className="sticky top-0 z-40 bg-surface border-b border-line">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-          <a
+          <Link
             href="/"
-            className="p-1.5 rounded-xl hover:bg-white/15 transition-colors"
+            className="p-1.5 rounded-xl bg-canvas hover:bg-line/60 text-ink-2 transition-colors"
             aria-label={isHe ? "חזרה לבית" : "Back to home"}
           >
             <ArrowLeft className="w-5 h-5 rtl:scale-x-[-1]" />
-          </a>
+          </Link>
           <div className="flex items-center gap-2 min-w-0">
-            <Shield className="w-5 h-5 shrink-0" />
+            <Shield className="w-5 h-5 shrink-0 text-warn" />
             <div className="min-w-0">
-              <h1 className="text-base font-black leading-tight truncate">{T.adminPageTitle}</h1>
-              <p className="text-[11px] text-emerald-100 truncate">{T.adminPageSubtitle}</p>
+              <h1 className="text-base font-bold text-ink leading-tight truncate">{T.adminPageTitle}</h1>
+              <p className="text-[11px] text-ink-3 truncate">{T.adminPageSubtitle}</p>
             </div>
           </div>
         </div>
@@ -241,22 +242,22 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
 
       <main className="max-w-2xl mx-auto px-4 py-4 flex flex-col gap-4">
         {/* Add new user */}
-        <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-          <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
-            <UserPlus className="w-4 h-4 text-emerald-500" />
+        <section className="bg-surface rounded-(--radius-card) border border-line shadow-(--shadow-card) p-5">
+          <h2 className="text-sm font-bold text-ink flex items-center gap-2 mb-3">
+            <UserPlus className="w-4 h-4 text-brand-600" />
             {T.adminAddTitle}
           </h2>
-          <p className="text-xs text-slate-500 mb-3 leading-relaxed">{T.adminAddHint}</p>
+          <p className="text-xs text-ink-2 mb-3 leading-relaxed">{T.adminAddHint}</p>
 
           {error && (
-            <div className="mb-3 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
+            <div className="mb-3 flex items-start gap-2 bg-over/10 border border-over/20 rounded-xl p-3 text-sm text-over">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" /><span>{error}</span>
             </div>
           )}
 
           <div className="flex flex-col gap-2">
             <div className="relative">
-              <Mail className="w-4 h-4 absolute top-1/2 -translate-y-1/2 start-3 text-slate-400 pointer-events-none" />
+              <Mail className="w-4 h-4 absolute top-1/2 -translate-y-1/2 start-3 text-ink-3 pointer-events-none" />
               <input
                 value={newEmail}
                 onChange={(e) => { setNewEmail(e.target.value); setError(""); }}
@@ -267,7 +268,7 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
                 placeholder={T.adminEmailPlaceholder}
                 disabled={adding}
                 dir="ltr"
-                className="w-full rounded-xl border border-slate-200 ps-10 pe-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50"
+                className="w-full rounded-xl border border-line ps-10 pe-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:opacity-50"
               />
             </div>
 
@@ -277,10 +278,10 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
                 checked={newIsAdmin}
                 onChange={(e) => setNewIsAdmin(e.target.checked)}
                 disabled={adding}
-                className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400"
+                className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500/40"
               />
-              <span className="text-sm text-slate-600 flex items-center gap-1.5">
-                <Crown className="w-3.5 h-3.5 text-amber-500" />
+              <span className="text-sm text-ink-2 flex items-center gap-1.5">
+                <Crown className="w-3.5 h-3.5 text-warn" />
                 {T.adminGrantAdmin}
               </span>
             </label>
@@ -289,7 +290,7 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
               type="button"
               onClick={addUser}
               disabled={adding || !newEmail.trim()}
-              className="mt-1 w-full min-h-[48px] py-3 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-[0.98] touch-manipulation transition-all disabled:opacity-50"
+              className="mt-1 w-full min-h-[48px] py-3 rounded-xl bg-brand-600 text-white font-bold flex items-center justify-center gap-2 hover:bg-brand-700 active:scale-[0.98] touch-manipulation transition-all disabled:opacity-50"
             >
               {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
               {adding ? T.adminAdding : T.adminAddButton}
@@ -298,117 +299,117 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
         </section>
 
         {/* Usage Statistics */}
-        <section className="bg-white rounded-2xl border border-slate-100 shadow-sm">
-          <div className="px-5 pt-5 pb-3 border-b border-slate-100 flex items-start justify-between gap-2">
+        <section className="bg-surface rounded-(--radius-card) border border-line shadow-(--shadow-card)">
+          <div className="px-5 pt-5 pb-3 border-b border-line flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-indigo-500" />
+              <h2 className="text-sm font-bold text-ink flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-protein" />
                 {T.adminStatsTitle}
               </h2>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">{T.adminStatsSubtitle}</p>
+              <p className="text-xs text-ink-2 mt-1 leading-relaxed">{T.adminStatsSubtitle}</p>
             </div>
             <button
               type="button"
               onClick={loadStats}
               disabled={statsLoading}
               title={T.adminStatsRefresh}
-              className="shrink-0 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+              className="shrink-0 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl border border-line text-ink-2 hover:bg-canvas disabled:opacity-40 transition-colors"
             >
               {statsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             </button>
           </div>
 
           {statsError ? (
-            <div className="p-5 text-sm text-red-600 flex items-center gap-2">
+            <div className="p-5 text-sm text-over flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" /> {statsError}
             </div>
           ) : statsLoading && !stats ? (
             <div className="p-5 flex flex-col gap-2">
               <div className="grid grid-cols-2 gap-2">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" style={{ opacity: 1 - i * 0.15 }} />
+                  <div key={i} className="h-16 bg-line/60 rounded-xl animate-pulse" style={{ opacity: 1 - i * 0.15 }} />
                 ))}
               </div>
-              <div className="h-32 bg-slate-100 rounded-xl animate-pulse opacity-40 mt-2" />
+              <div className="h-32 bg-line/60 rounded-xl animate-pulse opacity-40 mt-2" />
             </div>
           ) : stats ? (
             <>
               {/* Global summary tiles */}
               <div className="px-5 pt-4 pb-2 grid grid-cols-2 gap-2">
-                <div className="bg-indigo-50 rounded-xl p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-700/70">{T.adminStatsCallsToday}</p>
-                  <p className="text-lg font-black text-indigo-900 mt-0.5">{fmtNum(stats.global.gemini_calls_today)}</p>
+                <div className="bg-protein/8 rounded-xl p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-protein/80">{T.adminStatsCallsToday}</p>
+                  <p className="text-lg font-bold text-protein mt-0.5">{fmtNum(stats.global.gemini_calls_today)}</p>
                 </div>
-                <div className="bg-emerald-50 rounded-xl p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/70">{T.adminStatsCostToday}</p>
-                  <p className="text-lg font-black text-emerald-900 mt-0.5">{fmtCost(stats.global.gemini_cost_usd_today)}</p>
+                <div className="bg-brand-50 rounded-xl p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-brand-700/80">{T.adminStatsCostToday}</p>
+                  <p className="text-lg font-bold text-brand-700 mt-0.5">{fmtCost(stats.global.gemini_cost_usd_today)}</p>
                 </div>
-                <div className="bg-violet-50 rounded-xl p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-violet-700/70">{T.adminStatsCalls30d}</p>
-                  <p className="text-lg font-black text-violet-900 mt-0.5">{fmtNum(stats.global.gemini_calls_30d)}</p>
+                <div className="bg-carbs/8 rounded-xl p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-carbs/80">{T.adminStatsCalls30d}</p>
+                  <p className="text-lg font-bold text-carbs mt-0.5">{fmtNum(stats.global.gemini_calls_30d)}</p>
                 </div>
-                <div className="bg-amber-50 rounded-xl p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700/80">{T.adminStatsCost30d}</p>
-                  <p className="text-lg font-black text-amber-900 mt-0.5">{fmtCost(stats.global.gemini_cost_usd_30d)}</p>
+                <div className="bg-fat/8 rounded-xl p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-fat/80">{T.adminStatsCost30d}</p>
+                  <p className="text-lg font-bold text-fat mt-0.5">{fmtCost(stats.global.gemini_cost_usd_30d)}</p>
                 </div>
               </div>
 
               {/* Secondary line */}
-              <div className="px-5 pb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
-                <span>{T.adminStatsCallsTotal}: <span className="font-bold text-slate-700">{fmtNum(stats.global.gemini_calls_total)}</span></span>
+              <div className="px-5 pb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-2">
+                <span>{T.adminStatsCallsTotal}: <span className="font-bold text-ink">{fmtNum(stats.global.gemini_calls_total)}</span></span>
                 <span>·</span>
-                <span>{T.adminStatsCostTotal}: <span className="font-bold text-slate-700">{fmtCost(stats.global.gemini_cost_usd_total)}</span></span>
+                <span>{T.adminStatsCostTotal}: <span className="font-bold text-ink">{fmtCost(stats.global.gemini_cost_usd_total)}</span></span>
                 {stats.global.gemini_errors_30d > 0 && (
                   <>
                     <span>·</span>
-                    <span className="text-red-600">{T.adminStatsErrors30d}: <span className="font-bold">{fmtNum(stats.global.gemini_errors_30d)}</span></span>
+                    <span className="text-over">{T.adminStatsErrors30d}: <span className="font-bold">{fmtNum(stats.global.gemini_errors_30d)}</span></span>
                   </>
                 )}
                 {stats.global.gemini_avg_duration_ms_30d !== null && (
                   <>
                     <span>·</span>
-                    <span>{T.adminStatsAvgDuration}: <span className="font-bold text-slate-700">{(stats.global.gemini_avg_duration_ms_30d / 1000).toFixed(1)}s</span></span>
+                    <span>{T.adminStatsAvgDuration}: <span className="font-bold text-ink">{(stats.global.gemini_avg_duration_ms_30d / 1000).toFixed(1)}s</span></span>
                   </>
                 )}
               </div>
 
               {/* Per-user table */}
-              <div className="border-t border-slate-100 px-2 sm:px-5 py-3">
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3 mb-2">{T.adminStatsPerUserTitle}</h3>
+              <div className="border-t border-line px-2 sm:px-5 py-3">
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-ink-2 px-3 mb-2">{T.adminStatsPerUserTitle}</h3>
                 {stats.users.length === 0 ? (
-                  <p className="text-sm text-slate-400 text-center py-4">{T.adminStatsNoUsers}</p>
+                  <p className="text-sm text-ink-3 text-center py-4">{T.adminStatsNoUsers}</p>
                 ) : (
                   <ul className="flex flex-col gap-2">
                     {stats.users.map((u) => {
                       const lastActive = userLastActive(u);
                       const hasGemini = u.gemini_calls_total > 0;
                       return (
-                        <li key={u.email} className="bg-slate-50 rounded-xl p-3 flex flex-col gap-2">
+                        <li key={u.email} className="bg-canvas rounded-xl p-3 flex flex-col gap-2">
                           <div className="flex items-center justify-between gap-2 min-w-0">
-                            <p className="text-sm font-semibold text-slate-800 truncate min-w-0" dir="ltr">{u.email}</p>
-                            <span className="text-[10px] text-slate-400 shrink-0">{fmtRelative(lastActive)}</span>
+                            <p className="text-sm font-semibold text-ink truncate min-w-0" dir="ltr">{u.email}</p>
+                            <span className="text-[10px] text-ink-3 shrink-0">{fmtRelative(lastActive)}</span>
                           </div>
                           <div className="grid grid-cols-3 gap-2 text-[11px]">
                             <div>
-                              <p className="text-slate-400">{T.adminStatsColMeals}</p>
-                              <p className="font-bold text-slate-800">{fmtNum(u.meals_total)}<span className="text-slate-400 font-normal text-[10px]"> ({fmtNum(u.meals_30d)}/30י)</span></p>
+                              <p className="text-ink-3">{T.adminStatsColMeals}</p>
+                              <p className="font-bold text-ink">{fmtNum(u.meals_total)}<span className="text-ink-3 font-normal text-[10px]"> ({fmtNum(u.meals_30d)}/30י)</span></p>
                             </div>
                             <div>
-                              <p className="text-slate-400">{T.adminStatsColDays}</p>
-                              <p className="font-bold text-slate-800">{fmtNum(u.days_tracked)}</p>
+                              <p className="text-ink-3">{T.adminStatsColDays}</p>
+                              <p className="font-bold text-ink">{fmtNum(u.days_tracked)}</p>
                             </div>
                             <div>
-                              <p className="text-slate-400 flex items-center gap-1"><Sparkles className="w-3 h-3 text-violet-400" />{T.adminStatsColGeminiCalls}</p>
-                              <p className={`font-bold ${hasGemini ? "text-violet-700" : "text-slate-400"}`}>
+                              <p className="text-ink-3 flex items-center gap-1"><Sparkles className="w-3 h-3 text-carbs/70" />{T.adminStatsColGeminiCalls}</p>
+                              <p className={`font-bold ${hasGemini ? "text-carbs" : "text-ink-3"}`}>
                                 {fmtNum(u.gemini_calls_total)}
-                                <span className="text-slate-400 font-normal text-[10px]"> ({fmtNum(u.gemini_calls_30d)}/30י)</span>
+                                <span className="text-ink-3 font-normal text-[10px]"> ({fmtNum(u.gemini_calls_30d)}/30י)</span>
                               </p>
                             </div>
                           </div>
                           {hasGemini && (
-                            <div className="flex items-center justify-between gap-2 text-[11px] pt-1 border-t border-slate-200">
-                              <span className="text-slate-500">{T.adminStatsColTokens}: <span className="font-bold text-slate-700">{fmtNum(u.gemini_tokens_30d)}</span></span>
-                              <span className="text-slate-500">{T.adminStatsColCost}: <span className="font-bold text-emerald-700">{fmtCost(u.gemini_cost_usd_30d)}</span></span>
+                            <div className="flex items-center justify-between gap-2 text-[11px] pt-1 border-t border-line">
+                              <span className="text-ink-2">{T.adminStatsColTokens}: <span className="font-bold text-ink">{fmtNum(u.gemini_tokens_30d)}</span></span>
+                              <span className="text-ink-2">{T.adminStatsColCost}: <span className="font-bold text-brand-700">{fmtCost(u.gemini_cost_usd_30d)}</span></span>
                             </div>
                           )}
                         </li>
@@ -422,25 +423,25 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
         </section>
 
         {/* Users list */}
-        <section className="bg-white rounded-2xl border border-slate-100 shadow-sm">
-          <div className="px-5 pt-5 pb-3 border-b border-slate-100">
-            <h2 className="text-sm font-bold text-slate-800">
+        <section className="bg-surface rounded-(--radius-card) border border-line shadow-(--shadow-card)">
+          <div className="px-5 pt-5 pb-3 border-b border-line">
+            <h2 className="text-sm font-bold text-ink">
               {T.adminListTitle}{" "}
-              <span className="text-slate-400 font-medium">({allRows.length})</span>
+              <span className="text-ink-3 font-medium">({allRows.length})</span>
             </h2>
-            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{T.adminListHint}</p>
+            <p className="text-xs text-ink-2 mt-1 leading-relaxed">{T.adminListHint}</p>
           </div>
 
           {loading ? (
             <div className="p-5 flex flex-col gap-2">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-14 bg-slate-100 rounded-xl animate-pulse" style={{ opacity: 1 - i * 0.2 }} />
+                <div key={i} className="h-14 bg-line/60 rounded-xl animate-pulse" style={{ opacity: 1 - i * 0.2 }} />
               ))}
             </div>
           ) : allRows.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-400">{T.adminEmpty}</div>
+            <div className="p-8 text-center text-sm text-ink-3">{T.adminEmpty}</div>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-line">
               {allRows.map((u) => {
                 const isMe = u.email.toLowerCase() === meEmail.toLowerCase();
                 const isEnvListed = u.is_env_admin;
@@ -451,39 +452,39 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
                 return (
                   <li key={u.id} className="px-5 py-3 flex items-center gap-3">
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                      u.is_admin ? "bg-gradient-to-br from-amber-400 to-orange-500 text-white" : "bg-slate-100 text-slate-500"
+                      u.is_admin ? "bg-warn text-white" : "bg-line/60 text-ink-2"
                     }`}>
                       {u.email.slice(0, 2).toUpperCase()}
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate flex items-center gap-1.5" dir="ltr">
+                      <p className="text-sm font-semibold text-ink truncate flex items-center gap-1.5" dir="ltr">
                         {u.email}
                         {isMe && (
-                          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-100 text-brand-700">
                             {isHe ? "אתה" : "you"}
                           </span>
                         )}
                       </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <p className="text-[11px] text-ink-3 mt-0.5 flex items-center gap-1.5 flex-wrap">
                         {u.is_admin ? (
-                          <span className="inline-flex items-center gap-1 text-amber-600 font-semibold">
+                          <span className="inline-flex items-center gap-1 text-warn font-semibold">
                             <ShieldCheck className="w-3 h-3" />
                             {T.adminRoleAdmin}
                           </span>
                         ) : (
-                          <span className="text-slate-500 font-medium">{T.adminRoleUser}</span>
+                          <span className="text-ink-2 font-medium">{T.adminRoleUser}</span>
                         )}
                         {isEnvListed && (
                           <span
                             title={T.adminEnvHint}
-                            className="inline-flex items-center gap-0.5 text-[10px] font-bold uppercase text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded"
+                            className="inline-flex items-center gap-0.5 text-[10px] font-bold uppercase text-ink-2 bg-line/60 px-1.5 py-0.5 rounded"
                           >
                             <Crown className="w-3 h-3" /> {isHe ? "מהגדרות שרת" : "env"}
                           </span>
                         )}
                         {!isEnvListed && u.added_by && (
-                          <span className="text-slate-400">· {isHe ? `נוסף ע״י ${u.added_by}` : `by ${u.added_by}`}</span>
+                          <span className="text-ink-3">· {isHe ? `נוסף ע״י ${u.added_by}` : `by ${u.added_by}`}</span>
                         )}
                       </p>
                     </div>
@@ -496,8 +497,8 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
                         title={u.is_admin ? T.adminDemote : T.adminPromote}
                         className={`min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl border text-xs font-bold transition-colors disabled:opacity-40 ${
                           u.is_admin
-                            ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                            : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                            ? "border-warn/25 bg-warn/10 text-warn hover:bg-warn/15"
+                            : "border-line text-ink-2 hover:bg-canvas"
                         }`}
                       >
                         {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
@@ -508,7 +509,7 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
                           onClick={() => removeUser(u)}
                           disabled={busy}
                           title={T.adminRemove}
-                          className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-40"
+                          className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl border border-line text-ink-3 hover:text-over hover:border-over/25 hover:bg-over/10 transition-colors disabled:opacity-40"
                         >
                           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                         </button>
@@ -521,7 +522,7 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
           )}
         </section>
 
-        <p className="text-[11px] text-slate-400 text-center px-4 leading-relaxed">
+        <p className="text-[11px] text-ink-3 text-center px-4 leading-relaxed">
           {T.adminFooter}
         </p>
       </main>

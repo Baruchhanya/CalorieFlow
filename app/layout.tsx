@@ -1,9 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
-import { Rubik } from "next/font/google";
+import { Assistant } from "next/font/google";
 
-const rubik = Rubik({ subsets: ["latin", "hebrew"], display: "swap" });
+const assistant = Assistant({
+  subsets: ["hebrew", "latin"],
+  display: "swap",
+  variable: "--font-assistant",
+});
 
 export const metadata: Metadata = {
   title: "CalorieFlow – יומן תזונה אישי",
@@ -15,7 +19,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#059669",
+  themeColor: "#F7F7F4",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -29,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="he" dir="rtl" className={rubik.className}>
+    <html lang="he" dir="rtl" className={`${assistant.variable} font-sans`}>
       <body>
         <Providers>{children}</Providers>
       </body>

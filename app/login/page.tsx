@@ -79,8 +79,7 @@ function LoginContent() {
     <div className="min-h-screen flex" style={{ direction: lang === "he" ? "rtl" : "ltr" }}>
 
       {/* Left / top panel – branding */}
-      <div className="hidden sm:flex flex-col justify-between w-96 p-10 text-white relative overflow-hidden"
-        style={{ background: "linear-gradient(160deg,#059669 0%,#0d9488 50%,#0284c7 100%)" }}>
+      <div className="hidden sm:flex flex-col justify-between w-96 p-10 text-white relative overflow-hidden bg-brand-700">
         {/* Pattern */}
         <div className="absolute inset-0 opacity-10"
           style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "32px 32px" }} />
@@ -88,73 +87,73 @@ function LoginContent() {
           <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-xl mb-6 ring-4 ring-white/20">
             <Image src="/logo.png" alt="CalorieFlow" width={56} height={56} className="w-full h-full object-cover" />
           </div>
-          <p className="text-emerald-100 text-xs font-semibold uppercase tracking-widest mb-2">{T.tag}</p>
-          <h1 className="text-3xl font-black leading-tight mb-3">CalorieFlow</h1>
-          <p className="text-emerald-100 text-base leading-relaxed">{T.subtitle}</p>
+          <p className="text-brand-100 text-xs font-semibold uppercase tracking-widest mb-2">{T.tag}</p>
+          <h1 className="text-3xl font-bold leading-tight mb-3">CalorieFlow</h1>
+          <p className="text-brand-100 text-base leading-relaxed">{T.subtitle}</p>
         </div>
         <div className="relative flex flex-col gap-3">
           {FEATURES.map((f, i) => (
-            <div key={i} className="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-3 backdrop-blur-sm">
-              <span className="text-emerald-200">{f.icon}</span>
+            <div key={i} className="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-3">
+              <span className="text-brand-100">{f.icon}</span>
               <span className="text-sm font-medium">{lang === "he" ? f.he : f.en}</span>
             </div>
           ))}
-          <p className="text-emerald-100/50 text-xs mt-2 text-center">{T.poweredBy}</p>
+          <p className="text-brand-100/60 text-xs mt-2 text-center">{T.poweredBy}</p>
         </div>
       </div>
 
       {/* Right / main – login form */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-slate-50 relative">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-canvas relative">
         {/* Lang toggle */}
         <button onClick={toggleLang}
-          className="absolute top-5 end-5 text-xs text-slate-500 hover:text-slate-800 border border-slate-200 bg-white px-3 py-1.5 rounded-xl font-semibold transition-colors shadow-sm">
+          className="absolute top-5 end-5 text-xs text-ink-2 hover:text-ink border border-line bg-surface px-3 py-1.5 rounded-xl font-semibold transition-colors shadow-(--shadow-card)">
           {lang === "he" ? "EN" : "עב"}
         </button>
 
         <div className="w-full max-w-sm flex flex-col gap-6">
           {/* Mobile logo */}
           <div className="sm:hidden flex flex-col items-center gap-3 mb-2">
-            <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-xl ring-4 ring-emerald-100">
+            <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-xl ring-4 ring-brand-100">
               <Image src="/logo.png" alt="CalorieFlow" width={80} height={80} className="w-full h-full object-cover" />
             </div>
             <div className="text-center">
-              <h1 className="text-2xl font-black text-slate-800">CalorieFlow</h1>
-              <p className="text-slate-400 text-sm mt-1">{T.subtitle}</p>
+              <h1 className="text-2xl font-bold text-ink">CalorieFlow</h1>
+              <p className="text-ink-3 text-sm mt-1">{T.subtitle}</p>
             </div>
           </div>
 
           {/* Desktop title */}
           <div className="hidden sm:block">
-            <h2 className="text-2xl font-black text-slate-800">{T.title}</h2>
-            <p className="text-slate-400 text-sm mt-1">{T.subtitle}</p>
+            <h2 className="text-2xl font-bold text-ink">{T.title}</h2>
+            <p className="text-ink-3 text-sm mt-1">{T.subtitle}</p>
           </div>
 
           {/* Error */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 text-sm text-red-600 text-center">
+            <div className="bg-over/10 border border-over/20 rounded-2xl px-4 py-3 text-sm text-over text-center">
               {error === "unauthorized" ? T.unauthorized : T.authFailed}
-              {actualEmail && <div className="mt-1 text-xs text-red-400">{actualEmail}</div>}
+              {actualEmail && <div className="mt-1 text-xs text-over/70">{actualEmail}</div>}
             </div>
           )}
 
           {/* Sign in */}
           <button onClick={handleSignIn} disabled={loading}
-            className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:border-emerald-400 hover:shadow-lg text-slate-700 font-bold py-4 px-6 rounded-2xl transition-all duration-200 disabled:opacity-60 shadow-sm text-sm">
-            {loading ? <Loader2 className="w-5 h-5 animate-spin text-emerald-500" /> : <GoogleIcon />}
+            className="w-full flex items-center justify-center gap-3 bg-surface border-2 border-line hover:border-brand-500/50 text-ink font-bold py-4 px-6 rounded-2xl transition-all duration-200 disabled:opacity-60 shadow-(--shadow-card) text-sm">
+            {loading ? <Loader2 className="w-5 h-5 animate-spin text-brand-600" /> : <GoogleIcon />}
             {loading ? T.signing : T.signIn}
           </button>
 
           {/* Mobile features */}
           <div className="sm:hidden flex flex-col gap-2">
             {FEATURES.map((f, i) => (
-              <div key={i} className="flex items-center gap-3 bg-white border border-slate-100 rounded-xl px-4 py-2.5 shadow-sm">
-                <span className="text-emerald-500">{f.icon}</span>
-                <span className="text-sm text-slate-600">{lang === "he" ? f.he : f.en}</span>
+              <div key={i} className="flex items-center gap-3 bg-surface border border-line rounded-xl px-4 py-2.5 shadow-(--shadow-card)">
+                <span className="text-brand-600">{f.icon}</span>
+                <span className="text-sm text-ink-2">{lang === "he" ? f.he : f.en}</span>
               </div>
             ))}
           </div>
 
-          <p className="text-center text-xs text-slate-400">{T.poweredBy}</p>
+          <p className="text-center text-xs text-ink-3">{T.poweredBy}</p>
         </div>
       </div>
     </div>
@@ -164,8 +163,8 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+      <div className="min-h-screen flex items-center justify-center bg-canvas">
+        <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
       </div>
     }>
       <LoginContent />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Scale } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { getToday } from "@/lib/dates";
@@ -34,14 +35,14 @@ export default function WeeklyWeightCard() {
 
   if (loading) {
     return (
-      <a href="/weight"
-        className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-4 shadow-sm animate-pulse-soft">
-        <div className="w-11 h-11 rounded-xl bg-white shadow-sm shrink-0" />
+      <Link href="/weight"
+        className="flex items-center gap-3 rounded-(--radius-card) border border-line bg-surface px-4 py-4 shadow-(--shadow-card) animate-pulse-soft">
+        <div className="w-11 h-11 rounded-xl bg-canvas shrink-0" />
         <div className="flex-1">
-          <div className="h-3 w-32 bg-slate-200/60 rounded mb-2" />
-          <div className="h-5 w-24 bg-slate-200/60 rounded" />
+          <div className="h-3 w-32 bg-line/60 rounded mb-2" />
+          <div className="h-5 w-24 bg-line/60 rounded" />
         </div>
-      </a>
+      </Link>
     );
   }
 
@@ -55,41 +56,41 @@ export default function WeeklyWeightCard() {
     : (lang === "he" ? "אין שקילות השבוע" : "no weigh-ins yet");
 
   return (
-    <a href="/weight"
-      className="block rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-indigo-50 to-white px-4 py-4 shadow-sm hover:shadow-md hover:border-blue-200 active:scale-[0.99] touch-manipulation transition-all">
+    <Link href="/weight"
+      className="block rounded-(--radius-card) border border-line bg-surface px-4 py-4 shadow-(--shadow-card) hover:shadow-md active:scale-[0.99] touch-manipulation transition-all">
       <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center shadow-sm shrink-0">
-          <Scale className="w-5 h-5 text-blue-500" />
+        <div className="w-11 h-11 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
+          <Scale className="w-5 h-5 text-brand-600" />
         </div>
         <div className="flex-1 min-w-0 text-start">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{title}</p>
+            <p className="text-[11px] font-semibold text-ink-3 uppercase tracking-widest">{title}</p>
             {delta != null && (
               <span
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full tabular-nums ${
                   Math.abs(delta) < 0.05
-                    ? "bg-slate-100 text-slate-600"
+                    ? "bg-canvas text-ink-2 border border-line"
                     : delta < 0
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-red-100 text-red-600"
+                    ? "bg-brand-50 text-brand-700"
+                    : "bg-over/10 text-over"
                 }`}
               >
                 {delta > 0 ? "+" : ""}{delta.toFixed(1)} {kg}
               </span>
             )}
           </div>
-          <p className="text-2xl font-black text-blue-600 tabular-nums leading-tight mt-0.5">
+          <p className="text-2xl font-bold text-ink tabular-nums leading-tight mt-0.5">
             {thisWeek ? thisWeek.avg_kg.toFixed(1) : "–"}
-            <span className="text-sm font-semibold text-slate-400 ms-1">{kg}</span>
+            <span className="text-sm font-semibold text-ink-3 ms-1">{kg}</span>
           </p>
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            <span className="tabular-nums font-semibold text-slate-600">{rangeLabel}</span>
-            <span className="mx-1.5 text-slate-300">·</span>
+          <p className="text-[11px] text-ink-2 mt-0.5">
+            <span className="tabular-nums font-semibold text-ink-2">{rangeLabel}</span>
+            <span className="mx-1.5 text-ink-3/50">·</span>
             <span>{countLabel}</span>
           </p>
         </div>
-        <span className="text-xs font-bold text-blue-600 shrink-0">{openLabel} →</span>
+        <span className="text-xs font-bold text-brand-600 shrink-0">{openLabel} →</span>
       </div>
-    </a>
+    </Link>
   );
 }

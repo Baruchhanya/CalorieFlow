@@ -1,9 +1,41 @@
 @import "tailwindcss";
 
+@theme {
+  /* Brand — one strong green, used sparingly */
+  --color-brand-50:  #EDF7F2;
+  --color-brand-100: #D8EEE3;
+  --color-brand-500: #12805C;
+  --color-brand-600: #0F6E4F;
+  --color-brand-700: #0B5A41;
+
+  /* Neutrals — warm stone */
+  --color-canvas:  #F7F7F4;
+  --color-surface: #FFFFFF;
+  --color-line:    #E7E6E1;
+  --color-ink:     #1C1B18;
+  --color-ink-2:   #55534C;
+  --color-ink-3:   #8B887F;
+
+  /* Semantic — macros & energy */
+  --color-protein: #2E5FCC;
+  --color-carbs:   #7A4FBF;
+  --color-fat:     #C77414;
+  --color-kcal:    #12805C;
+
+  /* Status */
+  --color-over:    #C93E3E;
+  --color-warn:    #B37B0F;
+  --color-good:    #12805C;
+
+  --font-sans: var(--font-assistant), -apple-system, "Segoe UI", sans-serif;
+
+  --radius-card: 0.875rem;
+  --shadow-card: 0 1px 2px rgb(28 27 24 / 0.05), 0 1px 3px rgb(28 27 24 / 0.04);
+}
+
 @layer base {
   html {
     direction: rtl;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     scroll-behavior: smooth;
@@ -12,11 +44,9 @@
   }
   * { box-sizing: border-box; }
   body {
-    background: #f0faf5;
-    color: #0f172a;
+    background: var(--color-canvas);
+    color: var(--color-ink);
     min-height: 100dvh;
-    /* Fill the safe-area background so notch/home bar match the page */
-    background-color: #f0faf5;
   }
   /*
    * Prevent iOS from zooming in when an input is focused.
@@ -82,22 +112,10 @@
 .duration-200 { animation-duration: 200ms; }
 .duration-300 { animation-duration: 300ms; }
 
-/* Glass card */
-.glass {
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
-.glass-dark {
-  background: rgba(255,255,255,0.12);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 3px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

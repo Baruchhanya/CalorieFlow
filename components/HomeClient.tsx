@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import {
   CalendarDays, Trash2, RefreshCw, ChevronRight, ChevronLeft,
@@ -41,23 +42,33 @@ const EMPTY_BALANCE_HISTORY: BalanceHistoryResponse = {
   monthly_total: null,
 };
 
+// Session cache of critical payloads keyed by date, so revisiting a date
+// renders instantly (stale-while-revalidate — the network refresh still runs).
+type CriticalPayload = {
+  entries: MealEntry[];
+  calories_burned: number;
+  daily_goal_calories?: number;
+};
+const criticalCache = new Map<string, CriticalPayload>();
+const CRITICAL_CACHE_MAX = 30;
+
 // Bottom nav item
 function NavItem({ icon, label, active, onClick, href }: {
   icon: React.ReactNode; label: string; active?: boolean;
   onClick?: () => void; href?: string;
 }) {
-  const cls = `flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-2xl transition-all duration-200 ${
-    active ? "text-emerald-600" : "text-slate-400 hover:text-slate-600"
+  const cls = `flex flex-col items-center gap-0.5 px-4 py-1 rounded-full transition-colors duration-200 ${
+    active ? "text-brand-600" : "text-ink-3 hover:text-ink-2"
   }`;
   if (href) return (
-    <a href={href} className={cls}>
-      <span className={`p-1.5 rounded-xl transition-colors ${active ? "bg-emerald-100" : ""}`}>{icon}</span>
+    <Link href={href} className={cls}>
+      <span className={`p-1.5 rounded-full transition-colors ${active ? "bg-brand-50" : ""}`}>{icon}</span>
       <span className="text-[10px] font-semibold">{label}</span>
-    </a>
+    </Link>
   );
   return (
     <button onClick={onClick} className={cls}>
-      <span className={`p-1.5 rounded-xl transition-colors ${active ? "bg-emerald-100" : ""}`}>{icon}</span>
+      <span className={`p-1.5 rounded-full transition-colors ${active ? "bg-brand-50" : ""}`}>{icon}</span>
       <span className="text-[10px] font-semibold">{label}</span>
     </button>
   );
@@ -79,7 +90,6 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const [balanceHistory, setBalanceHistory] = useState<BalanceHistoryResponse | undefined>(undefined);
   const [mealPresets, setMealPresets] = useState<MealPreset[] | undefined>(undefined);
   const [mealSuggestions, setMealSuggestions] = useState<HistorySuggestion[] | undefined>(undefined);
@@ -100,12 +110,6 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const isPast = date < today;
   const totalCalories = useMemo(() => entries.reduce((s, e) => s + e.calories, 0), [entries]);
   const goalProtein = useMemo(() => effectiveProteinGoal(userProfile), [userProfile]);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   // Handle iOS keyboard popping up bottom nav
   useEffect(() => {
@@ -180,9 +184,16 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
       if (!res.ok) return;
       const d = await res.json();
       if (seq !== reqSeqRef.current) return; // a newer request superseded us
-      setEntries(Array.isArray(d.entries) ? d.entries : []);
+      const entries = Array.isArray(d.entries) ? d.entries : [];
+      setEntries(entries);
       setCaloriesBurned(d.calories_burned ?? 0);
       if (typeof d.daily_goal_calories === "number") setGoalCalories(d.daily_goal_calories);
+      if (criticalCache.size >= CRITICAL_CACHE_MAX) criticalCache.clear();
+      criticalCache.set(targetDate, {
+        entries,
+        calories_burned: d.calories_burned ?? 0,
+        daily_goal_calories: typeof d.daily_goal_calories === "number" ? d.daily_goal_calories : undefined,
+      });
       if (!stableLoadedRef.current) {
         setUserEmail(d.user?.email ?? null);
         setUserProfile(d.profile ?? null);
@@ -199,7 +210,16 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   // Used for first load, date changes, and pull-to-refresh alike.
   const refresh = useCallback((targetDate: string) => {
     const seq = ++reqSeqRef.current;
-    setLoading(true);
+    const cached = criticalCache.get(targetDate);
+    if (cached) {
+      // Render instantly from cache; the fetch below still revalidates.
+      setEntries(cached.entries);
+      setCaloriesBurned(cached.calories_burned);
+      if (typeof cached.daily_goal_calories === "number") setGoalCalories(cached.daily_goal_calories);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     loadSecondary(targetDate, seq);
     loadCritical(targetDate, seq);
   }, [loadCritical, loadSecondary]);
@@ -286,6 +306,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const handleYesterdayBurnSaved = useCallback((burned: number, savedDate: string) => {
     markYesterdayHandled();
     setYesterdayPrompt(null);
+    criticalCache.delete(savedDate);
     // If currently viewing the day that was just updated, reflect it
     if (savedDate === date) setCaloriesBurned(burned);
     // Refresh balance history since yesterday's deficit may have changed
@@ -342,14 +363,23 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
 
   const goToToday = () => { setDate(today); router.replace("/", { scroll: false }); };
   const handleNewEntries = useCallback((newEntries: MealEntry[]) => {
+    criticalCache.delete(date);
     setEntries(prev => [...prev, ...newEntries]);
-  }, []);
-  const handleDelete = useCallback((id: string) => setEntries(prev => prev.filter(e => e.id !== id)), []);
-  const handleSave = useCallback((updated: MealEntry) => { setEntries(prev => prev.map(e => e.id === updated.id ? updated : e)); setEditingEntry(null); }, []);
+  }, [date]);
+  const handleDelete = useCallback((id: string) => {
+    criticalCache.delete(date);
+    setEntries(prev => prev.filter(e => e.id !== id));
+  }, [date]);
+  const handleSave = useCallback((updated: MealEntry) => {
+    criticalCache.delete(date);
+    setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
+    setEditingEntry(null);
+  }, [date]);
 
   const handleClearAll = async () => {
     if (!entries.length || !confirm(T.clearAllConfirm(entries.length))) return;
     setClearing(true);
+    criticalCache.delete(date);
     const ids = entries.map(e => e.id);
     const previousEntries = entries;
     // Optimistic: clear immediately
@@ -370,7 +400,17 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
     } finally { setClearing(false); }
   };
 
-  const handleSignOut = async () => { await createClient().auth.signOut(); router.push("/login"); };
+  const handleSignOut = async () => { criticalCache.clear(); await createClient().auth.signOut(); router.push("/login"); };
+
+  const setCaloriesBurnedInvalidating = useCallback((burned: number) => {
+    criticalCache.delete(date);
+    setCaloriesBurned(burned);
+  }, [date]);
+
+  const setGoalCaloriesInvalidating = useCallback((goal: number) => {
+    criticalCache.delete(date);
+    setGoalCalories(goal);
+  }, [date]);
 
   const refreshBalanceHistory = useCallback(async () => {
     try {
@@ -380,21 +420,19 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28 sm:pb-8" style={{ paddingBottom: "calc(7rem + env(safe-area-inset-bottom, 0px))" }}>
+    <div className="min-h-screen pb-28 sm:pb-8" style={{ paddingBottom: "calc(7rem + env(safe-area-inset-bottom, 0px))" }}>
 
       {/* ── HEADER ── */}
-      <header className={`sticky top-0 z-40 transition-all duration-300 ${
-        scrolled ? "glass shadow-sm border-b border-white/60" : ""
-      }`} style={{ background: scrolled ? undefined : "linear-gradient(135deg,#059669 0%,#0d9488 100%)" }}>
+      <header className="sticky top-0 z-40 bg-surface border-b border-line">
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-2">
 
             {/* Left: logo + name */}
             <div className="flex items-center gap-2 shrink-0">
-              <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 shadow-sm ring-2 ring-white/20">
+              <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0">
                 <Image src="/logo.png" alt="CF" width={32} height={32} className="w-full h-full object-cover" />
               </div>
-              <h1 className={`text-base font-black leading-tight ${scrolled ? "text-slate-800" : "text-white"}`}>
+              <h1 className="text-base font-bold leading-tight text-ink">
                 {T.appName}
               </h1>
             </div>
@@ -403,41 +441,41 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
             <div className="flex items-center gap-1 shrink-0">
 
               {/* History + Weight – שכפול של ה-bottom nav, מציגים רק בדסקטופ */}
-              <a href="/history" title={T.history}
-                className={`hidden sm:flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-semibold transition-colors ${scrolled ? "text-slate-600 hover:bg-slate-100" : "text-white bg-white/10 hover:bg-white/20"}`}>
+              <Link href="/history" title={T.history}
+                className="hidden sm:flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors text-ink-2 hover:bg-canvas">
                 <History className="w-3.5 h-3.5" />
                 <span>{T.history}</span>
-              </a>
-              <a href="/weight" title={lang === "he" ? "מעקב משקל וגרפים" : "Weight & charts"}
-                className={`hidden sm:flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-semibold transition-colors ${scrolled ? "text-slate-600 hover:bg-slate-100" : "text-white bg-white/10 hover:bg-white/20"}`}>
+              </Link>
+              <Link href="/weight" title={lang === "he" ? "מעקב משקל וגרפים" : "Weight & charts"}
+                className="hidden sm:flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors text-ink-2 hover:bg-canvas">
                 <Scale className="w-3.5 h-3.5" />
                 <span>{lang === "he" ? "משקל" : "Weight"}</span>
-              </a>
+              </Link>
 
               {isAdmin && (
-                <a href="/admin" title={T.adminPageTitle}
-                  className={`hidden sm:flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-semibold transition-colors ${scrolled ? "text-amber-700 hover:bg-amber-50" : "text-white bg-amber-400/30 hover:bg-amber-400/50"}`}>
+                <Link href="/admin" title={T.adminPageTitle}
+                  className="hidden sm:flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors text-warn hover:bg-warn/10">
                   <Shield className="w-3.5 h-3.5" />
                   <span>{T.adminNavLabel}</span>
-                </a>
+                </Link>
               )}
 
-              <div className={`hidden sm:block w-px h-4 mx-0.5 ${scrolled ? "bg-slate-200" : "bg-white/20"}`} />
+              <div className="hidden sm:block w-px h-4 mx-0.5 bg-line" />
 
               <button onClick={toggleLang}
-                className={`px-2 py-1.5 rounded-xl text-xs font-bold transition-colors ${scrolled ? "hover:bg-slate-100 text-slate-600" : "bg-white/10 hover:bg-white/20 text-white"}`}>
+                className="px-2 py-1.5 rounded-lg text-xs font-bold transition-colors text-ink-2 hover:bg-canvas">
                 <Globe className="w-3.5 h-3.5 inline me-0.5" />
                 {lang === "he" ? "EN" : "עב"}
               </button>
 
               <button onClick={fetchEntries} title={T.refresh}
-                className={`p-1.5 rounded-xl transition-colors hidden sm:block ${scrolled ? "hover:bg-slate-100 text-slate-600" : "bg-white/10 hover:bg-white/20 text-white"}`}>
+                className="p-1.5 rounded-lg transition-colors hidden sm:block text-ink-2 hover:bg-canvas">
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
 
               {entries.length > 0 && (
                 <button onClick={handleClearAll} disabled={clearing}
-                  className={`p-1.5 rounded-xl transition-colors hidden sm:block ${scrolled ? "hover:bg-red-50 text-slate-400 hover:text-red-400" : "bg-white/10 hover:bg-red-400/30 text-white"}`}>
+                  className="p-1.5 rounded-lg transition-colors hidden sm:block text-ink-3 hover:text-over hover:bg-over/10">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -445,7 +483,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
               {/* Avatar / sign out */}
               {userEmail && (
                 <button onClick={handleSignOut} title={`${T.signOut} · ${userEmail}`}
-                  className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-xs font-bold flex items-center justify-center shrink-0 shadow-sm ring-2 ring-white/30">
+                  className="w-8 h-8 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
                   {getInitials(userEmail)}
                 </button>
               )}
@@ -453,19 +491,19 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           </div>
 
           {/* ── DATE BAR ── */}
-          <div className="flex items-center justify-between gap-2 pt-1 pb-2">
+          <div className="flex items-center justify-between gap-2 pt-1 pb-1">
             <button onClick={() => navigateDate(-1)} title={T.prevDay}
-              className={`p-2 rounded-xl transition-colors shrink-0 ${scrolled ? "bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700" : "bg-white/15 hover:bg-white/25 active:bg-white/30 text-white"}`}>
+              className="p-2 rounded-lg transition-colors shrink-0 bg-canvas hover:bg-line/60 active:bg-line text-ink-2">
               <ChevronRight className="w-5 h-5" />
             </button>
 
             <label className="relative flex-1 flex items-center justify-center gap-2 cursor-pointer select-none group">
-              <CalendarDays className={`w-4 h-4 shrink-0 ${scrolled ? "text-slate-500" : "text-white/80"}`} />
-              <span className={`font-bold text-sm text-center leading-tight ${scrolled ? "text-slate-800" : "text-white"}`}>
+              <CalendarDays className="w-4 h-4 shrink-0 text-ink-3" />
+              <span className="font-bold text-sm text-center leading-tight text-ink tabular-nums">
                 {formatDate(date, lang)}
               </span>
               {isToday && (
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 ${scrolled ? "bg-emerald-100 text-emerald-700" : "bg-white/25 text-white"}`}>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 bg-brand-50 text-brand-700">
                   {T.today}
                 </span>
               )}
@@ -484,7 +522,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
             </label>
 
             <button onClick={() => navigateDate(1)} disabled={isToday} title={T.nextDay}
-              className={`p-2 rounded-xl transition-colors disabled:opacity-25 shrink-0 ${scrolled ? "bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700" : "bg-white/15 hover:bg-white/25 active:bg-white/30 text-white"}`}>
+              className="p-2 rounded-lg transition-colors disabled:opacity-25 shrink-0 bg-canvas hover:bg-line/60 active:bg-line text-ink-2">
               <ChevronLeft className="w-5 h-5" />
             </button>
           </div>
@@ -495,9 +533,9 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
       {/* Past-day notice */}
       {isPast && (
         <div className="max-w-2xl mx-auto px-4 pt-3 animate-slide-up">
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2.5 text-sm text-amber-700 flex items-center justify-between">
+          <div className="bg-warn/10 border border-warn/20 rounded-xl px-4 py-2.5 text-sm text-warn flex items-center justify-between">
             <span>{T.viewingPastDay(formatDate(date, lang))}</span>
-            <button onClick={goToToday} className="text-amber-600 font-bold hover:underline text-xs shrink-0 ms-2">{T.backToToday}</button>
+            <button onClick={goToToday} className="text-warn font-bold hover:underline text-xs shrink-0 ms-2">{T.backToToday}</button>
           </div>
         </div>
       )}
@@ -510,7 +548,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           goalCalories={goalCalories}
           caloriesBurned={caloriesBurned}
           goalProtein={goalProtein}
-          onGoalCaloriesChange={isPast ? undefined : setGoalCalories}
+          onGoalCaloriesChange={isPast ? undefined : setGoalCaloriesInvalidating}
         />
 
         <FoodInput
@@ -522,7 +560,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
 
         <DeficitCard
           consumed={totalCalories} burned={caloriesBurned} goalCalories={goalCalories}
-          date={date} onBurnedChange={setCaloriesBurned} onGoalChange={isPast ? undefined : setGoalCalories}
+          date={date} onBurnedChange={setCaloriesBurnedInvalidating} onGoalChange={isPast ? undefined : setGoalCaloriesInvalidating}
         />
 
         <CalorieHistorySection initialData={balanceHistory} />
@@ -533,17 +571,17 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
         {/* Meal list */}
         <section className="animate-slide-up">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <h2 className="text-[11px] font-semibold text-ink-3 uppercase tracking-widest flex items-center gap-2">
               {lang === "he" ? (isToday ? "מה אכלת היום" : "מה אכלת") : (isToday ? "Today's Log" : "Daily Log")}
               {entries.length > 0 && (
-                <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full normal-case tracking-normal">
+                <span className="bg-line/60 text-ink-2 text-[10px] font-bold px-2 py-0.5 rounded-full normal-case tracking-normal tabular-nums">
                   {entries.length} {lang === "he" ? "רשומות" : "entries"}
                 </span>
               )}
             </h2>
             {entries.length > 0 && (
               <button onClick={handleClearAll} disabled={clearing}
-                className="text-xs text-slate-400 hover:text-red-400 transition-colors flex items-center gap-1">
+                className="text-xs text-ink-3 hover:text-over transition-colors flex items-center gap-1">
                 <Trash2 className="w-3 h-3" />{T.clearAll}
               </button>
             )}
@@ -552,17 +590,17 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
           {loading ? (
             <div className="flex flex-col gap-2.5">
               {[1,2,3].map(i => (
-                <div key={i} className="h-20 bg-white rounded-2xl animate-pulse-soft border border-slate-100" style={{ opacity: 1 - i * 0.25 }} />
+                <div key={i} className="h-20 bg-surface rounded-(--radius-card) animate-pulse-soft border border-line" style={{ opacity: 1 - i * 0.25 }} />
               ))}
             </div>
           ) : entries.length === 0 ? (
             <>
-              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-12 text-center animate-fade-in">
+              <div className="bg-surface rounded-(--radius-card) border border-line shadow-(--shadow-card) p-12 text-center animate-fade-in">
                 <div className="w-20 h-20 mx-auto mb-4 opacity-15">
                   <Image src="/logo.png" alt="CF" width={80} height={80} className="rounded-3xl" />
                 </div>
-                <p className="text-slate-700 font-bold text-base">{isToday ? T.noMeals : T.noMealsHistoryDay}</p>
-                <p className="text-slate-400 text-sm mt-1">{isToday ? T.noMealsDesc : T.noMealsHistoryDesc}</p>
+                <p className="text-ink font-bold text-base">{isToday ? T.noMeals : T.noMealsHistoryDay}</p>
+                <p className="text-ink-3 text-sm mt-1">{isToday ? T.noMealsDesc : T.noMealsHistoryDesc}</p>
               </div>
               {isPast && (
                 <UntrackedDayCard date={date} onSaved={refreshBalanceHistory} />
@@ -580,12 +618,15 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
         </section>
       </main>
 
-      <footer className="pb-28 sm:pb-8 text-center text-xs text-slate-300 mt-4">{T.poweredBy}</footer>
+      <footer className="pb-28 sm:pb-8 text-center text-xs text-ink-3/60 mt-4">{T.poweredBy}</footer>
 
       {/* ── BOTTOM NAV (mobile) ── */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 sm:hidden glass border-t border-slate-100 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] transition-transform duration-300"
-        style={{ transform: "translateY(var(--keyboard-offset, 0))" }}>
-        <div className="flex items-center justify-around px-2 pt-1.5 pb-2 max-w-sm mx-auto pb-safe" style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom, 8px))" }}>
+      <nav className="fixed z-40 sm:hidden inset-x-4 mx-auto max-w-sm rounded-full bg-surface border border-line shadow-lg transition-transform duration-300"
+        style={{
+          bottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
+          transform: "translateY(var(--keyboard-offset, 0))",
+        }}>
+        <div className="flex items-center justify-around px-2 py-1.5">
           <NavItem icon={<Home className="w-5 h-5" />} label={lang === "he" ? "היום" : "Today"} active href="/" />
           <NavItem icon={<Scale className="w-5 h-5" />} label={lang === "he" ? "משקל" : "Weight"} href="/weight" />
           <NavItem icon={<History className="w-5 h-5" />} label={lang === "he" ? "היסטוריה" : "History"} href="/history" />

@@ -44,7 +44,7 @@ export function buildDailyReportEmail(data: DailyReportData) {
   <div style="max-width:520px;margin:32px auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
     
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#059669,#0d9488);padding:28px 32px;text-align:center;">
+    <div style="background:#12805C;padding:28px 32px;text-align:center;">
       <div style="display:inline-block;background:rgba(255,255,255,0.2);border-radius:14px;padding:10px 18px;margin-bottom:12px;">
         <span style="color:#fff;font-size:22px;font-weight:900;letter-spacing:-0.5px;">CF</span>
       </div>
@@ -102,7 +102,7 @@ export function buildDailyReportEmail(data: DailyReportData) {
     <!-- CTA -->
     <div style="padding:0 32px 28px;text-align:center;">
       <a href="${process.env.NEXT_PUBLIC_SUPABASE_URL ? "https://calorieflow-one.vercel.app" : "http://localhost:3000"}"
-        style="display:inline-block;background:linear-gradient(135deg,#059669,#0d9488);color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:700;font-size:14px;">
+        style="display:inline-block;background:#12805C;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:700;font-size:14px;">
         פתח את CalorieFlow →
       </a>
     </div>
@@ -178,7 +178,7 @@ function buildPeriodReportEmail(data: PeriodReportData, opts: { titleHe: string;
   <div style="max-width:520px;margin:32px auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#059669,#0d9488);padding:28px 32px;text-align:center;">
+    <div style="background:#12805C;padding:28px 32px;text-align:center;">
       <div style="display:inline-block;background:rgba(255,255,255,0.2);border-radius:14px;padding:10px 18px;margin-bottom:12px;">
         <span style="color:#fff;font-size:22px;font-weight:900;letter-spacing:-0.5px;">CF</span>
       </div>
@@ -224,7 +224,7 @@ function buildPeriodReportEmail(data: PeriodReportData, opts: { titleHe: string;
     <!-- CTA -->
     <div style="padding:0 32px 28px;text-align:center;">
       <a href="${process.env.NEXT_PUBLIC_SUPABASE_URL ? "https://calorieflow-one.vercel.app" : "http://localhost:3000"}"
-        style="display:inline-block;background:linear-gradient(135deg,#059669,#0d9488);color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:700;font-size:14px;">
+        style="display:inline-block;background:#12805C;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:700;font-size:14px;">
         פתח את CalorieFlow →
       </a>
     </div>

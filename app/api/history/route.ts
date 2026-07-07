@@ -48,5 +48,5 @@ export async function GET() {
     goal_calories: goalForDate(g.date),
   }));
 
-  return NextResponse.json(result);
+  return NextResponse.json({ days: result, daily_goal_calories: currentGoal });
 }

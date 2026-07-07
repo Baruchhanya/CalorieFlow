@@ -3,10 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import {
-  AreaChart, Area, BarChart, Bar, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
-} from "recharts";
+import dynamic from "next/dynamic";
 import { ArrowRight, Scale, TrendingDown, TrendingUp, Plus, Trash2, Calendar, Pencil } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
@@ -19,6 +16,19 @@ import {
   type WeightWeek,
 } from "@/lib/weight";
 import type { ChartDay } from "@/app/api/weight-chart/route";
+
+const ChartSkeleton = ({ height }: { height: number }) => (
+  <div className="rounded-xl bg-line/60 animate-pulse-soft" style={{ height }} />
+);
+
+const WeightAreaChart = dynamic(
+  () => import("@/components/weight/WeightCharts").then((m) => m.WeightAreaChart),
+  { ssr: false, loading: () => <ChartSkeleton height={200} /> }
+);
+const BalanceBarChart = dynamic(
+  () => import("@/components/weight/WeightCharts").then((m) => m.BalanceBarChart),
+  { ssr: false, loading: () => <ChartSkeleton height={180} /> }
+);
 
 function parseIsoDate(iso: string): { y: number; m: number; d: number } | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
@@ -99,47 +109,7 @@ function useChartScrollWidth(pointCount: number, pointWidth: number, period: Cha
   return { containerRef, chartWidth, isScrollable };
 }
 
-// Custom tooltip for weekly-average weight chart
-function WeightTooltip({ active, payload, lang }: { active?: boolean; payload?: { value: number; payload?: WeightWeek }[]; lang: string }) {
-  if (!active || !payload?.length) return null;
-  const point = payload[0]?.payload;
-  const startLabel = point?.weekStart ? formatDayLabel(point.weekStart, lang) : "";
-  const endLabel = point?.weekEnd ? formatDayLabel(point.weekEnd, lang) : "";
-  const rangeLabel = startLabel && endLabel ? `${startLabel} – ${endLabel}` : "";
-  const countLabel = point?.count
-    ? (lang === "he" ? `${point.count} שקילות` : `${point.count} weigh-ins`)
-    : "";
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-lg text-sm">
-      <p className="text-slate-500 text-xs mb-1">{rangeLabel}</p>
-      {payload[0]?.value != null && (
-        <p className="font-bold text-emerald-600">{payload[0].value.toFixed(1)} {lang === "he" ? "ק״ג" : "kg"}</p>
-      )}
-      {countLabel && <p className="text-[10px] text-slate-400 mt-0.5">{countLabel}</p>}
-    </div>
-  );
-}
-
-// Custom tooltip for balance chart
-function BalanceTooltip({ active, payload, lang }: { active?: boolean; payload?: { value: number; payload?: ChartDay }[]; lang: string }) {
-  if (!active || !payload?.length) return null;
-  const v = payload[0]?.value;
-  if (v == null) return null;
-  const point = payload[0]?.payload;
-  const dateLabel = point?.date ? formatDayLabel(point.date, lang) : "";
-  const isDeficit = v < 0;
-  const kcal = lang === "he" ? 'קק"ל' : "kcal";
-  const defLabel = lang === "he" ? "גרעון" : "Deficit";
-  const surLabel = lang === "he" ? "עודף" : "Surplus";
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-lg text-sm">
-      <p className="text-slate-500 text-xs mb-1">{dateLabel}</p>
-      <p className={`font-bold ${isDeficit ? "text-emerald-600" : "text-red-500"}`}>
-        {isDeficit ? defLabel : surLabel}: {Math.abs(Math.round(v)).toLocaleString()} {kcal}
-      </p>
-    </div>
-  );
-}
+// Custom tooltips live in components/weight/WeightCharts.tsx (lazy-loaded with recharts).
 
 export function WeightTrackerPage() {
   const router = useRouter();
@@ -568,46 +538,46 @@ export function WeightTrackerPage() {
     : (lang === "he" ? "אין שקילות השבוע — הוסף אחת למטה" : "No weigh-ins this week — add one below");
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-canvas">
       {/* Header */}
-      <header className="sticky top-0 z-40" style={{ background: "linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)" }}>
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
+      <header className="sticky top-0 z-40 bg-surface border-b border-line">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <button onClick={() => router.push("/")}
-            className="p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors">
+            className="p-2 rounded-xl bg-canvas hover:bg-line/60 text-ink-2 transition-colors">
             <ArrowRight className="w-5 h-5" />
           </button>
-          <Image src="/logo.png" alt="CalorieFlow" width={36} height={36} className="rounded-xl shadow-sm shrink-0" />
+          <Image src="/logo.png" alt="CalorieFlow" width={36} height={36} className="rounded-xl shrink-0" />
           <div>
-            <h1 className="text-xl font-black text-white leading-tight">{T.title}</h1>
-            <p className="text-blue-100 text-xs">{T.subtitle}</p>
+            <h1 className="text-xl font-bold text-ink leading-tight">{T.title}</h1>
+            <p className="text-ink-3 text-xs">{T.subtitle}</p>
           </div>
         </div>
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-5 flex flex-col gap-5 pb-12">
         {/* Weekly average hero */}
-        <div className="rounded-2xl p-5 shadow-sm border border-blue-100 bg-gradient-to-br from-blue-50 via-indigo-50 to-white">
+        <div className="rounded-(--radius-card) p-5 shadow-(--shadow-card) border border-brand-100 bg-brand-50">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-sm shrink-0">
-              <Scale className="w-4 h-4 text-blue-500" />
+            <div className="w-8 h-8 rounded-xl bg-surface flex items-center justify-center shrink-0">
+              <Scale className="w-4 h-4 text-brand-600" />
             </div>
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+            <h2 className="text-[11px] font-semibold text-ink-3 uppercase tracking-widest">
               {lang === "he" ? "ממוצע שבועי — השבוע" : "Weekly average — this week"}
             </h2>
           </div>
           <div className="flex items-end gap-3 flex-wrap">
-            <p className="text-5xl font-black leading-none text-blue-600 tabular-nums">
+            <p className="text-5xl font-bold leading-none text-ink tabular-nums">
               {thisWeek ? thisWeek.avg_kg.toFixed(1) : "–"}
-              <span className="text-lg font-semibold text-slate-400 ms-1.5">{T.kg}</span>
+              <span className="text-lg font-semibold text-ink-3 ms-1.5">{T.kg}</span>
             </p>
             {thisWeekDelta != null && (
               <span
-                className={`text-xs font-bold px-2 py-1 rounded-full ${
+                className={`text-xs font-bold px-2 py-1 rounded-full tabular-nums ${
                   Math.abs(thisWeekDelta) < 0.05
-                    ? "bg-slate-100 text-slate-600"
+                    ? "bg-canvas text-ink-2"
                     : thisWeekDelta < 0
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-red-100 text-red-600"
+                    ? "bg-good/10 text-good"
+                    : "bg-over/10 text-over"
                 }`}
               >
                 {thisWeekDelta > 0 ? "+" : ""}
@@ -618,41 +588,41 @@ export function WeightTrackerPage() {
               </span>
             )}
           </div>
-          <p className="mt-2 text-xs text-slate-500">
-            <span className="font-semibold text-slate-600 tabular-nums">{thisWeekRangeLabel}</span>
-            <span className="mx-1.5 text-slate-300">·</span>
+          <p className="mt-2 text-xs text-ink-2">
+            <span className="font-semibold text-ink-2 tabular-nums">{thisWeekRangeLabel}</span>
+            <span className="mx-1.5 text-ink-3/60">·</span>
             <span>{thisWeekCountLabel}</span>
           </p>
         </div>
 
         {/* Input card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 space-y-6">
+        <div className="bg-surface rounded-(--radius-card) shadow-(--shadow-card) border border-line p-5 space-y-6">
           <div className="flex items-center gap-2">
-            <Scale className="w-5 h-5 text-blue-500 shrink-0" />
-            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">{T.logWeight}</h2>
+            <Scale className="w-5 h-5 text-brand-600 shrink-0" />
+            <h2 className="text-[11px] font-semibold text-ink-3 uppercase tracking-widest">{T.logWeight}</h2>
           </div>
 
           {/* Date: native selects = always correct DD / MM / YYYY order, no RTL quirks */}
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
+            <label className="flex items-center gap-2 text-xs font-bold text-ink-2 uppercase tracking-wide">
               <Calendar className="w-3.5 h-3.5 shrink-0" />
               {T.logDateLabel}
             </label>
             <div
               dir="ltr"
-              className="rounded-2xl border-2 border-slate-200 bg-slate-50/50 p-3 sm:p-4 transition-colors focus-within:border-blue-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-200/60"
+              className="rounded-xl border-2 border-line bg-canvas p-3 sm:p-4 transition-colors focus-within:border-brand-500 focus-within:bg-surface focus-within:ring-2 focus-within:ring-brand-500/25"
               style={{ unicodeBidi: "isolate" }}
             >
               <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 <div className="min-w-0">
-                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-ink-3">
                     {T.dateDay}
                   </span>
                   <select
                     aria-label={T.dateDay}
                     value={dm.d}
                     onChange={(e) => setDateFromParts(dm.y, dm.m, Number(e.target.value))}
-                    className="h-11 w-full min-w-0 cursor-pointer rounded-xl border border-slate-200 bg-white px-2 text-center text-base font-bold tabular-nums text-slate-800 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    className="h-11 w-full min-w-0 cursor-pointer rounded-xl border border-line bg-surface px-2 text-center text-base font-bold tabular-nums text-ink focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25"
                   >
                     {Array.from({ length: maxDayCurrent }, (_, i) => i + 1).map((d) => (
                       <option key={d} value={d}>
@@ -662,14 +632,14 @@ export function WeightTrackerPage() {
                   </select>
                 </div>
                 <div className="min-w-0">
-                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-ink-3">
                     {T.dateMonth}
                   </span>
                   <select
                     aria-label={T.dateMonth}
                     value={dm.m}
                     onChange={(e) => setDateFromParts(dm.y, Number(e.target.value), dm.d)}
-                    className="h-11 w-full min-w-0 cursor-pointer rounded-xl border border-slate-200 bg-white px-2 text-center text-sm font-semibold text-slate-800 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 sm:text-base"
+                    className="h-11 w-full min-w-0 cursor-pointer rounded-xl border border-line bg-surface px-2 text-center text-sm font-semibold text-ink focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25 sm:text-base"
                   >
                     {monthOptions.map((m) => (
                       <option key={m} value={m}>
@@ -679,14 +649,14 @@ export function WeightTrackerPage() {
                   </select>
                 </div>
                 <div className="min-w-0">
-                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-ink-3">
                     {T.dateYear}
                   </span>
                   <select
                     aria-label={T.dateYear}
                     value={dm.y}
                     onChange={(e) => setDateFromParts(Number(e.target.value), dm.m, dm.d)}
-                    className="h-11 w-full min-w-0 cursor-pointer rounded-xl border border-slate-200 bg-white px-2 text-center text-base font-bold tabular-nums text-slate-800 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    className="h-11 w-full min-w-0 cursor-pointer rounded-xl border border-line bg-surface px-2 text-center text-base font-bold tabular-nums text-ink focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25"
                   >
                     {years.map((y) => (
                       <option key={y} value={y}>
@@ -696,25 +666,25 @@ export function WeightTrackerPage() {
                   </select>
                 </div>
               </div>
-              <p className="mt-2 text-center text-xs font-medium tabular-nums text-slate-500">
+              <p className="mt-2 text-center text-xs font-medium tabular-nums text-ink-2">
                 {String(dm.d).padStart(2, "0")}/{String(dm.m).padStart(2, "0")}/{dm.y}
               </p>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              <span className="text-slate-500">{T.dateOrderHint}</span>
-              <span className="mx-1.5 text-slate-300">·</span>
+            <p className="text-[11px] text-ink-3 leading-relaxed">
+              <span className="text-ink-2">{T.dateOrderHint}</span>
+              <span className="mx-1.5 text-ink-3/60">·</span>
               <span>{T.onePerDayHint}</span>
             </p>
           </div>
 
           {/* Weight + save: numeric LTR island; full-width CTA */}
           <div className="space-y-3">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block">
+            <label className="text-xs font-bold text-ink-2 uppercase tracking-wide block">
               {T.weightSection}
             </label>
             <div
               dir="ltr"
-              className="flex min-h-[3.5rem] items-stretch rounded-2xl border-2 border-slate-200 bg-slate-50/40 overflow-hidden transition-colors focus-within:border-blue-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-200/60"
+              className="flex min-h-[3.5rem] items-stretch rounded-xl border-2 border-line bg-canvas overflow-hidden transition-colors focus-within:border-brand-500 focus-within:bg-surface focus-within:ring-2 focus-within:ring-brand-500/25"
               style={{ unicodeBidi: "isolate" }}
             >
               <input
@@ -726,9 +696,9 @@ export function WeightTrackerPage() {
                 onChange={(e) => setWeightInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSave()}
                 placeholder={T.placeholder}
-                className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-2xl font-black tabular-nums text-blue-600 placeholder:text-slate-300 focus:outline-none focus:ring-0 text-start"
+                className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-2xl font-bold tabular-nums text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-0 text-start"
               />
-              <span className="flex shrink-0 items-center border-s-2 border-slate-200 bg-slate-100/80 px-4 text-sm font-bold text-slate-500">
+              <span className="flex shrink-0 items-center border-s-2 border-line bg-line/40 px-4 text-sm font-bold text-ink-2">
                 {T.kg}
               </span>
             </div>
@@ -737,7 +707,7 @@ export function WeightTrackerPage() {
               onClick={handleSave}
               disabled={saving || !weightInput}
               dir="ltr"
-              className="w-full min-h-[3.25rem] rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 py-3.5 text-base font-bold text-white shadow-md transition-all hover:opacity-95 active:scale-[0.99] touch-manipulation disabled:opacity-40 disabled:active:scale-100 flex flex-row items-center justify-center gap-2"
+              className="w-full min-h-[3.25rem] rounded-xl bg-brand-600 py-3.5 text-base font-bold text-white transition-colors hover:bg-brand-700 active:scale-[0.99] touch-manipulation disabled:opacity-40 disabled:active:scale-100 flex flex-row items-center justify-center gap-2"
             >
               {saving ? <Scale className="w-5 h-5 shrink-0 animate-pulse" /> : <Plus className="w-5 h-5 shrink-0" />}
               <span className="text-center" dir="auto">
@@ -751,15 +721,15 @@ export function WeightTrackerPage() {
         {hasWeightData && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: T.current, value: currentWeight?.toFixed(1) ?? "–", unit: T.kg, color: "text-blue-600", bg: "bg-blue-50", icon: <Scale className="w-4 h-4" /> },
-              { label: T.change, value: totalChange != null ? `${totalChange > 0 ? "+" : ""}${totalChange.toFixed(1)}` : "–", unit: T.kg, color: totalChange! < 0 ? "text-emerald-600" : "text-red-500", bg: totalChange! < 0 ? "bg-emerald-50" : "bg-red-50", icon: totalChange! < 0 ? <TrendingDown className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" /> },
-              { label: T.min, value: minWeight?.toFixed(1) ?? "–", unit: T.kg, color: "text-emerald-600", bg: "bg-emerald-50", icon: <TrendingDown className="w-4 h-4" /> },
-              { label: T.max, value: maxWeight?.toFixed(1) ?? "–", unit: T.kg, color: "text-slate-700", bg: "bg-slate-50", icon: <TrendingUp className="w-4 h-4" /> },
+              { label: T.current, value: currentWeight?.toFixed(1) ?? "–", unit: T.kg, color: "text-ink", bg: "bg-brand-50 text-brand-600", icon: <Scale className="w-4 h-4" /> },
+              { label: T.change, value: totalChange != null ? `${totalChange > 0 ? "+" : ""}${totalChange.toFixed(1)}` : "–", unit: T.kg, color: totalChange! < 0 ? "text-good" : "text-over", bg: totalChange! < 0 ? "bg-good/10 text-good" : "bg-over/10 text-over", icon: totalChange! < 0 ? <TrendingDown className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" /> },
+              { label: T.min, value: minWeight?.toFixed(1) ?? "–", unit: T.kg, color: "text-ink", bg: "bg-good/10 text-good", icon: <TrendingDown className="w-4 h-4" /> },
+              { label: T.max, value: maxWeight?.toFixed(1) ?? "–", unit: T.kg, color: "text-ink", bg: "bg-canvas text-ink-2", icon: <TrendingUp className="w-4 h-4" /> },
             ].map(s => (
-              <div key={s.label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-                <div className={`w-8 h-8 rounded-xl ${s.bg} ${s.color} flex items-center justify-center mb-2`}>{s.icon}</div>
-                <p className={`text-2xl font-black ${s.color}`}>{s.value}<span className="text-sm font-normal text-slate-400 ms-1">{s.unit}</span></p>
-                <p className="text-xs text-slate-400 mt-0.5">{s.label}</p>
+              <div key={s.label} className="bg-surface rounded-(--radius-card) border border-line shadow-(--shadow-card) p-4">
+                <div className={`w-8 h-8 rounded-xl ${s.bg} flex items-center justify-center mb-2`}>{s.icon}</div>
+                <p className={`text-2xl font-bold tabular-nums ${s.color}`}>{s.value}<span className="text-sm font-normal text-ink-3 ms-1">{s.unit}</span></p>
+                <p className="text-xs text-ink-3 mt-0.5">{s.label}</p>
               </div>
             ))}
           </div>
@@ -768,7 +738,7 @@ export function WeightTrackerPage() {
         {/* Charts */}
         {hasChartData ? (
           <div className="flex flex-col gap-4">
-            <div className="flex rounded-xl bg-slate-100 p-1 gap-1" dir="ltr">
+            <div className="flex rounded-xl bg-line/50 p-1 gap-1" dir="ltr">
               {(["1m", "2m", "max"] as const).map((p) => (
                 <button
                   key={p}
@@ -776,8 +746,8 @@ export function WeightTrackerPage() {
                   onClick={() => setChartPeriod(p)}
                   className={`flex-1 min-h-[2.5rem] rounded-lg text-xs font-bold transition-colors touch-manipulation ${
                     chartPeriod === p
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
+                      ? "bg-surface text-brand-700 shadow-(--shadow-card)"
+                      : "text-ink-2 hover:text-ink"
                   }`}
                 >
                   {periodLabels[p]}
@@ -785,13 +755,13 @@ export function WeightTrackerPage() {
               ))}
             </div>
             {isScrollable && (
-              <p className="text-xs text-slate-400 text-center px-2">{T.scrollChartsHint}</p>
+              <p className="text-xs text-ink-3 text-center px-2">{T.scrollChartsHint}</p>
             )}
             {/* Weight chart */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+            <div className="bg-surface rounded-(--radius-card) shadow-(--shadow-card) border border-line p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">{T.weightChart}</h3>
-                <span className={`text-xs font-bold px-2 py-1 rounded-full ${Math.abs(periodTrend) < 0.3 ? "bg-slate-100 text-slate-600" : periodTrend < 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                <h3 className="text-[11px] font-semibold text-ink-3 uppercase tracking-widest">{T.weightChart}</h3>
+                <span className={`text-xs font-bold px-2 py-1 rounded-full ${Math.abs(periodTrend) < 0.3 ? "bg-canvas text-ink-2" : periodTrend < 0 ? "bg-good/10 text-good" : "bg-over/10 text-over"}`}>
                   {trendLabel}
                 </span>
               </div>
@@ -804,44 +774,34 @@ export function WeightTrackerPage() {
                   dir="ltr"
                 >
                   <div style={{ width: weightChartWidth, minWidth: weightChartWidth }}>
-                    <AreaChart width={weightChartWidth} height={200} data={filteredWeeklyWeights} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={CHART_WEEK_WIDTH - 8} />
-                    <YAxis domain={[weightMin, weightMax]} tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} tickFormatter={v => `${v}`} width={35} />
-                    <Tooltip content={<WeightTooltip lang={lang} />} />
-                    <Area
-                      type="monotone" dataKey="avg_kg" stroke="#3b82f6" strokeWidth={2.5}
-                      fill="url(#weightGrad)" dot={{ r: 3, fill: "#3b82f6", strokeWidth: 0 }}
-                      activeDot={{ r: 5, fill: "#3b82f6" }} connectNulls
+                    <WeightAreaChart
+                      width={weightChartWidth}
+                      data={filteredWeeklyWeights}
+                      yMin={weightMin}
+                      yMax={weightMax}
+                      lang={lang}
                     />
-                  </AreaChart>
                   </div>
                 </div>
               </div>
               ) : (
-                <p className="text-sm text-slate-400 text-center py-8">{T.noData}</p>
+                <p className="text-sm text-ink-3 text-center py-8">{T.noData}</p>
               )}
             </div>
 
             {/* Balance chart */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+            <div className="bg-surface rounded-(--radius-card) shadow-(--shadow-card) border border-line p-5">
               <div className="flex items-center justify-between mb-1">
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">{T.balanceChart}</h3>
+                <h3 className="text-[11px] font-semibold text-ink-3 uppercase tracking-widest">{T.balanceChart}</h3>
                 {avgBalance !== null && (
-                  <span className={`text-xs font-bold px-2 py-1 rounded-full ${avgBalance < 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                  <span className={`text-xs font-bold px-2 py-1 rounded-full tabular-nums ${avgBalance < 0 ? "bg-good/10 text-good" : "bg-over/10 text-over"}`}>
                     {T.avgBalance}: {avgBalance > 0 ? "+" : ""}{avgBalance.toLocaleString()} {T.kcal}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-4 mb-3 text-xs text-slate-400">
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-400 inline-block" /> {T.deficit}</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-400 inline-block" /> {T.surplus}</span>
+              <div className="flex items-center gap-4 mb-3 text-xs text-ink-3">
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-good inline-block" /> {T.deficit}</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-over inline-block" /> {T.surplus}</span>
               </div>
               {hasPeriodChartData ? (
               <div ref={balanceChartContainerRef}>
@@ -852,48 +812,37 @@ export function WeightTrackerPage() {
                 dir="ltr"
               >
                 <div style={{ width: balanceChartWidth, minWidth: balanceChartWidth }}>
-                <BarChart width={balanceChartWidth} height={180} data={filteredChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={CHART_DAY_WIDTH - 8} />
-                  <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} tickFormatter={v => v === 0 ? "0" : `${v > 0 ? "+" : ""}${Math.round(v/100)*100}`} width={40} />
-                  <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={1.5} />
-                  <Tooltip content={<BalanceTooltip lang={lang} />} />
-                  <Bar dataKey="balance" radius={[3, 3, 0, 0]}>
-                    {filteredChartData.map((d, i) => (
-                      <Cell key={i} fill={d.balance == null ? "transparent" : d.balance < 0 ? "#34d399" : "#f87171"} />
-                    ))}
-                  </Bar>
-                </BarChart>
+                <BalanceBarChart width={balanceChartWidth} data={filteredChartData} lang={lang} />
                 </div>
               </div>
               </div>
               ) : (
-                <p className="text-sm text-slate-400 text-center py-8">{T.noData}</p>
+                <p className="text-sm text-ink-3 text-center py-8">{T.noData}</p>
               )}
             </div>
           </div>
         ) : loading ? (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center">
-            <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-slate-400 text-sm">טוען נתונים...</p>
+          <div className="bg-surface rounded-(--radius-card) border border-line shadow-(--shadow-card) p-12 text-center">
+            <div className="w-8 h-8 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-ink-3 text-sm">טוען נתונים...</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center">
-            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Scale className="w-8 h-8 text-blue-300" />
+          <div className="bg-surface rounded-(--radius-card) border border-line shadow-(--shadow-card) p-12 text-center">
+            <div className="w-16 h-16 bg-brand-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Scale className="w-8 h-8 text-brand-500" />
             </div>
-            <p className="text-slate-600 font-bold">{T.noData}</p>
-            <p className="text-slate-400 text-sm mt-1">{T.noDataDesc}</p>
+            <p className="text-ink font-bold">{T.noData}</p>
+            <p className="text-ink-3 text-sm mt-1">{T.noDataDesc}</p>
           </div>
         )}
 
         {/* Weigh-in history log */}
         {entries.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-50">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">{T.history}</h3>
+          <div className="bg-surface rounded-(--radius-card) shadow-(--shadow-card) border border-line overflow-hidden">
+            <div className="px-5 py-4 border-b border-line">
+              <h3 className="text-[11px] font-semibold text-ink-3 uppercase tracking-widest">{T.history}</h3>
             </div>
-            <div className="divide-y divide-slate-50 max-h-[28rem] overflow-y-auto">
+            <div className="divide-y divide-line/60 max-h-[28rem] overflow-y-auto">
               {[...entries].reverse().map((e) => {
                 const idx = entries.findIndex(x => x.id === e.id);
                 const prev = idx > 0 ? entries[idx - 1].weight_kg : null;
@@ -901,30 +850,30 @@ export function WeightTrackerPage() {
                 const isToday = e.date === getToday();
                 return (
                   <div key={e.id} className="flex items-center gap-3 px-5 py-3">
-                    <div className="text-xs text-slate-400 w-20 shrink-0">
+                    <div className="text-xs text-ink-3 w-20 shrink-0 tabular-nums">
                       {formatDayLabel(e.date, lang)}
-                      {isToday && <span className="ms-1 text-blue-500 font-bold">·{lang === "he" ? "היום" : "today"}</span>}
+                      {isToday && <span className="ms-1 text-brand-600 font-bold">·{lang === "he" ? "היום" : "today"}</span>}
                     </div>
                     <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
                       e.source === "mifit"
-                        ? "bg-orange-50 text-orange-600"
-                        : "bg-slate-100 text-slate-400"
+                        ? "bg-warn/10 text-warn"
+                        : "bg-canvas text-ink-3"
                     }`}>
                       {WEIGHT_SOURCE_LABELS[e.source === "mifit" ? "mifit" : "manual"][lang === "he" ? "he" : "en"]}
                     </span>
-                    <p className="flex-1 font-black text-slate-800 min-w-0">{Number(e.weight_kg).toFixed(1)}<span className="text-xs text-slate-400 font-normal ms-1">{T.kg}</span></p>
+                    <p className="flex-1 font-bold text-ink min-w-0 tabular-nums">{Number(e.weight_kg).toFixed(1)}<span className="text-xs text-ink-3 font-normal ms-1">{T.kg}</span></p>
                     {diff != null && (
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${Math.abs(diff) < 0.05 ? "bg-slate-100 text-slate-500" : diff < 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-500"}`}>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full tabular-nums ${Math.abs(diff) < 0.05 ? "bg-canvas text-ink-2" : diff < 0 ? "bg-good/10 text-good" : "bg-over/10 text-over"}`}>
                         {diff > 0 ? "+" : ""}{diff.toFixed(1)}
                       </span>
                     )}
                     <button type="button" title={T.editThisDay}
                       onClick={() => { setLogDate(e.date); setWeightInput(String(Number(e.weight_kg).toFixed(1))); }}
-                      className="p-1.5 rounded-xl hover:bg-blue-50 text-slate-300 hover:text-blue-500 transition-colors touch-manipulation">
+                      className="p-1.5 rounded-xl hover:bg-brand-50 text-ink-3 hover:text-brand-600 transition-colors touch-manipulation">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <button type="button" onClick={() => handleDelete(e.id)} disabled={deleting === e.id}
-                      className="p-1.5 rounded-xl hover:bg-red-50 text-slate-300 hover:text-red-400 transition-colors touch-manipulation">
+                      className="p-1.5 rounded-xl hover:bg-over/10 text-ink-3 hover:text-over transition-colors touch-manipulation">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -935,31 +884,31 @@ export function WeightTrackerPage() {
         )}
 
         {/* Mi Fitness / Zepp Life integration */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-50 flex items-center gap-2">
-            <Scale className="w-4 h-4 text-slate-400" />
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">{T.mifitTitle}</h3>
-            <span className={`ms-auto text-xs font-semibold px-2 py-0.5 rounded-full ${mifitStatus?.connected ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>
+        <div className="bg-surface rounded-(--radius-card) shadow-(--shadow-card) border border-line overflow-hidden">
+          <div className="px-5 py-4 border-b border-line flex items-center gap-2">
+            <Scale className="w-4 h-4 text-ink-3" />
+            <h3 className="text-[11px] font-semibold text-ink-3 uppercase tracking-widest">{T.mifitTitle}</h3>
+            <span className={`ms-auto text-xs font-semibold px-2 py-0.5 rounded-full ${mifitStatus?.connected ? "bg-brand-50 text-brand-700" : "bg-canvas text-ink-3"}`}>
               {mifitStatus?.connected ? T.mifitConnected : T.mifitNotConnected}
             </span>
           </div>
 
           <div className="p-5 space-y-4">
-            <p className="text-sm text-slate-500">{T.mifitDesc}</p>
+            <p className="text-sm text-ink-2">{T.mifitDesc}</p>
 
             {mifitStatus?.connected ? (
               <div className="space-y-3">
                 {mifitStatus.lastSync && (
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-ink-3">
                     {T.mifitLastSync(new Date(mifitStatus.lastSync).toLocaleString(lang === "he" ? "he-IL" : "en-GB"))}
                   </p>
                 )}
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-slate-500 whitespace-nowrap">{T.mifitRegionLabel}:</label>
+                  <label className="text-xs text-ink-2 whitespace-nowrap">{T.mifitRegionLabel}:</label>
                   <select
                     value={mifitRegion}
                     onChange={(e) => setMifitRegion(e.target.value as "eu" | "us" | "de" | "cn")}
-                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 text-slate-700 bg-white"
+                    className="text-xs border border-line rounded-lg px-2 py-1 text-ink bg-surface"
                   >
                     <option value="us">US (ברירת מחדל)</option>
                     <option value="eu">Europe (DE)</option>
@@ -969,11 +918,11 @@ export function WeightTrackerPage() {
                 </div>
                 <div className="flex gap-2">
                   <button type="button" onClick={handleMifitSync} disabled={mifitSyncing}
-                    className="flex-1 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm font-semibold rounded-xl transition-colors">
+                    className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors">
                     {mifitSyncing ? T.mifitSyncing : T.mifitSyncBtn}
                   </button>
                   <button type="button" onClick={handleMifitDisconnect} disabled={mifitDisconnecting}
-                    className="px-4 py-2.5 bg-slate-100 hover:bg-red-50 hover:text-red-500 text-slate-500 text-sm font-semibold rounded-xl transition-colors">
+                    className="px-4 py-2.5 bg-canvas hover:bg-over/10 hover:text-over text-ink-2 text-sm font-semibold rounded-xl transition-colors">
                     {mifitDisconnecting ? "..." : T.mifitDisconnectBtn}
                   </button>
                 </div>
@@ -981,21 +930,21 @@ export function WeightTrackerPage() {
             ) : (
               <div className="space-y-3">
                 {/* Toggle between auto (email/password) and manual (apptoken) */}
-                <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-semibold">
+                <div className="flex rounded-xl border border-line overflow-hidden text-xs font-semibold">
                   <button type="button"
                     onClick={() => { setMifitManualMode(false); setMifitApiError(null); }}
-                    className={`flex-1 py-2 transition-colors ${!mifitManualMode ? "bg-blue-500 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
+                    className={`flex-1 py-2 transition-colors ${!mifitManualMode ? "bg-brand-600 text-white" : "text-ink-2 hover:bg-canvas"}`}>
                     {T.mifitAutoMode}
                   </button>
                   <button type="button"
                     onClick={() => { setMifitManualMode(true); setMifitApiError(null); }}
-                    className={`flex-1 py-2 border-s border-slate-200 transition-colors ${mifitManualMode ? "bg-blue-500 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
+                    className={`flex-1 py-2 border-s border-line transition-colors ${mifitManualMode ? "bg-brand-600 text-white" : "text-ink-2 hover:bg-canvas"}`}>
                     {T.mifitManualMode}
                   </button>
                 </div>
 
                 {mifitApiError && (
-                  <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-2.5 text-xs text-red-600 break-all">
+                  <div className="rounded-xl bg-over/10 border border-over/20 px-4 py-2.5 text-xs text-over break-all">
                     {mifitApiError}
                   </div>
                 )}
@@ -1004,33 +953,33 @@ export function WeightTrackerPage() {
                   <>
                     <input type="email" value={mifitEmail} onChange={(e) => setMifitEmail(e.target.value)}
                       placeholder={T.mifitEmailLabel}
-                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      className="w-full border border-line rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
                       dir="ltr" />
                     <input type="password" value={mifitPassword} onChange={(e) => setMifitPassword(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") handleMifitConnect(); }}
                       placeholder={T.mifitPasswordLabel}
-                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      className="w-full border border-line rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
                       dir="ltr" />
                     <button type="button" onClick={handleMifitConnect}
                       disabled={mifitConnecting || !mifitEmail || !mifitPassword}
-                      className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-200 text-white text-sm font-semibold rounded-xl transition-colors">
+                      className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors">
                       {mifitConnecting ? T.mifitConnecting : T.mifitConnectBtn}
                     </button>
                   </>
                 ) : (
                   <>
-                    <p className="text-xs text-slate-400">{T.mifitTokenHint}</p>
+                    <p className="text-xs text-ink-3">{T.mifitTokenHint}</p>
                     <input type="text" value={mifitManualToken} onChange={(e) => setMifitManualToken(e.target.value)}
                       placeholder={T.mifitTokenLabel}
-                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300 font-mono"
+                      className="w-full border border-line rounded-xl px-4 py-2.5 text-xs text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 font-mono"
                       dir="ltr" />
                     <input type="text" value={mifitManualUserId} onChange={(e) => setMifitManualUserId(e.target.value)}
                       placeholder={T.mifitUserIdLabel}
-                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300 font-mono"
+                      className="w-full border border-line rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 font-mono"
                       dir="ltr" />
                     <button type="button" onClick={handleMifitConnectManual}
                       disabled={mifitConnecting || !mifitManualToken || !mifitManualUserId}
-                      className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-200 text-white text-sm font-semibold rounded-xl transition-colors">
+                      className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors">
                       {mifitConnecting ? T.mifitConnecting : T.mifitConnectBtn}
                     </button>
                   </>

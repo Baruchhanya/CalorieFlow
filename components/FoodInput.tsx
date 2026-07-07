@@ -122,41 +122,41 @@ function ResultPreview({ result, onAdd, onDiscard, adding }: ResultPreviewProps)
   return (
     <div className="mt-4 flex flex-col gap-3 animate-in slide-in-from-bottom-2 duration-300">
       {result.needs_clarification && result.note && (
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-700">
+        <div className="flex items-start gap-2 bg-warn/10 border border-warn/20 rounded-xl p-3 text-sm text-warn">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
           <span>{result.note}</span>
         </div>
       )}
 
-      <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-2">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+      <div className="bg-canvas rounded-xl p-3 flex flex-col gap-2">
+        <p className="text-xs font-semibold text-ink-2 uppercase tracking-wide">
           {T.foundItems(items.length)}
         </p>
 
         {items.length === 0 && (
-          <p className="text-xs text-slate-400 text-center py-2">
+          <p className="text-xs text-ink-3 text-center py-2">
             {lang === "he" ? "כל הפריטים הוסרו — לחץ בטל כדי לנתח מחדש" : "All items removed — press Discard to start over"}
           </p>
         )}
 
         {items.map((item, i) => (
           <div key={i}
-            className={`bg-white rounded-lg p-3 border transition-all duration-150 ${item.selected ? "border-emerald-200" : "border-slate-100 opacity-50"}`}>
+            className={`bg-surface rounded-lg p-3 border transition-all duration-150 ${item.selected ? "border-brand-100" : "border-line opacity-50"}`}>
             <div className="flex items-start gap-2">
               {/* Checkbox */}
               <button type="button" onClick={() => toggleItem(i)}
                 className={`mt-0.5 min-w-[44px] min-h-[44px] -ms-2 -mt-1 flex items-center justify-center rounded-xl touch-manipulation active:scale-95 transition-transform shrink-0`}
                 aria-pressed={item.selected}>
-                <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${item.selected ? "bg-emerald-500 border-emerald-500" : "border-slate-300"}`}>
+                <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${item.selected ? "bg-brand-600 border-brand-600" : "border-line"}`}>
                   {item.selected && <CheckCircle2 className="w-3 h-3 text-white" />}
                 </span>
               </button>
 
               {/* Name */}
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-800 text-sm truncate">{item.name}</p>
-                {item.quantity && <p className="text-xs text-slate-400">{item.quantity}</p>}
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="font-semibold text-ink text-sm truncate">{item.name}</p>
+                {item.quantity && <p className="text-xs text-ink-3">{item.quantity}</p>}
+                <p className="text-xs text-ink-3 mt-0.5">
                   {T.protein.slice(0,1)}:{Math.round(item.protein_g)}g {T.carbs.slice(0,1)}:{Math.round(item.carbs_g)}g {T.fat.slice(0,1)}:{Math.round(item.fat_g)}g
                 </p>
               </div>
@@ -168,9 +168,9 @@ function ResultPreview({ result, onAdd, onDiscard, adding }: ResultPreviewProps)
                   value={item.editedCalories}
                   onChange={(e) => updateCalories(i, e.target.value)}
                   disabled={!item.selected}
-                  className="w-16 text-center text-sm font-bold text-amber-600 border border-slate-200 rounded-lg px-1 py-1 focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:opacity-40"
+                  className="w-16 text-center text-sm font-bold text-warn border border-line rounded-lg px-1 py-1 focus:outline-none focus:ring-2 focus:ring-warn/40 disabled:opacity-40"
                 />
-                <span className="text-xs text-slate-400">{T.kcal}</span>
+                <span className="text-xs text-ink-3">{T.kcal}</span>
               </div>
 
               {/* Delete item */}
@@ -178,7 +178,7 @@ function ResultPreview({ result, onAdd, onDiscard, adding }: ResultPreviewProps)
                 type="button"
                 onClick={() => removeItem(i)}
                 aria-label={T.delete}
-                className="min-w-[36px] min-h-[36px] -me-1 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-400 hover:bg-red-50 active:scale-95 touch-manipulation transition-all shrink-0"
+                className="min-w-[36px] min-h-[36px] -me-1 flex items-center justify-center rounded-lg text-ink-3/60 hover:text-over hover:bg-over/10 active:scale-95 touch-manipulation transition-all shrink-0"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -186,19 +186,19 @@ function ResultPreview({ result, onAdd, onDiscard, adding }: ResultPreviewProps)
           </div>
         ))}
 
-        <div className="flex justify-between items-center pt-1 border-t border-slate-100">
-          <span className="text-sm font-semibold text-slate-600">{T.totalCalories}</span>
-          <span className="text-lg font-bold text-emerald-600">{Math.round(totalCal)} {T.kcal}</span>
+        <div className="flex justify-between items-center pt-1 border-t border-line">
+          <span className="text-sm font-semibold text-ink-2">{T.totalCalories}</span>
+          <span className="text-lg font-bold text-brand-600">{Math.round(totalCal)} {T.kcal}</span>
         </div>
       </div>
 
       <div className="flex gap-2">
         <button type="button" onClick={onDiscard} disabled={adding}
-          className="flex-1 min-h-[48px] py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 active:scale-[0.98] touch-manipulation transition-all flex items-center justify-center gap-1.5">
+          className="flex-1 min-h-[48px] py-2.5 rounded-xl border border-line text-ink-2 text-sm font-medium hover:bg-canvas active:scale-[0.98] touch-manipulation transition-all flex items-center justify-center gap-1.5">
           <X className="w-4 h-4" />{T.discard}
         </button>
         <button type="button" onClick={handleAdd} disabled={adding || selectedItems.length === 0}
-          className="flex-2 flex-grow-[2] min-h-[48px] py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 active:scale-[0.98] touch-manipulation transition-all flex items-center justify-center gap-1.5 disabled:opacity-60">
+          className="flex-2 flex-grow-[2] min-h-[48px] py-2.5 rounded-xl bg-brand-600 text-white text-sm font-bold hover:bg-brand-700 active:scale-[0.98] touch-manipulation transition-all flex items-center justify-center gap-1.5 disabled:opacity-60">
           {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
           {adding ? T.adding : `${T.addToDiary} (${selectedItems.length})`}
         </button>
@@ -240,7 +240,7 @@ function ManualForm({ onAdd, adding }: ManualFormProps) {
   return (
     <div className="flex flex-col gap-3">
       {error && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
+        <div className="flex items-center gap-2 bg-over/10 border border-over/20 rounded-xl p-3 text-sm text-over">
           <AlertCircle className="w-4 h-4 shrink-0" />{error}
         </div>
       )}
@@ -248,18 +248,18 @@ function ManualForm({ onAdd, adding }: ManualFormProps) {
       <input
         value={name} onChange={(e) => setName(e.target.value)}
         placeholder={T.manualName}
-        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        className="w-full rounded-xl border border-line px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
       />
 
       {/* Calories – large & prominent */}
-      <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+      <div className="flex items-center gap-2 bg-warn/10 border border-warn/20 rounded-xl px-4 py-3">
         <input
           type="number" value={calories} onChange={(e) => setCalories(e.target.value)}
           placeholder={T.manualCalories}
-          className="flex-1 bg-transparent text-2xl font-black text-amber-600 focus:outline-none placeholder:text-amber-300"
+          className="flex-1 bg-transparent text-2xl font-bold tabular-nums text-warn focus:outline-none placeholder:text-warn/40"
           min={0}
         />
-        <span className="text-amber-500 font-semibold text-sm">{T.kcal}</span>
+        <span className="text-warn font-semibold text-sm">{T.kcal}</span>
       </div>
 
       {/* Optional macros */}
@@ -270,11 +270,11 @@ function ManualForm({ onAdd, adding }: ManualFormProps) {
           { val: fat, set: setFat, label: T.manualFat },
         ].map(({ val, set, label }) => (
           <div key={label} className="flex flex-col gap-1">
-            <label className="text-[10px] text-slate-400 font-medium px-1">{label}</label>
+            <label className="text-[10px] text-ink-3 font-medium px-1">{label}</label>
             <input
               type="number" value={val} onChange={(e) => set(e.target.value)}
               placeholder="0"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-emerald-300"
+              className="w-full rounded-xl border border-line px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               min={0}
             />
           </div>
@@ -282,7 +282,7 @@ function ManualForm({ onAdd, adding }: ManualFormProps) {
       </div>
 
       <button type="button" onClick={handleSubmit} disabled={adding}
-        className="w-full min-h-[52px] py-3 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-[0.98] touch-manipulation transition-all disabled:opacity-50">
+        className="w-full min-h-[52px] py-3 rounded-xl bg-brand-600 text-white font-bold flex items-center justify-center gap-2 hover:bg-brand-700 active:scale-[0.98] touch-manipulation transition-all disabled:opacity-50">
         {adding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
         {adding ? T.adding : T.manualAdd}
       </button>
@@ -520,10 +520,10 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
   ];
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+    <div className="bg-surface rounded-(--radius-card) shadow-(--shadow-card) border border-line p-5">
       <div className="mb-3">
-        <h2 className="text-lg font-bold text-slate-800">{T.addMeal}</h2>
-        <p className="text-xs text-slate-500 mt-1 leading-relaxed">{T.addMealQuickIntro}</p>
+        <h2 className="text-lg font-bold text-ink">{T.addMeal}</h2>
+        <p className="text-xs text-ink-2 mt-1 leading-relaxed">{T.addMealQuickIntro}</p>
       </div>
 
       <div className="mb-4 -mx-1">
@@ -536,10 +536,10 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
       </div>
 
       {/* Tabs */}
-      <div className="grid grid-cols-4 gap-1 bg-slate-100 rounded-xl p-1 mb-4">
+      <div className="grid grid-cols-4 gap-1 bg-canvas rounded-xl p-1 mb-4">
         {tabs.map(({ key, label, icon }) => (
           <button key={key} type="button" onClick={() => handleTabChange(key)}
-            className={`flex items-center justify-center gap-1.5 min-h-[44px] py-2 rounded-lg text-xs font-medium touch-manipulation active:scale-[0.97] transition-all duration-200 ${tab === key ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+            className={`flex items-center justify-center gap-1.5 min-h-[44px] py-2 rounded-lg text-xs font-medium touch-manipulation active:scale-[0.97] transition-all duration-200 ${tab === key ? "bg-surface text-brand-600 shadow-sm" : "text-ink-2 hover:text-ink"}`}>
             {icon}<span className="hidden sm:inline">{label}</span>
           </button>
         ))}
@@ -550,7 +550,7 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
         <textarea value={text}
           onChange={(e) => { setText(e.target.value); setResult(null); setError(""); }}
           placeholder={T.textPlaceholder} rows={4}
-          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent placeholder:text-slate-400 leading-relaxed"
+          className="w-full rounded-xl border border-line px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-transparent placeholder:text-ink-3 leading-relaxed"
         />
       )}
 
@@ -566,7 +566,7 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
                 {images.map((img, idx) => (
                   <div
                     key={`${img.file.name}-${idx}`}
-                    className="relative rounded-xl overflow-hidden border border-slate-200 aspect-square bg-slate-50"
+                    className="relative rounded-xl overflow-hidden border border-line aspect-square bg-canvas"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -589,7 +589,7 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
                 ))}
               </div>
 
-              <p className="text-xs text-slate-500 px-1">
+              <p className="text-xs text-ink-2 px-1">
                 {images.length === 1 ? T.imageSelectedSingle : T.imagesSelected(images.length)}
               </p>
 
@@ -598,20 +598,20 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
                   <button
                     type="button"
                     onClick={() => cameraInputRef.current?.click()}
-                    className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold transition-colors active:scale-[0.98] touch-manipulation"
+                    className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-colors active:scale-[0.98] touch-manipulation"
                   >
                     <Camera className="w-4 h-4" />{T.addMorePhoto}
                   </button>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 text-sm font-medium transition-colors active:scale-[0.98] touch-manipulation"
+                    className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-line hover:border-brand-500/50 hover:bg-brand-50 text-ink-2 hover:text-brand-600 text-sm font-medium transition-colors active:scale-[0.98] touch-manipulation"
                   >
                     <FolderOpen className="w-4 h-4" />{T.addMoreFromGallery}
                   </button>
                 </div>
               ) : (
-                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <p className="text-xs text-warn bg-warn/10 border border-warn/20 rounded-lg px-3 py-2">
                   {T.maxImagesReached(MAX_IMAGES)}
                 </p>
               )}
@@ -619,16 +619,16 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
           ) : (
             <div className="flex flex-col gap-2">
               <button onClick={() => cameraInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl py-4 font-semibold text-sm transition-colors">
+                className="w-full flex items-center justify-center gap-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl py-4 font-semibold text-sm transition-colors">
                 <Camera className="w-5 h-5" />{T.takePicture}
               </button>
-              <div className="flex items-center gap-3 text-xs text-slate-400 px-1">
-                <div className="flex-1 h-px bg-slate-200" />
+              <div className="flex items-center gap-3 text-xs text-ink-3 px-1">
+                <div className="flex-1 h-px bg-line" />
                 <span>{T.or}</span>
-                <div className="flex-1 h-px bg-slate-200" />
+                <div className="flex-1 h-px bg-line" />
               </div>
               <button onClick={() => fileInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-3 border-2 border-dashed border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-xl py-4 text-sm font-medium transition-all duration-200">
+                className="w-full flex items-center justify-center gap-3 border-2 border-dashed border-line hover:border-brand-500/50 hover:bg-brand-50 text-ink-2 hover:text-brand-600 rounded-xl py-4 text-sm font-medium transition-all duration-200">
                 <FolderOpen className="w-5 h-5" />{T.uploadFromGallery}
               </button>
             </div>
@@ -643,31 +643,31 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
             <div className="flex flex-col items-center gap-3">
               {recording && (
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-red-500 font-mono font-semibold">{formatTime(recordingTime)}</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-over animate-pulse" />
+                  <span className="text-over font-mono font-semibold">{formatTime(recordingTime)}</span>
                 </div>
               )}
               {!recording ? (
                 <button onClick={startRecording}
-                  className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-2xl font-medium transition-colors">
+                  className="flex items-center gap-2 bg-over hover:bg-[#B23636] text-white px-6 py-3 rounded-2xl font-medium transition-colors">
                   <Mic className="w-5 h-5" />{T.startRecording}
                 </button>
               ) : (
                 <button onClick={stopRecording}
-                  className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-2xl font-medium transition-colors">
+                  className="flex items-center gap-2 bg-ink hover:bg-ink/85 text-white px-6 py-3 rounded-2xl font-medium transition-colors">
                   <StopCircle className="w-5 h-5" />{T.stopRecording}
                 </button>
               )}
-              {!recording && <p className="text-sm text-slate-400 text-center max-w-xs">{T.voiceHint}</p>}
+              {!recording && <p className="text-sm text-ink-3 text-center max-w-xs">{T.voiceHint}</p>}
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3 w-full">
-              <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl">
+              <div className="flex items-center gap-2 bg-brand-50 text-brand-700 px-4 py-2 rounded-xl">
                 <CheckCircle2 className="w-4 h-4" />
                 <span className="text-sm font-medium">{T.recordingComplete(formatTime(recordingTime))}</span>
               </div>
               <button onClick={() => { setAudioBlob(null); setRecordingTime(0); setResult(null); }}
-                className="text-sm text-slate-400 hover:text-slate-600 underline">
+                className="text-sm text-ink-3 hover:text-ink-2 underline">
                 {T.recordAgain}
               </button>
             </div>
@@ -687,9 +687,9 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
           <div className="mt-3 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-1 duration-200">
             <label
               htmlFor="extra-context-note"
-              className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 px-1"
+              className="flex items-center gap-1.5 text-xs font-semibold text-ink-2 px-1"
             >
-              <PencilLine className="w-3.5 h-3.5 text-emerald-500" />
+              <PencilLine className="w-3.5 h-3.5 text-brand-600" />
               {T.extraNoteLabel}
             </label>
             <textarea
@@ -702,15 +702,15 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
                   : T.extraNotePlaceholderAudio
               }
               rows={2}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent placeholder:text-slate-400 leading-relaxed"
+              className="w-full rounded-xl border border-line px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-transparent placeholder:text-ink-3 leading-relaxed"
             />
-            <p className="text-[11px] text-slate-400 px-1">{T.extraNoteHint}</p>
+            <p className="text-[11px] text-ink-3 px-1">{T.extraNoteHint}</p>
           </div>
         )}
 
       {/* Error */}
       {error && tab !== "manual" && (
-        <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
+        <div className="mt-3 flex items-start gap-2 bg-over/10 border border-over/20 rounded-xl p-3 text-sm text-over">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" /><span>{error}</span>
         </div>
       )}
@@ -719,7 +719,7 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
       {tab !== "manual" && !result && (
         <>
           <button type="button" onClick={handleAnalyze} disabled={!canAnalyze || analyzing}
-            className="mt-4 w-full min-h-[52px] py-3.5 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-[0.98] touch-manipulation transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100">
+            className="mt-4 w-full min-h-[52px] py-3.5 rounded-xl bg-brand-600 text-white font-bold flex items-center justify-center gap-2 hover:bg-brand-700 active:scale-[0.98] touch-manipulation transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100">
             {analyzing ? (
               <><Loader2 className="w-5 h-5 animate-spin" />{T.analyzing}</>
             ) : (
@@ -729,14 +729,14 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
 
           {/* Non-blocking hourglass overlay inside the card */}
           {analyzing && (
-            <div className="mt-3 flex flex-col items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-2xl p-5 animate-in fade-in duration-300">
+            <div className="mt-3 flex flex-col items-center gap-3 bg-brand-50 border border-brand-100 rounded-2xl p-5 animate-in fade-in duration-300">
               <div className="relative">
-                <div className="w-14 h-14 rounded-full border-4 border-emerald-200 border-t-emerald-500 animate-spin" />
+                <div className="w-14 h-14 rounded-full border-4 border-brand-100 border-t-brand-500 animate-spin" />
                 <div className="absolute inset-0 flex items-center justify-center text-xl">⏳</div>
               </div>
               <div className="text-center">
-                <p className="text-sm font-bold text-emerald-700">{T.analyzing}</p>
-                <p className="text-xs text-emerald-500 mt-0.5">
+                <p className="text-sm font-bold text-brand-700">{T.analyzing}</p>
+                <p className="text-xs text-brand-600 mt-0.5">
                   {tab === "image"
                     ? (lang === "he"
                         ? (images.length > 1
@@ -750,7 +750,7 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
               </div>
               <div className="flex gap-1">
                 {[0,1,2,3,4].map(i => (
-                  <div key={i} className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+                  <div key={i} className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
                 ))}
               </div>
             </div>

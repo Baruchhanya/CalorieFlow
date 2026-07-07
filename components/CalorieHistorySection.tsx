@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, memo } from "react";
+import Link from "next/link";
 import { TrendingDown, TrendingUp, RefreshCw, BarChart2 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import type { BalanceHistoryResponse, BalanceDay } from "@/app/api/balance-history/route";
@@ -28,19 +29,19 @@ function BalanceBar({
   const sign = day.balance > 0 ? "+" : day.balance < 0 ? "−" : "";
 
   return (
-    <a
+    <Link
       href={`/?date=${day.date}`}
-      className="flex flex-col items-center gap-1 flex-1 min-w-0 transition-transform active:scale-95 hover:bg-slate-50 rounded-xl p-1 -m-1"
+      className="flex flex-col items-center gap-1 flex-1 min-w-0 transition-transform active:scale-95 hover:bg-canvas rounded-xl p-1 -m-1"
       title={lang === "he" ? "לחץ לפירוט" : "Click for details"}
     >
       {/* Value label above bar */}
       <span
-        className={`text-[9px] font-bold leading-none ${
+        className={`text-[9px] font-bold leading-none tabular-nums ${
           day.estimated
-            ? "text-slate-400"
+            ? "text-ink-3"
             : isDeficit
-            ? "text-emerald-600"
-            : "text-red-500"
+            ? "text-good"
+            : "text-over"
         }`}
       >
         {sign}{absVal >= 1000 ? `${Math.round(absVal / 100) / 10}k` : absVal}
@@ -51,26 +52,26 @@ function BalanceBar({
         <div
           className={`w-full max-w-[28px] rounded-t-md transition-all duration-500 ${
             day.estimated
-              ? "bg-gradient-to-t from-slate-300 to-slate-200"
+              ? "bg-line"
               : isDeficit
-              ? "bg-gradient-to-t from-emerald-500 to-emerald-400"
-              : "bg-gradient-to-t from-red-500 to-red-400"
+              ? "bg-good"
+              : "bg-over"
           }`}
           style={{
             height: barH,
-            ...(day.estimated ? { border: "1px dashed #94a3b8", borderBottom: "none" } : {}),
+            ...(day.estimated ? { border: "1px dashed var(--color-ink-3)", borderBottom: "none" } : {}),
           }}
         />
       </div>
 
       {/* Day label + date */}
-      <span className={`text-[10px] font-semibold leading-none truncate w-full text-center ${day.estimated ? "text-slate-400" : "text-slate-500"}`}>
+      <span className={`text-[10px] font-semibold leading-none truncate w-full text-center ${day.estimated ? "text-ink-3" : "text-ink-2"}`}>
         {label}
       </span>
-      <span className="text-[9px] text-slate-400 leading-none truncate w-full text-center">
+      <span className="text-[9px] text-ink-3 leading-none truncate w-full text-center tabular-nums">
         {dateLabel}
       </span>
-    </a>
+    </Link>
   );
 }
 
@@ -99,10 +100,10 @@ function StatTile({
 
   if (avg === null) {
     return (
-      <div className="flex-1 bg-slate-50 rounded-2xl p-3.5 flex flex-col gap-1">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{label}</p>
-        <p className="text-xl font-black text-slate-300">—</p>
-        <p className="text-[10px] text-slate-300">{hint}</p>
+      <div className="flex-1 bg-canvas border border-line rounded-xl p-3.5 flex flex-col gap-1">
+        <p className="text-[10px] font-semibold text-ink-3 uppercase tracking-wide">{label}</p>
+        <p className="text-xl font-bold text-ink-3/50">—</p>
+        <p className="text-[10px] text-ink-3/70">{hint}</p>
       </div>
     );
   }
@@ -113,29 +114,29 @@ function StatTile({
 
   return (
     <div
-      className={`flex-1 rounded-2xl p-3.5 flex flex-col gap-1.5 border ${
-        isDeficit ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"
+      className={`flex-1 rounded-xl p-3.5 flex flex-col gap-1.5 border ${
+        isDeficit ? "bg-brand-50 border-brand-100" : "bg-over/8 border-over/15"
       }`}
     >
-      <p className={`text-[10px] font-bold uppercase tracking-wide ${isDeficit ? "text-emerald-600" : "text-red-500"}`}>
+      <p className={`text-[10px] font-semibold uppercase tracking-wide ${isDeficit ? "text-brand-600" : "text-over"}`}>
         {label}
       </p>
 
       {/* Average */}
       <div className="flex items-end gap-1">
-        <span className={`text-2xl font-black leading-none ${isDeficit ? "text-emerald-700" : "text-red-600"}`}>
+        <span className={`text-2xl font-bold tabular-nums leading-none ${isDeficit ? "text-brand-700" : "text-over"}`}>
           {avgFmt.sign}{avgFmt.abs.toLocaleString()}
         </span>
-        <span className="text-xs text-slate-400 mb-0.5">{T.kcal}</span>
+        <span className="text-xs text-ink-3 mb-0.5">{T.kcal}</span>
       </div>
 
       {/* Total */}
       {totalFmt && (
-        <div className={`flex items-center gap-1 pt-1 border-t ${isDeficit ? "border-emerald-100" : "border-red-100"}`}>
-          <span className={`text-[10px] font-semibold ${isDeficit ? "text-emerald-600" : "text-red-500"}`}>
+        <div className={`flex items-center gap-1 pt-1 border-t ${isDeficit ? "border-brand-100" : "border-over/15"}`}>
+          <span className={`text-[10px] font-semibold ${isDeficit ? "text-brand-600" : "text-over"}`}>
             {totalLabel}:
           </span>
-          <span className={`text-[10px] font-bold ${isDeficit ? "text-emerald-700" : "text-red-600"}`}>
+          <span className={`text-[10px] font-bold tabular-nums ${isDeficit ? "text-brand-700" : "text-over"}`}>
             {totalFmt.sign}{totalFmt.abs.toLocaleString()} {T.kcal}
           </span>
         </div>
@@ -143,11 +144,11 @@ function StatTile({
 
       <div className="flex items-center gap-1">
         {isDeficit ? (
-          <TrendingDown className="w-3 h-3 text-emerald-500 shrink-0" />
+          <TrendingDown className="w-3 h-3 text-brand-500 shrink-0" />
         ) : (
-          <TrendingUp className="w-3 h-3 text-red-400 shrink-0" />
+          <TrendingUp className="w-3 h-3 text-over shrink-0" />
         )}
-        <p className={`text-[10px] font-medium ${isDeficit ? "text-emerald-600" : "text-red-400"}`}>
+        <p className={`text-[10px] font-medium ${isDeficit ? "text-brand-600" : "text-over"}`}>
           {hint}
         </p>
       </div>
@@ -159,9 +160,9 @@ function StatTile({
 
 function LoadingSkeleton() {
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="px-5 pt-5 pb-4 border-b border-slate-50 flex items-center gap-2">
-        <div className="h-3 w-36 bg-slate-100 rounded-full animate-pulse" />
+    <div className="bg-surface rounded-(--radius-card) shadow-(--shadow-card) border border-line overflow-hidden">
+      <div className="px-5 pt-5 pb-4 border-b border-line flex items-center gap-2">
+        <div className="h-3 w-36 bg-line/60 rounded-full animate-pulse" />
       </div>
       <div className="p-5 flex flex-col gap-4">
         {/* Chart skeleton */}
@@ -169,7 +170,7 @@ function LoadingSkeleton() {
           {[60, 40, 75, 30, 55, 80, 45].map((h, i) => (
             <div
               key={i}
-              className="flex-1 bg-slate-100 rounded-t-md animate-pulse"
+              className="flex-1 bg-line/60 rounded-t-md animate-pulse"
               style={{ height: `${h}%`, animationDelay: `${i * 80}ms` }}
             />
           ))}
@@ -177,7 +178,7 @@ function LoadingSkeleton() {
         {/* Stat tiles skeleton */}
         <div className="flex gap-3">
           {[1, 2].map((i) => (
-            <div key={i} className="flex-1 h-20 bg-slate-100 rounded-2xl animate-pulse" />
+            <div key={i} className="flex-1 h-20 bg-line/60 rounded-xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -221,14 +222,14 @@ export default memo(function CalorieHistorySection({ initialData }: { initialDat
 
   if (error) {
     return (
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-col items-center gap-3">
-        <BarChart2 className="w-8 h-8 text-slate-300" />
-        <p className="text-sm text-slate-400 text-center">
+      <div className="bg-surface rounded-(--radius-card) shadow-(--shadow-card) border border-line p-6 flex flex-col items-center gap-3">
+        <BarChart2 className="w-8 h-8 text-ink-3/40" />
+        <p className="text-sm text-ink-3 text-center">
           {lang === "he" ? "שגיאה בטעינת נתוני המאזן" : "Failed to load balance data"}
         </p>
         <button
           onClick={load}
-          className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold hover:underline"
+          className="flex items-center gap-1.5 text-xs text-brand-600 font-semibold hover:underline"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           {lang === "he" ? "נסה שוב" : "Retry"}
@@ -243,11 +244,11 @@ export default memo(function CalorieHistorySection({ initialData }: { initialDat
 
   if (!hasData) {
     return (
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-col items-center gap-3 text-center">
-        <BarChart2 className="w-10 h-10 text-slate-200" />
+      <div className="bg-surface rounded-(--radius-card) shadow-(--shadow-card) border border-line p-6 flex flex-col items-center gap-3 text-center">
+        <BarChart2 className="w-10 h-10 text-ink-3/30" />
         <div>
-          <p className="text-sm font-semibold text-slate-500">{T.balanceHistory}</p>
-          <p className="text-xs text-slate-400 mt-1">{T.noBalanceData}</p>
+          <p className="text-sm font-semibold text-ink-2">{T.balanceHistory}</p>
+          <p className="text-xs text-ink-3 mt-1">{T.noBalanceData}</p>
         </div>
       </div>
     );
@@ -256,27 +257,27 @@ export default memo(function CalorieHistorySection({ initialData }: { initialDat
   const maxAbs = Math.max(...chartDays.map((d) => Math.abs(d.balance)), 1);
 
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+    <div className="bg-surface rounded-(--radius-card) shadow-(--shadow-card) border border-line overflow-hidden">
       {/* Header */}
-      <div className="px-5 pt-5 pb-3 border-b border-slate-50 flex items-center justify-between gap-2">
+      <div className="px-5 pt-5 pb-3 border-b border-line flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+          <p className="text-[11px] font-semibold text-ink-3 uppercase tracking-widest">
             {T.balanceHistory}
           </p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{T.balanceHistoryHint}</p>
+          <p className="text-[11px] text-ink-3 mt-0.5">{T.balanceHistoryHint}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-          <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
-            <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block" />
+          <span className="flex items-center gap-1 text-[10px] font-semibold text-good">
+            <span className="w-2.5 h-2.5 rounded-sm bg-good inline-block" />
             {lang === "he" ? "גרעון" : "Deficit"}
           </span>
-          <span className="flex items-center gap-1 text-[10px] font-semibold text-red-400">
-            <span className="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block" />
+          <span className="flex items-center gap-1 text-[10px] font-semibold text-over">
+            <span className="w-2.5 h-2.5 rounded-sm bg-over inline-block" />
             {lang === "he" ? "עודף" : "Surplus"}
           </span>
           {hasEstimated && (
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-400">
-              <span className="w-2.5 h-2.5 rounded-sm bg-slate-300 inline-block border border-dashed border-slate-400" />
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-ink-3">
+              <span className="w-2.5 h-2.5 rounded-sm bg-line inline-block border border-dashed border-ink-3" />
               {T.estimatedLegend}
             </span>
           )}

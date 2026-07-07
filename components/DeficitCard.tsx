@@ -93,53 +93,53 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
   };
 
   const stats = [
-    { label: T.statDailyIntake, value: Math.round(consumed), color: "#0f172a", bg: "bg-slate-50" },
-    { label: T.statActiveBurnDaily, value: Math.round(burned), color: "#f59e0b", bg: "bg-amber-50" },
-    { label: T.statIntakeMinusActivity, value: Math.round(net), color: "#6366f1", bg: "bg-indigo-50" },
+    { label: T.statDailyIntake, value: Math.round(consumed), valueClass: "text-ink" },
+    { label: T.statActiveBurnDaily, value: Math.round(burned), valueClass: "text-fat" },
+    { label: T.statIntakeMinusActivity, value: Math.round(net), valueClass: "text-protein" },
   ];
 
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+    <div className="bg-surface rounded-(--radius-card) shadow-(--shadow-card) border border-line overflow-hidden">
       {/* Header */}
-      <div className="px-5 sm:px-6 pt-5 pb-4 flex items-center justify-between gap-2 border-b border-slate-50">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{T.balance}</span>
+      <div className="px-5 sm:px-6 pt-5 pb-4 flex items-center justify-between gap-2 border-b border-line">
+        <span className="text-[11px] font-semibold text-ink-3 uppercase tracking-widest">{T.balance}</span>
         {onGoalChange ? (
           editingGoal ? (
             <div className="flex items-center gap-1.5">
               <input type="number" value={goalInput} onChange={e => setGoalInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && saveGoal()}
-                className="w-24 text-sm border border-slate-200 rounded-xl px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-emerald-300" />
-              <button onClick={saveGoal} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-xl"><Check className="w-4 h-4" /></button>
-              <button onClick={() => { setGoalInput(String(goalCalories)); setEditingGoal(false); }} className="p-1.5 text-slate-400 hover:bg-slate-50 rounded-xl"><X className="w-4 h-4" /></button>
+                className="w-24 text-sm border border-line rounded-lg px-2 py-1 text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+              <button onClick={saveGoal} className="p-1.5 text-brand-600 hover:bg-brand-50 rounded-lg"><Check className="w-4 h-4" /></button>
+              <button onClick={() => { setGoalInput(String(goalCalories)); setEditingGoal(false); }} className="p-1.5 text-ink-3 hover:bg-canvas rounded-lg"><X className="w-4 h-4" /></button>
             </div>
           ) : (
             <button onClick={() => setEditingGoal(true)}
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 px-2 py-1 hover:bg-slate-50 rounded-xl transition-colors">
+              className="flex items-center gap-1.5 text-xs text-ink-3 hover:text-ink-2 px-2 py-1 hover:bg-canvas rounded-lg transition-colors">
               <Pencil className="w-3 h-3" />
-              {T.calorieGoal}: <span className="font-bold text-slate-600">{goalCalories.toLocaleString()}</span> {T.kcal}
+              {T.calorieGoal}: <span className="font-bold text-ink-2 tabular-nums">{goalCalories.toLocaleString()}</span> {T.kcal}
             </button>
           )
         ) : (
-          <span className="flex items-center gap-1.5 text-xs text-slate-400 px-2 py-1">
-            {T.calorieGoal}: <span className="font-bold text-slate-600">{goalCalories.toLocaleString()}</span> {T.kcal}
+          <span className="flex items-center gap-1.5 text-xs text-ink-3 px-2 py-1">
+            {T.calorieGoal}: <span className="font-bold text-ink-2 tabular-nums">{goalCalories.toLocaleString()}</span> {T.kcal}
           </span>
         )}
       </div>
 
       <div className="p-5 flex flex-col gap-4">
         {/* Balance hero */}
-        <div className={`rounded-2xl p-4 flex items-center gap-4 border ${isDeficit ? "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100" : "bg-gradient-to-br from-red-50 to-rose-50 border-red-100"}`}>
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${isDeficit ? "bg-emerald-100" : "bg-red-100"}`}>
+        <div className={`rounded-xl p-4 flex items-center gap-4 border ${isDeficit ? "bg-brand-50 border-brand-100" : "bg-over/8 border-over/15"}`}>
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isDeficit ? "bg-brand-100" : "bg-over/15"}`}>
             {isDeficit
-              ? <TrendingDown className="w-6 h-6 text-emerald-600" />
-              : <TrendingUp   className="w-6 h-6 text-red-500" />
+              ? <TrendingDown className="w-6 h-6 text-brand-600" />
+              : <TrendingUp   className="w-6 h-6 text-over" />
             }
           </div>
           <div>
-            <p className={`text-[11px] font-bold uppercase tracking-widest mb-0.5 ${isDeficit ? "text-emerald-600" : "text-red-500"}`}>
+            <p className={`text-[11px] font-semibold uppercase tracking-widest mb-0.5 ${isDeficit ? "text-brand-600" : "text-over"}`}>
               {isDeficit ? T.deficit : T.surplus}
             </p>
-            <p className={`text-4xl font-black leading-none ${isDeficit ? "text-emerald-700" : "text-red-600"}`}>
+            <p className={`text-4xl font-bold tabular-nums leading-none ${isDeficit ? "text-brand-700" : "text-over"}`}>
               {diffAbs.toLocaleString()}
               <span className="text-sm font-semibold ms-1.5">{T.kcal}</span>
             </p>
@@ -147,16 +147,16 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
           {/* Mini progress arc */}
           <div className="ms-auto relative w-16 h-16 shrink-0">
             <svg viewBox="0 0 56 56" className="-rotate-90 w-full h-full">
-              <circle cx="28" cy="28" r="22" fill="none" stroke="#e2e8f0" strokeWidth="6" />
+              <circle cx="28" cy="28" r="22" fill="none" stroke="var(--color-line)" strokeWidth="6" />
               <circle cx="28" cy="28" r="22" fill="none"
-                stroke={isDeficit ? "#10b981" : "#ef4444"}
+                stroke={isDeficit ? "var(--color-good)" : "var(--color-over)"}
                 strokeWidth="6" strokeLinecap="round"
                 strokeDasharray={138.2}
                 strokeDashoffset={138.2 * (1 - progressPct / 100)}
                 style={{ transition: "stroke-dashoffset 0.8s ease" }}
               />
             </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-xs font-black text-slate-600">
+            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-ink-2 tabular-nums">
               {Math.round(progressPct)}%
             </span>
           </div>
@@ -165,30 +165,30 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
         {/* Stats */}
         <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
           {stats.map(s => (
-            <div key={s.label} className={`${s.bg} rounded-2xl py-2.5 px-1.5 sm:px-2 text-center`}>
-              <p className="text-[11px] sm:text-xs font-bold text-slate-500 leading-tight mb-1.5 min-h-[3rem] flex items-end justify-center text-center px-0.5">
+            <div key={s.label} className="bg-canvas border border-line rounded-xl py-2.5 px-1.5 sm:px-2 text-center">
+              <p className="text-[11px] sm:text-xs font-semibold text-ink-3 leading-tight mb-1.5 min-h-[3rem] flex items-end justify-center text-center px-0.5">
                 {s.label}
               </p>
-              <p className="text-lg sm:text-xl font-black" style={{ color: s.color }}>{s.value.toLocaleString()}</p>
-              <p className="text-[10px] text-slate-400">{T.kcal}</p>
+              <p className={`text-lg sm:text-xl font-bold tabular-nums ${s.valueClass}`}>{s.value.toLocaleString()}</p>
+              <p className="text-[10px] text-ink-3">{T.kcal}</p>
             </div>
           ))}
         </div>
 
         {/* Burned input */}
-        <div className="flex flex-col gap-2.5 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+        <div className="flex flex-col gap-2.5 bg-canvas border border-line rounded-xl px-4 py-3">
           {/* Header: label + mode toggle */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-700 uppercase tracking-wider min-w-0">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-fat uppercase tracking-wider min-w-0">
               <Flame className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{T.caloriesBurnedPlaceholder}</span>
             </div>
-            <div className="flex shrink-0 rounded-lg border border-amber-200 bg-white overflow-hidden text-[11px] font-bold" role="group">
+            <div className="flex shrink-0 rounded-lg border border-line bg-surface overflow-hidden text-[11px] font-bold" role="group">
               <button
                 type="button"
                 onClick={() => switchBurnMode("active")}
                 disabled={savingBurned}
-                className={`px-2.5 py-1 transition-colors ${burnMode === "active" ? "bg-amber-500 text-white" : "text-amber-700 hover:bg-amber-50"}`}
+                className={`px-2.5 py-1 transition-colors ${burnMode === "active" ? "bg-brand-600 text-white" : "text-ink-2 hover:bg-canvas"}`}
               >
                 {T.burnModeActive}
               </button>
@@ -196,7 +196,7 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
                 type="button"
                 onClick={() => switchBurnMode("total")}
                 disabled={savingBurned}
-                className={`px-2.5 py-1 border-s border-amber-200 transition-colors ${burnMode === "total" ? "bg-amber-500 text-white" : "text-amber-700 hover:bg-amber-50"}`}
+                className={`px-2.5 py-1 border-s border-line transition-colors ${burnMode === "total" ? "bg-brand-600 text-white" : "text-ink-2 hover:bg-canvas"}`}
               >
                 {T.burnModeTotal}
               </button>
@@ -209,17 +209,17 @@ export default memo(function DeficitCard({ consumed, burned, goalCalories, date,
               onChange={e => setBurnedInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && saveBurned(burnedInput)}
               placeholder="0"
-              className="flex-1 min-w-0 text-base bg-transparent focus:outline-none placeholder:text-amber-300"
+              className="flex-1 min-w-0 text-base bg-transparent focus:outline-none placeholder:text-ink-3/50 tabular-nums"
               disabled={savingBurned} min={0}
             />
-            <span className="text-xs text-amber-400 shrink-0">{T.kcal}</span>
+            <span className="text-xs text-ink-3 shrink-0">{T.kcal}</span>
             <button type="button" onClick={() => saveBurned(burnedInput)} disabled={savingBurned}
-              className="shrink-0 min-h-[44px] flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl active:scale-95 touch-manipulation transition-all disabled:opacity-50 shadow-sm">
+              className="shrink-0 min-h-[44px] flex items-center justify-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl active:scale-95 touch-manipulation transition-all disabled:opacity-50">
               {savingBurned ? <Flame className="w-3.5 h-3.5 animate-pulse" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
               OK
             </button>
           </div>
-          <p className="text-[11px] text-amber-700/80 leading-snug">
+          <p className="text-[11px] text-ink-3 leading-snug">
             {burnMode === "total"
               ? (Number(burnedInput) > 0 && Number(burnedInput) < goalCalories
                 ? T.burnModeTotalBelowBmr(goalCalories)

@@ -34,35 +34,17 @@ function CalorieRing({ consumed, target }: { consumed: number; target: number })
   return (
     <div className="flex flex-col items-center">
       <div className="relative w-52 h-52">
-        {/* Glow */}
-        <div className={`absolute inset-8 rounded-full blur-2xl opacity-20 transition-colors duration-500 ${over ? "bg-red-500" : "bg-emerald-400"}`} />
-
         <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90">
-          <defs>
-            <linearGradient id="cGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#10b981" />
-              <stop offset="100%" stopColor="#0d9488" />
-            </linearGradient>
-            <linearGradient id="cGradOver" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#ef4444" />
-              <stop offset="100%" stopColor="#f97316" />
-            </linearGradient>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-              <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-          </defs>
           {/* Track */}
-          <circle cx="100" cy="100" r={r} fill="none" stroke="#e2e8f0" strokeWidth="12" strokeLinecap="round" />
+          <circle cx="100" cy="100" r={r} fill="none" stroke="var(--color-line)" strokeWidth="12" strokeLinecap="round" />
           {/* Progress */}
           {consumed > 0 && (
             <circle
               cx="100" cy="100" r={r} fill="none"
-              stroke={over ? "url(#cGradOver)" : "url(#cGrad)"}
+              stroke={over ? "var(--color-over)" : "var(--color-kcal)"}
               strokeWidth="12" strokeLinecap="round"
               strokeDasharray={circ}
               strokeDashoffset={offset}
-              filter="url(#glow)"
               style={{ transition: "stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1)" }}
             />
           )}
@@ -70,18 +52,18 @@ function CalorieRing({ consumed, target }: { consumed: number; target: number })
 
         {/* Center content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-          <span className={`text-4xl font-black leading-none ${over ? "text-red-500" : "text-slate-800"}`}>
+          <span className={`text-4xl font-bold tabular-nums leading-none ${over ? "text-over" : "text-ink"}`}>
             {Math.round(consumed).toLocaleString()}
           </span>
-          <span className="text-xs text-slate-400 font-medium">{T.kcal}</span>
-          <div className={`mt-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full ${over ? "bg-red-100 text-red-600" : pct > 0.8 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
+          <span className="text-xs text-ink-3 font-medium">{T.kcal}</span>
+          <div className={`mt-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full tabular-nums ${over ? "bg-over/10 text-over" : pct > 0.8 ? "bg-warn/10 text-warn" : "bg-brand-50 text-brand-700"}`}>
             {pctLabel}%
           </div>
         </div>
       </div>
 
       {/* Below ring */}
-      <div className={`mt-3 text-sm font-semibold ${over ? "text-red-500" : "text-slate-500"}`}>
+      <div className={`mt-3 text-sm font-semibold tabular-nums ${over ? "text-over" : "text-ink-2"}`}>
         {over
           ? `+${Math.round(consumed - target).toLocaleString()} ${T.kcal} ${T.exceededBy}`
           : `${T.remaining}: ${Math.round(remaining).toLocaleString()} ${T.kcal}`
@@ -91,23 +73,22 @@ function CalorieRing({ consumed, target }: { consumed: number; target: number })
   );
 }
 
-function MacroTile({ label, value, target, unit, from, to, bg }: {
-  label: string; value: number; target: number; unit: string;
-  from: string; to: string; bg: string;
+function MacroTile({ label, value, target, unit, barClass }: {
+  label: string; value: number; target: number; unit: string; barClass: string;
 }) {
   const pct = Math.min((value / target) * 100, 100);
   const over = value > target;
   return (
-    <div className={`${bg} rounded-2xl p-3.5 flex flex-col gap-2`}>
+    <div className="bg-canvas border border-line rounded-xl p-3.5 flex flex-col gap-2">
       <div className="flex justify-between items-center">
-        <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{label}</span>
-        <span className={`text-xs font-bold ${over ? "text-red-500" : "text-slate-600"}`}>
-          {Math.round(value)}<span className="text-slate-400 font-normal">/{target}{unit}</span>
+        <span className="text-[11px] font-semibold text-ink-3 uppercase tracking-wide">{label}</span>
+        <span className={`text-xs font-bold tabular-nums ${over ? "text-over" : "text-ink-2"}`}>
+          {Math.round(value)}<span className="text-ink-3 font-normal">/{target}{unit}</span>
         </span>
       </div>
-      <div className="h-2 bg-white/60 rounded-full overflow-hidden">
+      <div className="h-2 bg-line/70 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full bg-gradient-to-r ${from} ${to} transition-all duration-700`}
+          className={`h-full rounded-full ${barClass} transition-all duration-700`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -161,10 +142,10 @@ export default memo(function DailySummary({ entries, goalCalories, caloriesBurne
   );
 
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+    <div className="bg-surface rounded-(--radius-card) shadow-(--shadow-card) border border-line overflow-hidden">
       {/* Title row */}
       <div className="px-5 sm:px-6 pt-5 pb-2 flex items-center justify-between gap-2 flex-wrap">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{T.dailySummary}</span>
+        <span className="text-[11px] font-semibold text-ink-3 uppercase tracking-widest">{T.dailySummary}</span>
         {onGoalCaloriesChange ? (
           editingGoal ? (
             <div className="flex items-center gap-1.5">
@@ -173,10 +154,10 @@ export default memo(function DailySummary({ entries, goalCalories, caloriesBurne
                 value={goalDraft}
                 onChange={(e) => setGoalDraft(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && saveGoal()}
-                className="w-28 text-sm border border-slate-200 rounded-xl px-2 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                className="w-28 text-sm border border-line rounded-lg px-2 py-1.5 text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-brand-500/40"
                 aria-label={T.goalPlaceholder}
               />
-              <button type="button" onClick={saveGoal} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-xl" aria-label={T.save}>
+              <button type="button" onClick={saveGoal} className="p-1.5 text-brand-600 hover:bg-brand-50 rounded-lg" aria-label={T.save}>
                 <Check className="w-4 h-4" />
               </button>
               <button
@@ -185,7 +166,7 @@ export default memo(function DailySummary({ entries, goalCalories, caloriesBurne
                   setGoalDraft(String(goalCalories ?? DEFAULT_TARGETS.calories));
                   setEditingGoal(false);
                 }}
-                className="p-1.5 text-slate-400 hover:bg-slate-50 rounded-xl"
+                className="p-1.5 text-ink-3 hover:bg-canvas rounded-lg"
                 aria-label={T.cancel}
               >
                 <X className="w-4 h-4" />
@@ -195,7 +176,7 @@ export default memo(function DailySummary({ entries, goalCalories, caloriesBurne
             <button
               type="button"
               onClick={() => setEditingGoal(true)}
-              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-emerald-700 px-2 py-1.5 rounded-xl hover:bg-emerald-50/80 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-ink-2 hover:text-brand-700 px-2 py-1.5 rounded-lg hover:bg-brand-50 transition-colors"
               title={T.editGoal}
             >
               <Pencil className="w-3.5 h-3.5 shrink-0 opacity-70" />
@@ -206,20 +187,20 @@ export default memo(function DailySummary({ entries, goalCalories, caloriesBurne
       </div>
 
       {/* Large allowance = base + active (what you may eat today) */}
-      <div className="px-4 sm:px-6 pb-5 text-center border-b border-slate-100 bg-gradient-to-b from-emerald-50/80 to-white">
-        <p className="text-[11px] font-bold text-emerald-800/80 uppercase tracking-widest mb-1">{T.dailyAllowanceHeadline}</p>
-        <p className="text-4xl sm:text-5xl font-black text-emerald-800 tabular-nums leading-tight tracking-tight">
+      <div className="px-4 sm:px-6 pb-5 text-center border-b border-line">
+        <p className="text-[11px] font-semibold text-ink-3 uppercase tracking-widest mb-1">{T.dailyAllowanceHeadline}</p>
+        <p className="text-4xl sm:text-5xl font-bold text-ink tabular-nums leading-tight tracking-tight">
           {Math.round(totalBudget).toLocaleString()}
-          <span className="text-lg sm:text-xl font-bold text-emerald-700/90 ms-1.5">{T.kcal}</span>
+          <span className="text-lg sm:text-xl font-semibold text-ink-3 ms-1.5">{T.kcal}</span>
         </p>
-        <p className="mt-2 text-sm text-slate-600 leading-snug">
-          <span className="font-semibold text-slate-800">{baseForRing.toLocaleString()}</span>
+        <p className="mt-2 text-sm text-ink-2 leading-snug tabular-nums">
+          <span className="font-semibold text-ink">{baseForRing.toLocaleString()}</span>
           {" "}{T.allowanceBaseLabel}
           {activeExtra > 0 && (
             <>
               {" "}
-              <span className="text-slate-400">+</span>{" "}
-              <span className="font-semibold text-amber-700">{activeExtra.toLocaleString()}</span>
+              <span className="text-ink-3">+</span>{" "}
+              <span className="font-semibold text-warn">{activeExtra.toLocaleString()}</span>
               {" "}{T.allowanceActiveLabel}
             </>
           )}
@@ -233,12 +214,9 @@ export default memo(function DailySummary({ entries, goalCalories, caloriesBurne
 
       {/* Macro tiles */}
       <div className="px-5 pb-5 grid grid-cols-3 gap-2.5">
-        <MacroTile label={T.protein} value={totals.protein} target={goalProtein ?? DEFAULT_TARGETS.protein} unit="g"
-          from="from-blue-400" to="to-indigo-500" bg="bg-blue-50" />
-        <MacroTile label={T.carbs} value={totals.carbs} target={DEFAULT_TARGETS.carbs} unit="g"
-          from="from-violet-400" to="to-purple-500" bg="bg-violet-50" />
-        <MacroTile label={T.fat} value={totals.fat} target={DEFAULT_TARGETS.fat} unit="g"
-          from="from-amber-400" to="to-orange-500" bg="bg-amber-50" />
+        <MacroTile label={T.protein} value={totals.protein} target={goalProtein ?? DEFAULT_TARGETS.protein} unit="g" barClass="bg-protein" />
+        <MacroTile label={T.carbs} value={totals.carbs} target={DEFAULT_TARGETS.carbs} unit="g" barClass="bg-carbs" />
+        <MacroTile label={T.fat} value={totals.fat} target={DEFAULT_TARGETS.fat} unit="g" barClass="bg-fat" />
       </div>
     </div>
   );
