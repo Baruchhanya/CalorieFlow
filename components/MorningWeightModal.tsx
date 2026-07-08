@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Scale, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Scale, Loader2, RefreshCw } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
 import Modal from "@/components/ui/Modal";
@@ -18,6 +18,15 @@ export default function MorningWeightModal({ date, formattedDate, onSaved, onClo
   const { showToast } = useToast();
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
+  const [mifitConnected, setMifitConnected] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/integrations/mifit")
+      .then((r) => r.json())
+      .then((d: { connected?: boolean }) => setMifitConnected(!!d.connected))
+      .catch(() => {});
+  }, []);
 
   const handleSave = async () => {
     const num = parseFloat(value);
@@ -38,11 +47,43 @@ export default function MorningWeightModal({ date, formattedDate, onSaved, onClo
     }
   };
 
+  const handleMifitSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/integrations/mifit/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: 3 }),
+      });
+      const json = await res.json() as { synced?: number; error?: string };
+      if (!res.ok) {
+        showToast(json.error ?? T.mifitConnectError, "error");
+        return;
+      }
+
+      // Fetch weight log and find today's entry
+      const weightRes = await fetch("/api/weight");
+      const weights = await weightRes.json() as { date: string; weight_kg: number }[];
+      const todayEntry = weights.find((w) => w.date === date);
+
+      if (todayEntry) {
+        showToast(T.morningWeightSaved, "success");
+        onSaved(todayEntry.weight_kg, date);
+      } else {
+        showToast(T.morningWeightSyncNoData, "error");
+      }
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const busy = saving || syncing;
+
   return (
     <Modal
       open
       onClose={onClose}
-      closeDisabled={saving}
+      closeDisabled={busy}
       closeLabel={T.morningWeightSkip}
       title={
         <span className="flex items-center gap-2.5">
@@ -59,6 +100,30 @@ export default function MorningWeightModal({ date, formattedDate, onSaved, onClo
         </p>
         <p className="text-sm text-ink-2 leading-relaxed">{T.morningWeightDesc}</p>
 
+        {mifitConnected && (
+          <>
+            <button
+              type="button"
+              onClick={handleMifitSync}
+              disabled={busy}
+              className="w-full min-h-[48px] py-3 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-brand-700 active:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+            >
+              {syncing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              {syncing ? T.mifitSyncing : T.morningWeightSyncMiFit}
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-line" />
+              <span className="text-xs text-ink-3">{T.morningWeightOrManual}</span>
+              <div className="flex-1 h-px bg-line" />
+            </div>
+          </>
+        )}
+
         <div
           dir="ltr"
           className="flex min-h-[3.5rem] items-stretch rounded-xl border-2 border-line bg-canvas overflow-hidden transition-colors focus-within:border-brand-500 focus-within:bg-surface focus-within:ring-2 focus-within:ring-brand-500/25"
@@ -67,7 +132,7 @@ export default function MorningWeightModal({ date, formattedDate, onSaved, onClo
           <input
             type="number"
             inputMode="decimal"
-            autoFocus
+            autoFocus={!mifitConnected}
             step="0.1"
             min="20"
             max="300"
@@ -87,7 +152,7 @@ export default function MorningWeightModal({ date, formattedDate, onSaved, onClo
           <button
             type="button"
             onClick={onClose}
-            disabled={saving}
+            disabled={busy}
             className="flex-1 min-h-[48px] py-2.5 rounded-xl border border-line text-ink-2 text-sm font-semibold hover:bg-canvas active:bg-line/50 transition-colors disabled:opacity-50 touch-manipulation"
           >
             {T.morningWeightSkip}
@@ -95,7 +160,7 @@ export default function MorningWeightModal({ date, formattedDate, onSaved, onClo
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || value === ""}
+            disabled={busy || value === ""}
             className="flex-1 min-h-[48px] py-2.5 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-brand-700 active:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}

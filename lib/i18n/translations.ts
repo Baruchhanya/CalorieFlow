@@ -224,6 +224,9 @@ const he = {
   morningWeightSkip: "לא היום",
   morningWeightSaved: "המשקל נשמר",
   morningWeightUnit: "ק״ג",
+  morningWeightSyncMiFit: "סנכרן מ-Mi Fitness",
+  morningWeightSyncNoData: "אין שקילה להיום ב-Mi Fitness",
+  morningWeightOrManual: "או הזן ידנית",
 
   // Burn mode (active vs total from smartwatch)
   burnModeActive: "אקטיבי",
@@ -533,6 +536,9 @@ const en: Translations = {
   morningWeightSkip: "Not today",
   morningWeightSaved: "Weight saved",
   morningWeightUnit: "kg",
+  morningWeightSyncMiFit: "Sync from Mi Fitness",
+  morningWeightSyncNoData: "No weigh-in for today in Mi Fitness",
+  morningWeightOrManual: "or enter manually",
 
   // Burn mode (active vs total from smartwatch)
   burnModeActive: "Active",
