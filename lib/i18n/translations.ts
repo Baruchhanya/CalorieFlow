@@ -13,6 +13,7 @@ const he = {
   cancel: "ביטול",
   edit: "ערוך",
   delete: "מחיקה",
+  confirmTitle: "אישור פעולה",
 
   // Header / nav
   prevDay: "יום קודם",
@@ -43,6 +44,8 @@ const he = {
   carbs: "פחמימות",
   fat: "שומן",
   noMealsYet: "עדיין לא הוזנו ארוחות היום",
+  detailsAndBalance: "פירוט ומאזן",
+  hideDetails: "הסתר פירוט",
 
   // Food input
   addMeal: "הוסף ארוחה",
@@ -335,6 +338,7 @@ const en: Translations = {
   cancel: "Cancel",
   edit: "Edit",
   delete: "Delete",
+  confirmTitle: "Confirm action",
 
   prevDay: "Previous day",
   nextDay: "Next day",
@@ -362,6 +366,8 @@ const en: Translations = {
   carbs: "Carbs",
   fat: "Fat",
   noMealsYet: "No meals logged today",
+  detailsAndBalance: "Details & balance",
+  hideDetails: "Hide details",
 
   addMeal: "Add Meal",
   addMealQuickIntro: "Below: saved meals and quick picks from your history (one tap). Then text, photo, voice, or manual entry.",

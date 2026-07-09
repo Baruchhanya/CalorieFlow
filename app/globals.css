@@ -14,7 +14,9 @@
   --color-line:    #E7E6E1;
   --color-ink:     #1C1B18;
   --color-ink-2:   #55534C;
-  --color-ink-3:   #8B887F;
+  /* ink-3: darkened from #8B887F (3.5:1, failed WCAG AA) to ~5.5:1 on white/canvas.
+     Used pervasively for secondary text and small labels, so it must pass AA. */
+  --color-ink-3:   #6B685F;
 
   /* Semantic — macros & energy */
   --color-protein: #2E5FCC;
@@ -61,6 +63,16 @@
   input[type=number]::-webkit-inner-spin-button,
   input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
   input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+  /* Keyboard focus ring for every interactive element.
+     Most buttons in the app are hand-rolled and never set a focus style;
+     this guarantees a visible ring for keyboard users without touching each one.
+     Pointer clicks don't trigger :focus-visible, so it stays invisible for mouse/touch. */
+  :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
 }
 
 /* ── Safe-area helpers ───────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import { Bookmark, Plus, X, Loader2, History, ChevronLeft } from "lucide-react";
 import type { MealPreset, MealEntry, HistorySuggestion } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+import { useConfirm } from "@/lib/confirm/context";
 import MealHistoryModal from "@/components/MealHistoryModal";
 
 interface MealPresetsProps {
@@ -17,6 +18,7 @@ interface MealPresetsProps {
 export default function MealPresets({ currentDate, onAdded, initialPresets, initialSuggestions }: MealPresetsProps) {
   const { T, lang } = useLang();
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const [presets, setPresets] = useState<MealPreset[]>(initialPresets ?? []);
   const [historyItems, setHistoryItems] = useState<HistorySuggestion[]>(initialSuggestions ?? []);
   const [loadingHistory, setLoadingHistory] = useState(!initialSuggestions);
@@ -141,7 +143,7 @@ export default function MealPresets({ currentDate, onAdded, initialPresets, init
   };
 
   const removePreset = async (p: MealPreset) => {
-    if (!confirm(T.deleteRecurringConfirm(p.name))) return;
+    if (!(await confirm({ message: T.deleteRecurringConfirm(p.name), confirmLabel: T.delete }))) return;
     try {
       const res = await fetch(`/api/meal-presets/${p.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();

@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { ArrowRight, Scale, TrendingDown, TrendingUp, Plus, Trash2, Calendar, Pencil } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+import { useConfirm } from "@/lib/confirm/context";
 import { getToday, offsetDate } from "@/lib/dates";
 import {
   computeWeeklyAverages,
@@ -115,6 +116,7 @@ export function WeightTrackerPage() {
   const router = useRouter();
   const { lang } = useLang();
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const [chartData, setChartData] = useState<ChartDay[]>([]);
   const [entries, setEntries] = useState<WeightEntry[]>([]);
   const [weightInput, setWeightInput] = useState("");
@@ -409,7 +411,10 @@ export function WeightTrackerPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(T.deleteConfirm)) return;
+    if (!(await confirm({
+      message: lang === "he" ? "למחוק שקילה זו?" : "Delete this weigh-in?",
+      confirmLabel: lang === "he" ? "מחיקה" : "Delete",
+    }))) return;
     setDeleting(id);
     await fetch(`/api/weight?id=${id}`, { method: "DELETE" });
     await fetchData();

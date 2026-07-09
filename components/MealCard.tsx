@@ -5,6 +5,7 @@ import { Trash2, Pencil, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { MealEntry } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+import { useConfirm } from "@/lib/confirm/context";
 
 interface MealCardProps {
   entry: MealEntry;
@@ -15,6 +16,7 @@ interface MealCardProps {
 export default memo(function MealCard({ entry, onDelete, onEdit }: MealCardProps) {
   const { T, lang } = useLang();
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -26,7 +28,7 @@ export default memo(function MealCard({ entry, onDelete, onEdit }: MealCardProps
     .map(w => w[0]?.toUpperCase() ?? "").join("") || "?";
 
   const handleDelete = async () => {
-    if (!confirm(T.deleteConfirm(entry.name))) return;
+    if (!(await confirm({ message: T.deleteConfirm(entry.name), confirmLabel: T.delete }))) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/entries/${entry.id}`, { method: "DELETE" });
@@ -72,7 +74,7 @@ export default memo(function MealCard({ entry, onDelete, onEdit }: MealCardProps
             {Math.round(entry.calories)}
             <span className="text-xs font-normal text-ink-3 ms-0.5">{T.kcal}</span>
           </span>
-          <span className="text-[10px] text-ink-3/70 leading-none tabular-nums">{time}</span>
+          <span className="text-[10px] text-ink-3 leading-none tabular-nums">{time}</span>
 
           <div className="flex items-center gap-0.5 mt-0.5">
             <button
