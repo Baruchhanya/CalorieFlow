@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { checkEmailAccess } from "@/lib/auth";
+import { checkEmailAccess, getAuthUser } from "@/lib/auth";
 
 // HttpOnly cookie that caches a successful allowlist check for 5 minutes.
 // Value is the user's ID so it's automatically invalidated on sign-in/out.
@@ -31,16 +31,13 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // Refresh session – must be called before any auth checks
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Verify the session JWT (locally when asymmetric signing keys are enabled);
+  // refreshes the session cookie when the token is about to expire.
+  const user = await getAuthUser(supabase);
 
   const { pathname } = request.nextUrl;
   const isPublicPath =
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/auth") ||
-    pathname.startsWith("/api/"); // API routes handle auth themselves (return 401)
+    pathname.startsWith("/login") || pathname.startsWith("/auth");
 
   // Redirect unauthenticated users to login
   if (!user && !isPublicPath) {
@@ -77,7 +74,10 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // /api is excluded: routes authenticate themselves, so running getUser()
+  // here too would add a second Supabase auth round-trip to every API call.
+  // Session cookie refresh still happens on page navigations.
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api/|_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -1,33 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { Scale } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { getToday } from "@/lib/dates";
-import { getWeekSummary, type WeightEntry, type WeekSummary } from "@/lib/weight";
+import { getWeekSummary, type WeightEntry } from "@/lib/weight";
 
-export default function WeeklyWeightCard() {
+export default function WeeklyWeightCard({ entries }: { entries?: WeightEntry[] }) {
   const { lang } = useLang();
-  const [summary, setSummary] = useState<WeekSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/weight", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((entries: WeightEntry[] | null) => {
-        if (cancelled) return;
-        setSummary(getWeekSummary(Array.isArray(entries) ? entries : [], getToday()));
-      })
-      .catch(() => {
-        if (!cancelled) setSummary(getWeekSummary([], getToday()));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
+  const loading = entries === undefined;
+  const summary = useMemo(
+    () => (entries === undefined ? null : getWeekSummary(entries, getToday())),
+    [entries]
+  );
 
   const kg = lang === "he" ? "ק״ג" : "kg";
   const title = lang === "he" ? "ממוצע משקל שבועי" : "Weekly weight average";

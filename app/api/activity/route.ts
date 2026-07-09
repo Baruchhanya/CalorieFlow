@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth";
 import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 
 export async function GET(req: Request) {
@@ -8,7 +9,7 @@ export async function GET(req: Request) {
   if (!date) return NextResponse.json({ error: "date required" }, { status: 400 });
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const [activityRes, settingsRes] = await Promise.all([
@@ -37,7 +38,7 @@ export async function GET(req: Request) {
 
 export async function PUT(req: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();

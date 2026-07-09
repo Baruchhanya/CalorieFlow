@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth";
 import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 import { computeBalanceHistory } from "@/lib/balance";
 
@@ -8,7 +9,7 @@ export type { BalanceDay, BalanceHistoryResponse } from "@/lib/balance";
 export async function GET() {
   const t0 = performance.now();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const today = new Date();

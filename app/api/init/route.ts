@@ -1,29 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { checkEmailAccess } from "@/lib/auth";
-import { buildGoalResolver, resolveGoalFromHistory, DEFAULT_DAILY_GOAL } from "@/lib/goal";
+import { checkEmailAccess, getAuthUser } from "@/lib/auth";
+import { resolveGoalFromHistory, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 import { computeBalanceHistory } from "@/lib/balance";
-
-async function readProfile(supabase: SupabaseClient, userId: string) {
-  const tryFull = await supabase
-    .from("user_profile")
-    .select("height_cm, weight_kg, age, protein_goal_g")
-    .eq("user_id", userId)
-    .single();
-  if (!tryFull.error) return tryFull.data;
-
-  const msg = (tryFull.error.message || "").toLowerCase();
-  if (msg.includes("protein_goal_g") || msg.includes("does not exist") || msg.includes("column")) {
-    const legacy = await supabase
-      .from("user_profile")
-      .select("height_cm, weight_kg, age")
-      .eq("user_id", userId)
-      .single();
-    if (!legacy.error && legacy.data) return { ...legacy.data, protein_goal_g: null };
-  }
-  return null;
-}
+import { fetchCriticalInitData, readProfile } from "@/lib/initData";
 
 // Lightweight step timer for per-phase / per-step latency logging.
 function makeTimer(label: string) {
@@ -52,7 +32,7 @@ export async function GET(request: NextRequest) {
 
   const timer = makeTimer(phase);
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   timer.mark("auth");
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -64,53 +44,15 @@ export async function GET(request: NextRequest) {
 
   // ── CRITICAL phase: only what's needed to make the main UI usable ──
   if (phase === "critical") {
-    const [entriesRes, settingsRes, profile, activityRes, goalHistoryRes] = await Promise.all([
-      supabase
-        .from("meals")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("date", date)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("user_settings")
-        .select("daily_goal_calories")
-        .eq("user_id", user.id)
-        .single(),
-      readProfile(supabase, user.id),
-      supabase
-        .from("daily_activity")
-        .select("calories_burned")
-        .eq("user_id", user.id)
-        .eq("date", date)
-        .single(),
-      supabase
-        .from("goal_history")
-        .select("effective_date, daily_goal_calories")
-        .eq("user_id", user.id)
-        .order("effective_date", { ascending: true }),
-    ]);
+    const payload = await fetchCriticalInitData(supabase, user, date);
     timer.mark("db");
-
-    const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
-    const goalForDate = resolveGoalFromHistory(goalHistoryRes.data ?? [], currentGoal);
-    timer.mark("goal");
-    const goalForSelectedDate = goalForDate(date);
-
     timer.done(`(date=${date})`);
-
-    return NextResponse.json({
-      user: { email: user.email },
-      entries: entriesRes.data ?? [],
-      daily_goal_calories: goalForSelectedDate,
-      current_daily_goal_calories: currentGoal,
-      profile,
-      calories_burned: activityRes.data?.calories_burned ?? 0,
-    });
+    return NextResponse.json(payload);
   }
 
   // ── SECONDARY phase: heavier, below-the-fold data ──
   if (phase === "secondary") {
-    const [settingsRes, access, histMealsRes, histActivityRes, presetsRes, suggestionsRes, acksRes] =
+    const [settingsRes, access, histMealsRes, histActivityRes, presetsRes, suggestionsRes, acksRes, goalHistoryRes] =
       await Promise.all([
         supabase
           .from("user_settings")
@@ -148,11 +90,16 @@ export async function GET(request: NextRequest) {
           .eq("user_id", user.id)
           .gte("date", fromStr)
           .lte("date", todayStr),
+        supabase
+          .from("goal_history")
+          .select("effective_date, daily_goal_calories")
+          .eq("user_id", user.id)
+          .order("effective_date", { ascending: true }),
       ]);
     timer.mark("db");
 
     const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
-    const goalForDate = await buildGoalResolver(supabase, user.id, currentGoal);
+    const goalForDate = resolveGoalFromHistory(goalHistoryRes.data ?? [], currentGoal);
     timer.mark("goal");
 
     const balanceHistory = computeBalanceHistory({
@@ -180,7 +127,7 @@ export async function GET(request: NextRequest) {
 
   // ── ALL phase (default): full payload in one round trip ──
   const [entriesRes, settingsRes, profile, activityRes, access,
-         histMealsRes, histActivityRes, presetsRes, suggestionsRes, acksRes] =
+         histMealsRes, histActivityRes, presetsRes, suggestionsRes, acksRes, goalHistoryRes] =
     await Promise.all([
       supabase
         .from("meals")
@@ -240,11 +187,17 @@ export async function GET(request: NextRequest) {
         .eq("user_id", user.id)
         .gte("date", fromStr)
         .lte("date", todayStr),
+
+      supabase
+        .from("goal_history")
+        .select("effective_date, daily_goal_calories")
+        .eq("user_id", user.id)
+        .order("effective_date", { ascending: true }),
     ]);
   timer.mark("db");
 
   const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
-  const goalForDate = await buildGoalResolver(supabase, user.id, currentGoal);
+  const goalForDate = resolveGoalFromHistory(goalHistoryRes.data ?? [], currentGoal);
   timer.mark("goal");
   const goalForSelectedDate = goalForDate(date);
 

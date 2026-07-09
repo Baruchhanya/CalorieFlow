@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth";
 import { DEFAULT_DAILY_GOAL } from "@/lib/goal";
 
 const SEED_PAST_DATE = "1970-01-01";
@@ -10,7 +11,7 @@ function serverTodayUTC(): string {
 
 export async function GET() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { data } = await supabase
@@ -24,7 +25,7 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();

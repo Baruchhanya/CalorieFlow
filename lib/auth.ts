@@ -43,6 +43,24 @@ export interface AccessStatus {
 }
 
 /**
+ * Resolve the authenticated user from the request JWT via getClaims().
+ * With asymmetric signing keys this verifies locally against the (cached)
+ * JWKS instead of a round-trip to the Auth server on every request; with a
+ * legacy symmetric secret it falls back to server-side verification, which
+ * costs the same as getUser().
+ */
+export async function getAuthUser(
+  supabase: SupabaseClient
+): Promise<{ id: string; email: string | null } | null> {
+  const { data, error } = await supabase.auth.getClaims();
+  if (error || !data?.claims?.sub) return null;
+  return {
+    id: data.claims.sub,
+    email: (data.claims.email as string | undefined) ?? null,
+  };
+}
+
+/**
  * Check whether a given email is allowed to access the app and whether
  * they are an admin.
  *

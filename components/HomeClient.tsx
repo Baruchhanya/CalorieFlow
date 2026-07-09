@@ -21,6 +21,8 @@ import MorningWeightModal from "@/components/MorningWeightModal";
 import WeeklyWeightCard from "@/components/WeeklyWeightCard";
 import { MealEntry, MealPreset, UserProfile, effectiveProteinGoal } from "@/types";
 import type { HistorySuggestion } from "@/types";
+import type { WeightEntry } from "@/lib/weight";
+import type { CriticalInitData } from "@/lib/initData";
 import type { BalanceHistoryResponse } from "@/app/api/balance-history/route";
 import { createClient } from "@/lib/supabase/client";
 import { useLang } from "@/lib/i18n/context";
@@ -74,31 +76,42 @@ function NavItem({ icon, label, active, onClick, href }: {
   );
 }
 
-export default function HomeClient({ initialDate }: { initialDate: string }) {
+export default function HomeClient({
+  initialDate,
+  initialData,
+}: {
+  initialDate: string;
+  initialData: CriticalInitData | null;
+}) {
   const router = useRouter();
   const { T, lang, toggleLang } = useLang();
   const { showToast } = useToast();
   const ptrRef = useRef({ startY: 0, active: false });
   const [date, setDate] = useState(initialDate);
-  const [entries, setEntries] = useState<MealEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [entries, setEntries] = useState<MealEntry[]>(initialData?.entries ?? []);
+  const [loading, setLoading] = useState(!initialData);
   const [editingEntry, setEditingEntry] = useState<MealEntry | null>(null);
   const [clearing, setClearing] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [goalCalories, setGoalCalories] = useState(1820);
-  const [caloriesBurned, setCaloriesBurned] = useState(0);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(initialData?.user.email ?? null);
+  const [goalCalories, setGoalCalories] = useState(initialData?.daily_goal_calories ?? 1820);
+  const [caloriesBurned, setCaloriesBurned] = useState(initialData?.calories_burned ?? 0);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(initialData?.profile ?? null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
+  const [showProfile, setShowProfile] = useState(initialData ? !initialData.profile?.weight_kg : false);
   const [balanceHistory, setBalanceHistory] = useState<BalanceHistoryResponse | undefined>(undefined);
   const [mealPresets, setMealPresets] = useState<MealPreset[] | undefined>(undefined);
   const [mealSuggestions, setMealSuggestions] = useState<HistorySuggestion[] | undefined>(undefined);
+  // Weight log — fetched once, shared by WeeklyWeightCard and the morning prompt
+  const [weightEntries, setWeightEntries] = useState<WeightEntry[] | undefined>(undefined);
   // Yesterday burn-calories prompt state
   const [yesterdayPrompt, setYesterdayPrompt] = useState<{ date: string; initial: number; baseGoal: number } | null>(null);
   // Morning weight prompt state
   const [morningWeightPrompt, setMorningWeightPrompt] = useState<{ date: string } | null>(null);
   // Track whether stable (non-date-specific) data has been loaded
-  const stableLoadedRef = useRef(false);
+  const stableLoadedRef = useRef(!!initialData);
+  // True until the server-seeded critical payload has been consumed — lets the
+  // first refresh() skip the redundant critical fetch for the initial date.
+  const serverSeededRef = useRef(!!initialData);
   const yesterdayCheckedRef = useRef(false);
   const morningWeightCheckedRef = useRef(false);
   // Monotonic request id — guards against stale critical/secondary responses
@@ -210,6 +223,18 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   // Used for first load, date changes, and pull-to-refresh alike.
   const refresh = useCallback((targetDate: string) => {
     const seq = ++reqSeqRef.current;
+    if (serverSeededRef.current && targetDate === initialDate && initialData) {
+      // First load was server-rendered with fresh critical data — no need to
+      // refetch it. Seed the cache so returning to this date is instant.
+      serverSeededRef.current = false;
+      criticalCache.set(initialDate, {
+        entries: initialData.entries,
+        calories_burned: initialData.calories_burned,
+        daily_goal_calories: initialData.daily_goal_calories,
+      });
+      loadSecondary(targetDate, seq);
+      return;
+    }
     const cached = criticalCache.get(targetDate);
     if (cached) {
       // Render instantly from cache; the fetch below still revalidates.
@@ -222,7 +247,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
     }
     loadSecondary(targetDate, seq);
     loadCritical(targetDate, seq);
-  }, [loadCritical, loadSecondary]);
+  }, [loadCritical, loadSecondary, initialDate, initialData]);
 
   useEffect(() => {
     refresh(date);
@@ -265,10 +290,24 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
     try { localStorage.setItem("cf_yesterday_burn_handled", today); } catch { /* ignore */ }
   }, [today]);
 
+  const loadWeightEntries = useCallback(() => {
+    fetch("/api/weight", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((entries: WeightEntry[] | null) => {
+        setWeightEntries(Array.isArray(entries) ? entries : []);
+      })
+      .catch(() => setWeightEntries([]));
+  }, []);
+
+  useEffect(() => {
+    loadWeightEntries();
+  }, [loadWeightEntries]);
+
   // Morning weight prompt: 05:00–12:00 local, once per day, only if today has no weight entry
   useEffect(() => {
     if (morningWeightCheckedRef.current) return;
     if (!stableLoadedRef.current) return;
+    if (weightEntries === undefined) return;
     morningWeightCheckedRef.current = true;
 
     const hour = new Date().getHours();
@@ -279,15 +318,9 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
       if (handled === today) return;
     } catch { /* ignore */ }
 
-    fetch("/api/weight", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((entries: { date: string }[] | null) => {
-        if (!Array.isArray(entries)) return;
-        if (entries.some((e) => e.date === today)) return;
-        setMorningWeightPrompt({ date: today });
-      })
-      .catch(() => { /* silent */ });
-  }, [loading, today]);
+    if (weightEntries.some((e) => e.date === today)) return;
+    setMorningWeightPrompt({ date: today });
+  }, [loading, weightEntries, today]);
 
   const markMorningWeightHandled = useCallback(() => {
     try { localStorage.setItem("cf_morning_weight_handled", today); } catch { /* ignore */ }
@@ -296,7 +329,8 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
   const handleMorningWeightSaved = useCallback(() => {
     markMorningWeightHandled();
     setMorningWeightPrompt(null);
-  }, [markMorningWeightHandled]);
+    loadWeightEntries();
+  }, [markMorningWeightHandled, loadWeightEntries]);
 
   const handleMorningWeightSkip = useCallback(() => {
     markMorningWeightHandled();
@@ -566,7 +600,7 @@ export default function HomeClient({ initialDate }: { initialDate: string }) {
         <CalorieHistorySection initialData={balanceHistory} />
 
         {/* Weekly weight average — links to the full weight tracker */}
-        <WeeklyWeightCard />
+        <WeeklyWeightCard entries={weightEntries} />
 
         {/* Meal list */}
         <section className="animate-slide-up">

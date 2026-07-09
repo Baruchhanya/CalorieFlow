@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { checkEmailAccess, createServiceRoleClient } from "@/lib/auth";
+import { checkEmailAccess, createServiceRoleClient, getAuthUser } from "@/lib/auth";
 import { estimateUsageCost } from "@/lib/gemini";
 
 export interface UserStat {
@@ -85,7 +85,7 @@ interface AllowedRow {
 export async function GET() {
   const t0 = performance.now();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const access = await checkEmailAccess(user.email, supabase);
   if (!access.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

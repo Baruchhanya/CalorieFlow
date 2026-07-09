@@ -3,14 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import {
   checkEmailAccess,
   createServiceRoleClient,
+  getAuthUser,
   isEnvAdmin,
 } from "@/lib/auth";
 
 async function requireAdmin() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) {
     return {
       error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),

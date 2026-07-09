@@ -1,15 +1,13 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { checkEmailAccess } from "@/lib/auth";
+import { checkEmailAccess, getAuthUser } from "@/lib/auth";
 import AdminClient from "@/components/AdminClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) redirect("/login");
 
   const access = await checkEmailAccess(user.email, supabase);

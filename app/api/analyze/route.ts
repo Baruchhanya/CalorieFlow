@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/auth";
+import { createServiceRoleClient, getAuthUser } from "@/lib/auth";
 import {
   analyzeText,
   analyzeImages,
@@ -51,7 +51,7 @@ async function logUsage(params: LogParams): Promise<void> {
 export async function POST(request: NextRequest) {
   // Auth check – Gemini key must never be exposed client-side
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const startedAt = Date.now();

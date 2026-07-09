@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const FULL_COLS = "height_cm, weight_kg, age, protein_goal_g";
@@ -36,7 +37,7 @@ async function readProfile(supabase: SupabaseClient, userId: string) {
 
 export async function GET() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const data = await readProfile(supabase, user.id);
@@ -45,7 +46,7 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
