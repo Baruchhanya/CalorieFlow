@@ -231,14 +231,8 @@ describe("React.memo wrapping", () => {
     expect(typeof mod.default).toBe("object"); // memo returns an object, not a function
   });
 
-  it("should have DailySummary wrapped in memo", async () => {
-    const mod = await import("@/components/DailySummary");
-    expect(mod.default).toBeDefined();
-    expect(typeof mod.default).toBe("object");
-  });
-
-  it("should have DeficitCard wrapped in memo", async () => {
-    const mod = await import("@/components/DeficitCard");
+  it("should have TodaySummaryCard wrapped in memo", async () => {
+    const mod = await import("@/components/TodaySummaryCard");
     expect(mod.default).toBeDefined();
     expect(typeof mod.default).toBe("object");
   });

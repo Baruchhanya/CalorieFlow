@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+import { useConfirm } from "@/lib/confirm/context";
 import type { AdminStatsResponse, UserStat } from "@/app/api/admin/stats/route";
 
 interface AllowedUser {
@@ -34,6 +35,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function AdminClient({ meEmail }: AdminClientProps) {
   const { T, lang } = useLang();
   const { showToast } = useToast();
+  const confirm = useConfirm();
 
   const [users, setUsers] = useState<AllowedUser[]>([]);
   const [envAdmins, setEnvAdmins] = useState<string[]>([]);
@@ -117,7 +119,7 @@ export default function AdminClient({ meEmail }: AdminClientProps) {
   };
 
   const removeUser = async (u: AllowedUser) => {
-    if (!confirm(T.adminConfirmRemove(u.email))) return;
+    if (!(await confirm({ message: T.adminConfirmRemove(u.email), confirmLabel: T.adminRemove }))) return;
     setBusyId(u.id);
     try {
       const res = await fetch(`/api/admin/users/${u.id}`, { method: "DELETE" });

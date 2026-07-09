@@ -8,8 +8,7 @@ import {
   CalendarDays, Trash2, RefreshCw, ChevronRight, ChevronLeft,
   LogOut, Globe, User, Scale, History, Home, Shield,
 } from "lucide-react";
-import DailySummary from "@/components/DailySummary";
-import DeficitCard from "@/components/DeficitCard";
+import TodaySummaryCard from "@/components/TodaySummaryCard";
 import CalorieHistorySection from "@/components/CalorieHistorySection";
 import FoodInput from "@/components/FoodInput";
 import MealCard from "@/components/MealCard";
@@ -27,6 +26,7 @@ import type { BalanceHistoryResponse } from "@/app/api/balance-history/route";
 import { createClient } from "@/lib/supabase/client";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+import { useConfirm } from "@/lib/confirm/context";
 import { getToday, offsetDate, formatDate } from "@/lib/dates";
 
 function getInitials(email: string) {
@@ -86,6 +86,7 @@ export default function HomeClient({
   const router = useRouter();
   const { T, lang, toggleLang } = useLang();
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const ptrRef = useRef({ startY: 0, active: false });
   const [date, setDate] = useState(initialDate);
   const [entries, setEntries] = useState<MealEntry[]>(initialData?.entries ?? []);
@@ -121,7 +122,6 @@ export default function HomeClient({
   const today = getToday();
   const isToday = date === today;
   const isPast = date < today;
-  const totalCalories = useMemo(() => entries.reduce((s, e) => s + e.calories, 0), [entries]);
   const goalProtein = useMemo(() => effectiveProteinGoal(userProfile), [userProfile]);
 
   // Handle iOS keyboard popping up bottom nav
@@ -411,7 +411,8 @@ export default function HomeClient({
   }, [date]);
 
   const handleClearAll = async () => {
-    if (!entries.length || !confirm(T.clearAllConfirm(entries.length))) return;
+    if (!entries.length) return;
+    if (!(await confirm({ message: T.clearAllConfirm(entries.length), confirmLabel: T.clearAll }))) return;
     setClearing(true);
     criticalCache.delete(date);
     const ids = entries.map(e => e.id);
@@ -434,7 +435,15 @@ export default function HomeClient({
     } finally { setClearing(false); }
   };
 
-  const handleSignOut = async () => { criticalCache.clear(); await createClient().auth.signOut(); router.push("/login"); };
+  const handleSignOut = async () => {
+    if (!(await confirm({
+      message: lang === "he" ? `לצאת מהחשבון?${userEmail ? ` (${userEmail})` : ""}` : `Sign out?${userEmail ? ` (${userEmail})` : ""}`,
+      confirmLabel: T.signOut,
+    }))) return;
+    criticalCache.clear();
+    await createClient().auth.signOut();
+    router.push("/login");
+  };
 
   const setCaloriesBurnedInvalidating = useCallback((burned: number) => {
     criticalCache.delete(date);
@@ -577,12 +586,14 @@ export default function HomeClient({
       {/* ── MAIN ── */}
       <main className="max-w-2xl mx-auto px-4 py-4 flex flex-col gap-4">
 
-        <DailySummary
+        <TodaySummaryCard
           entries={entries}
           goalCalories={goalCalories}
           caloriesBurned={caloriesBurned}
           goalProtein={goalProtein}
+          date={date}
           onGoalCaloriesChange={isPast ? undefined : setGoalCaloriesInvalidating}
+          onBurnedChange={setCaloriesBurnedInvalidating}
         />
 
         <FoodInput
@@ -590,11 +601,6 @@ export default function HomeClient({
           currentDate={date}
           initialPresets={mealPresets}
           initialSuggestions={mealSuggestions}
-        />
-
-        <DeficitCard
-          consumed={totalCalories} burned={caloriesBurned} goalCalories={goalCalories}
-          date={date} onBurnedChange={setCaloriesBurnedInvalidating} onGoalChange={isPast ? undefined : setGoalCaloriesInvalidating}
         />
 
         <CalorieHistorySection initialData={balanceHistory} />
@@ -652,7 +658,7 @@ export default function HomeClient({
         </section>
       </main>
 
-      <footer className="pb-28 sm:pb-8 text-center text-xs text-ink-3/60 mt-4">{T.poweredBy}</footer>
+      <footer className="pb-28 sm:pb-8 text-center text-xs text-ink-3 mt-4">{T.poweredBy}</footer>
 
       {/* ── BOTTOM NAV (mobile) ── */}
       <nav className="fixed z-40 sm:hidden inset-x-4 mx-auto max-w-sm rounded-full bg-surface border border-line shadow-lg transition-transform duration-300"
