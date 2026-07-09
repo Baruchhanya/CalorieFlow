@@ -2,16 +2,16 @@
 
 @theme {
   /* Brand — one strong green, used sparingly */
-  --color-brand-50:  #EDF7F2;
-  --color-brand-100: #D8EEE3;
-  --color-brand-500: #12805C;
-  --color-brand-600: #0F6E4F;
-  --color-brand-700: #0B5A41;
+  --color-brand-50:  #E0F0E9;
+  --color-brand-100: #C0DFD0;
+  --color-brand-500: #189E6C;
+  --color-brand-600: #13875D;
+  --color-brand-700: #0F714E;
 
   /* Neutrals — warm stone */
-  --color-canvas:  #F7F7F4;
-  --color-surface: #FFFFFF;
-  --color-line:    #E7E6E1;
+  --color-canvas:  #F5F3ED;
+  --color-surface: #FAFAF6;
+  --color-line:    #E0DDD6;
   --color-ink:     #1C1B18;
   --color-ink-2:   #55534C;
   /* ink-3: darkened from #8B887F (3.5:1, failed WCAG AA) to ~5.5:1 on white/canvas.
@@ -22,12 +22,12 @@
   --color-protein: #2E5FCC;
   --color-carbs:   #7A4FBF;
   --color-fat:     #C77414;
-  --color-kcal:    #12805C;
+  --color-kcal:    #189E6C;
 
   /* Status */
   --color-over:    #C93E3E;
   --color-warn:    #B37B0F;
-  --color-good:    #12805C;
+  --color-good:    #189E6C;
 
   --font-sans: var(--font-assistant), -apple-system, "Segoe UI", sans-serif;
 
@@ -111,6 +111,21 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .animate-toast-in { animation: toast-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes deficit-pop {
+  0%   { opacity: 0; transform: scale(0.68) translateY(14px); }
+  65%  { opacity: 1; transform: scale(1.05) translateY(-3px); }
+  100% { opacity: 1; transform: scale(1)    translateY(0); }
+}
+@keyframes deficit-breathe {
+  0%, 100% { transform: scale(1);     box-shadow: 0 4px 20px -4px var(--glow, transparent); }
+  50%       { transform: scale(1.022); box-shadow: 0 8px 32px -2px var(--glow, transparent); }
+}
+.animate-deficit {
+  animation:
+    deficit-pop     0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    deficit-breathe 3.5s  ease-in-out 0.55s infinite;
+}
 
 .animate-ring { animation: ring-fill 1s cubic-bezier(0.4, 0, 0.2, 1) both; }
 .animate-slide-up { animation: slide-up 0.4s ease both; }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect, memo, type CSSProperties } from "react";
 import { Pencil, Check, X, Flame, ChevronDown, CheckCircle2 } from "lucide-react";
 import { MealEntry, DEFAULT_TARGETS } from "@/types";
 import { useLang } from "@/lib/i18n/context";
@@ -248,9 +248,9 @@ export default memo(function TodaySummaryCard({
           )}
         </p>
 
-        {/* Deficit / surplus chip — pastel, green when in deficit, red when in surplus */}
+        {/* Deficit / surplus chip */}
         <div
-          className={`mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-base font-bold tabular-nums border ${
+          className={`mt-3 inline-flex items-center gap-2 px-8 py-3 rounded-full text-lg font-bold tabular-nums border animate-slide-up ${
             over
               ? "bg-over/10 text-over border-over/20"
               : "bg-brand-50 text-brand-700 border-brand-100"
