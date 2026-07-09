@@ -28,6 +28,8 @@ const he = {
   kcal: 'קק"ל',
   remaining: "נותר",
   exceededBy: "חרגת ב",
+  dailyDeficit: "גירעון יומי",
+  dailySurplus: "עודף יומי",
   outOf: "מתוך",
   /** Shown under "out of X kcal" when activity calories add to the day budget */
   calorieBudgetBreakdown: (base: number, active: number) =>
@@ -351,6 +353,8 @@ const en: Translations = {
   kcal: "kcal",
   remaining: "Remaining",
   exceededBy: "Exceeded by",
+  dailyDeficit: "Daily deficit",
+  dailySurplus: "Daily surplus",
   outOf: "of",
   calorieBudgetBreakdown: (base: number, active: number) =>
     `${base.toLocaleString()} goal + ${active.toLocaleString()} active`,

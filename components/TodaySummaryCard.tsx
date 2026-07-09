@@ -247,6 +247,19 @@ export default memo(function TodaySummaryCard({
             </span>
           )}
         </p>
+
+        {/* Deficit / surplus chip — pastel, green when in deficit, red when in surplus */}
+        <div
+          className={`mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-base font-bold tabular-nums border ${
+            over
+              ? "bg-over/10 text-over border-over/20"
+              : "bg-brand-50 text-brand-700 border-brand-100"
+          }`}
+        >
+          <span aria-hidden="true" className="text-sm">{over ? "▲" : "▼"}</span>
+          <span>{over ? T.dailySurplus : T.dailyDeficit}:</span>
+          <span>{Math.round(Math.abs(totalBudget - consumed)).toLocaleString()} {T.kcal}</span>
+        </div>
       </div>
 
       {/* Macros — always visible */}
