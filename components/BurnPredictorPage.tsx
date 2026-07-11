@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Flame, Send, Mic, StopCircle, CheckCircle2, ChevronRight, CalendarDays } from "lucide-react";
+import { Flame, Send, Mic, StopCircle, CheckCircle2, ChevronRight, ChevronLeft, CalendarDays } from "lucide-react";
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
-import { getToday, formatDate } from "@/lib/dates";
+import { getToday, formatDate, offsetDate } from "@/lib/dates";
 
 interface ChatMessage {
   role: "user" | "model";
@@ -66,6 +66,8 @@ export default function BurnPredictorPage() {
     startPrompt: lang === "he" ? "בחר יום ולחץ להתחיל" : "Pick a day and tap start",
     startCta: lang === "he" ? "התחל תחזית" : "Start prediction",
     changeDayHint: lang === "he" ? "החלפת יום תפתח שיחה חדשה" : "Changing the day starts a fresh chat",
+    prevDay: lang === "he" ? "יום קודם" : "Previous day",
+    nextDay: lang === "he" ? "יום הבא" : "Next day",
   };
 
   useEffect(() => {
@@ -174,29 +176,49 @@ export default function BurnPredictorPage() {
           </div>
         </div>
 
-        {/* Day selector — tap to change target day */}
-        <label className="relative mt-2 flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-canvas cursor-pointer select-none">
-          <CalendarDays className="w-4 h-4 shrink-0 text-brand-600" />
-          <span className="text-xs text-ink-3 shrink-0">{T.forDay}</span>
-          <span className="font-bold text-sm text-ink tabular-nums">{formattedDate}</span>
-          {dayKind === "future" && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 bg-brand-50 text-brand-700">
-              {T.plannedBadge}
-            </span>
-          )}
-          {dayKind === "past" && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 bg-warn/10 text-warn">
-              {T.pastBadge}
-            </span>
-          )}
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => { if (e.target.value) setDate(e.target.value); }}
-            className="absolute inset-0 opacity-0 cursor-pointer w-full"
-            aria-label={T.forDay}
-          />
-        </label>
+        {/* Day selector — arrows to flip days, tap center to pick any day */}
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setDate(offsetDate(date, -1))}
+            className="p-2 rounded-lg transition-colors shrink-0 bg-canvas hover:bg-line/60 active:bg-line text-ink-2"
+            aria-label={T.prevDay}
+            title={T.prevDay}
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+          <label className="relative flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-canvas cursor-pointer select-none">
+            <CalendarDays className="w-4 h-4 shrink-0 text-brand-600" />
+            <span className="text-xs text-ink-3 shrink-0">{T.forDay}</span>
+            <span className="font-bold text-sm text-ink tabular-nums">{formattedDate}</span>
+            {dayKind === "future" && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 bg-brand-50 text-brand-700">
+                {T.plannedBadge}
+              </span>
+            )}
+            {dayKind === "past" && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 bg-warn/10 text-warn">
+                {T.pastBadge}
+              </span>
+            )}
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => { if (e.target.value) setDate(e.target.value); }}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full"
+              aria-label={T.forDay}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => setDate(offsetDate(date, 1))}
+            className="p-2 rounded-lg transition-colors shrink-0 bg-canvas hover:bg-line/60 active:bg-line text-ink-2"
+            aria-label={T.nextDay}
+            title={T.nextDay}
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Chat */}
