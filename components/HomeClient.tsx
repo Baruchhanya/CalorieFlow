@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   CalendarDays, Trash2, RefreshCw, ChevronRight, ChevronLeft,
-  LogOut, Globe, User, Scale, History, Home, Shield,
+  LogOut, Globe, User, Scale, History, Home, Shield, Flame,
 } from "lucide-react";
 import TodaySummaryCard from "@/components/TodaySummaryCard";
 import CalorieHistorySection from "@/components/CalorieHistorySection";
@@ -489,6 +489,11 @@ export default function HomeClient({
                 <History className="w-3.5 h-3.5" />
                 <span>{T.history}</span>
               </Link>
+              <Link href="/burn-predictor" title={lang === "he" ? "תחזית שריפת קלוריות" : "Burn predictor"}
+                className="hidden sm:flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors text-ink-2 hover:bg-canvas">
+                <Flame className="w-3.5 h-3.5" />
+                <span>{lang === "he" ? "שריפה" : "Burn"}</span>
+              </Link>
               <Link href="/weight" title={lang === "he" ? "מעקב משקל וגרפים" : "Weight & charts"}
                 className="hidden sm:flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors text-ink-2 hover:bg-canvas">
                 <Scale className="w-3.5 h-3.5" />
@@ -668,6 +673,7 @@ export default function HomeClient({
         }}>
         <div className="flex items-center justify-around px-2 py-1.5">
           <NavItem icon={<Home className="w-5 h-5" />} label={lang === "he" ? "היום" : "Today"} active href="/" />
+          <NavItem icon={<Flame className="w-5 h-5" />} label={lang === "he" ? "שריפה" : "Burn"} href="/burn-predictor" />
           <NavItem icon={<Scale className="w-5 h-5" />} label={lang === "he" ? "משקל" : "Weight"} href="/weight" />
           <NavItem icon={<History className="w-5 h-5" />} label={lang === "he" ? "היסטוריה" : "History"} href="/history" />
           {isAdmin && (

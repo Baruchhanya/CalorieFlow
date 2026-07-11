@@ -1,11 +1,12 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GeminiResponse } from "@/types";
 
-if (!process.env.GEMINI_API_KEY) {
+const rawApiKey = process.env.GEMINI_API_KEY?.trim();
+if (!rawApiKey) {
   throw new Error("GEMINI_API_KEY environment variable is not set");
 }
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(rawApiKey);
 
 export type AnalyzeLang = "he" | "en";
 
@@ -188,6 +189,94 @@ export async function analyzeImages(
   const result = await model.generateContent(parts);
   return {
     data: parseGeminiResponse(result.response.text()),
+    usage: extractUsage(result.response),
+  };
+}
+
+// ─── Burn predictor chat ─────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  role: "user" | "model";
+  text: string;
+}
+
+export interface BurnProfile {
+  age: number | null;
+  weight_kg: number | null;
+  height_cm: number | null;
+}
+
+const BURN_DONE_MARKER = "[תחזית_מוכנה]";
+
+export async function chatBurnPredictor(
+  messages: ChatMessage[],
+  profile: BurnProfile,
+  lang: AnalyzeLang = "he"
+): Promise<{ reply: string; isDone: boolean; usage: GeminiUsage }> {
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+
+  const profileBlock = [
+    profile.age != null ? `גיל: ${profile.age} שנים` : null,
+    profile.weight_kg != null ? `משקל: ${profile.weight_kg} ק"ג` : null,
+    profile.height_cm != null ? `גובה: ${profile.height_cm} ס"מ` : null,
+  ].filter(Boolean).join(" | ") || "פרופיל לא זמין";
+
+  const systemPrompt = lang === "he"
+    ? `אתה עוזר תזונה ידידותי שמחשב תחזית שריפת קלוריות עד סוף היום.
+
+פרופיל המשתמש: ${profileBlock}
+
+שאל בדיוק 3 שאלות — אחת בכל תור, קצרה וברורה:
+1. כמה קלוריות שרפת עד עכשיו?
+2. עד איזו שעה ביממה?
+3. האם ביצעת ספורט או פעילות נוספת לאחר מכן? אם כן — מה ומשך כמה זמן?
+
+לאחר שאספת את 3 התשובות, הצג תחזית קצרה ומפורטת לסך השריפה עד חצות. בסיום הוסף בדיוק: ${BURN_DONE_MARKER}
+
+ענה בעברית. שאלה אחת בלבד בכל תור.`
+    : `You are a friendly nutrition assistant helping predict total calorie burn by end of day.
+
+User profile: ${profileBlock}
+
+Ask exactly 3 questions — one per turn, short and clear:
+1. How many calories have you burned so far?
+2. Until what time of day?
+3. Did you do any additional sports or physical activity after that? If yes — what and for how long?
+
+After collecting all 3 answers, provide a brief detailed prediction of total burn by midnight. End with exactly: ${BURN_DONE_MARKER}
+
+Answer in English. One question per turn only.`;
+
+  const history = messages
+    .map(m => `${m.role === "user" ? "משתמש" : "עוזר"}: ${m.text}`)
+    .join("\n");
+
+  const prompt = messages.length === 0
+    ? `${systemPrompt}\n\nענה עם השאלה הראשונה בלבד.`
+    : `${systemPrompt}\n\nהיסטוריית שיחה:\n${history}\n\nעוזר:`;
+
+  const result = await model.generateContent(prompt);
+  const raw = result.response.text().trim();
+  const isDone = raw.includes(BURN_DONE_MARKER);
+
+  return {
+    reply: raw.replace(BURN_DONE_MARKER, "").trim(),
+    isDone,
+    usage: extractUsage(result.response),
+  };
+}
+
+export async function transcribeAudio(
+  base64Data: string,
+  mimeType: string
+): Promise<{ text: string; usage: GeminiUsage }> {
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+  const result = await model.generateContent([
+    { inlineData: { data: base64Data, mimeType } },
+    "תמלל את ההקלטה לטקסט בדיוק כפי שנאמר. החזר רק את הטקסט המתומלל, ללא פרשנות נוספת.",
+  ]);
+  return {
+    text: result.response.text().trim(),
     usage: extractUsage(result.response),
   };
 }
