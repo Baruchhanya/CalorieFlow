@@ -32,6 +32,7 @@ export default function BurnPredictorPage() {
   const { showToast } = useToast();
 
   const [date, setDate] = useState(getToday());
+  const [started, setStarted] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,7 +45,6 @@ export default function BurnPredictorPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const dateInFlightRef = useRef<string | null>(null);
 
   const today = getToday();
   const dayKind: DayKind = date === today ? "today" : date < today ? "past" : "future";
@@ -63,6 +63,9 @@ export default function BurnPredictorPage() {
     forDay: lang === "he" ? "תחזית עבור" : "Prediction for",
     plannedBadge: lang === "he" ? "מתוכנן" : "planned",
     pastBadge: lang === "he" ? "עבר" : "past",
+    startPrompt: lang === "he" ? "בחר יום ולחץ להתחיל" : "Pick a day and tap start",
+    startCta: lang === "he" ? "התחל תחזית" : "Start prediction",
+    changeDayHint: lang === "he" ? "החלפת יום תפתח שיחה חדשה" : "Changing the day starts a fresh chat",
   };
 
   useEffect(() => {
@@ -88,15 +91,19 @@ export default function BurnPredictorPage() {
     }
   }, [lang, showToast, T.geminiError, targetDay]);
 
-  // Fetch first question whenever date changes (and on mount)
+  // Reset chat state whenever the target day changes — user must start again.
   useEffect(() => {
-    if (dateInFlightRef.current === date) return;
-    dateInFlightRef.current = date;
+    setStarted(false);
     setMessages([]);
     setInputText("");
     setIsDone(false);
+  }, [date]);
+
+  const handleStart = useCallback(() => {
+    if (started || loading) return;
+    setStarted(true);
     fetchReply([]);
-  }, [date, fetchReply]);
+  }, [started, loading, fetchReply]);
 
   const sendMessage = useCallback(async () => {
     const text = inputText.trim();
@@ -194,6 +201,27 @@ export default function BurnPredictorPage() {
 
       {/* Chat */}
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 pb-6">
+        {/* Start state — before the first Gemini call */}
+        {!started && !loading && (
+          <div className="flex-1 flex flex-col items-center justify-center gap-5 py-10 animate-slide-up">
+            <div className="w-16 h-16 rounded-full bg-brand-50 flex items-center justify-center">
+              <Flame className="w-8 h-8 text-brand-600" />
+            </div>
+            <div className="text-center flex flex-col gap-1">
+              <p className="text-sm text-ink-3">{T.startPrompt}</p>
+              <p className="text-base font-bold text-ink tabular-nums">{formattedDate}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleStart}
+              className="bg-brand-600 hover:bg-brand-700 active:scale-95 text-white text-sm font-bold px-6 py-3 rounded-xl transition-all shadow-sm"
+            >
+              {T.startCta}
+            </button>
+            <p className="text-[11px] text-ink-3 max-w-[240px] text-center">{T.changeDayHint}</p>
+          </div>
+        )}
+
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === "user" ? "justify-start" : "justify-end"}`}>
             <div className={`max-w-[82%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
@@ -243,7 +271,7 @@ export default function BurnPredictorPage() {
       </div>
 
       {/* Input */}
-      {!isDone && (
+      {started && !isDone && (
         <div className="bg-surface border-t border-line px-3 py-3 flex items-end gap-2 sticky bottom-0">
           <button
             type="button"
