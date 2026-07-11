@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/auth";
-import { chatBurnPredictor, transcribeAudio, type ChatMessage } from "@/lib/gemini";
+import { chatBurnPredictor, transcribeAudio, type ChatMessage, type DayKind } from "@/lib/gemini";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -19,6 +19,7 @@ export async function POST(req: Request) {
     }
 
     const messages: ChatMessage[] = body.messages ?? [];
+    const targetDay = body.targetDay as { formatted: string; kind: DayKind } | undefined;
 
     const { data: profile } = await supabase
       .from("user_profile")
@@ -29,7 +30,8 @@ export async function POST(req: Request) {
     const { reply, isDone, usage } = await chatBurnPredictor(
       messages,
       profile ?? { age: null, weight_kg: null, height_cm: null },
-      lang
+      lang,
+      targetDay
     );
 
     return NextResponse.json({ reply, isDone, usage });

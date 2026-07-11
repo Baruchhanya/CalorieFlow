@@ -22,6 +22,8 @@ const he = {
   clearAll: "נקה הכל",
   backToToday: "חזור להיום →",
   viewingPastDay: (d: string) => `צופה ב${d}`,
+  viewingFutureDay: (d: string) => `מתכנן את ${d}`,
+  plannedBadge: "מתוכנן",
 
   // Daily summary
   dailySummary: "סיכום יומי",
@@ -348,6 +350,8 @@ const en: Translations = {
   clearAll: "Clear all",
   backToToday: "Back to today →",
   viewingPastDay: (d: string) => `Viewing ${d}`,
+  viewingFutureDay: (d: string) => `Planning ${d}`,
+  plannedBadge: "Planned",
 
   dailySummary: "Daily Summary",
   kcal: "kcal",

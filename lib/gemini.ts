@@ -208,10 +208,13 @@ export interface BurnProfile {
 
 const BURN_DONE_MARKER = "[תחזית_מוכנה]";
 
+export type DayKind = "today" | "past" | "future";
+
 export async function chatBurnPredictor(
   messages: ChatMessage[],
   profile: BurnProfile,
-  lang: AnalyzeLang = "he"
+  lang: AnalyzeLang = "he",
+  targetDay: { formatted: string; kind: DayKind } = { formatted: "היום", kind: "today" }
 ): Promise<{ reply: string; isDone: boolean; usage: GeminiUsage }> {
   const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
@@ -221,29 +224,85 @@ export async function chatBurnPredictor(
     profile.height_cm != null ? `גובה: ${profile.height_cm} ס"מ` : null,
   ].filter(Boolean).join(" | ") || "פרופיל לא זמין";
 
-  const systemPrompt = lang === "he"
-    ? `אתה עוזר תזונה ידידותי שמחשב תחזית שריפת קלוריות עד סוף היום.
+  const heQuestions = {
+    today: [
+      "כמה קלוריות שרפת עד עכשיו?",
+      "עד איזו שעה ביממה?",
+      "האם ביצעת ספורט או פעילות נוספת לאחר מכן? אם כן — מה ומשך כמה זמן?",
+    ],
+    past: [
+      "כמה קלוריות שרפת בסך הכל באותו יום?",
+      "עד איזו שעה ביממה עדכנת את הנתון?",
+      "האם ביצעת ספורט או פעילות נוספת מהשעה הזו ועד סוף היום? אם כן — מה ומשך כמה זמן?",
+    ],
+    future: [
+      "כמה קלוריות אתה צופה שתשרוף עד תחילת היום (בזמן ההתעוררות)?",
+      "עד איזו שעה התחזית הזו?",
+      "אילו פעילויות ספורט או תנועה מתוכננות ליום הזה? מה ומשך כמה זמן כל אחת?",
+    ],
+  };
 
+  const enQuestions = {
+    today: [
+      "How many calories have you burned so far?",
+      "Until what time of day?",
+      "Did you do any additional sports or physical activity after that? If yes — what and for how long?",
+    ],
+    past: [
+      "How many calories did you burn in total that day?",
+      "Up to what time does that number cover?",
+      "Did you do any additional sports or activity from that time until end of day? If yes — what and for how long?",
+    ],
+    future: [
+      "How many calories do you expect to burn by the start of the day (upon waking)?",
+      "Up to what time does that estimate cover?",
+      "What sports or movement activities are planned for that day? What and for how long each?",
+    ],
+  };
+
+  const qs = lang === "he" ? heQuestions[targetDay.kind] : enQuestions[targetDay.kind];
+
+  const dayLabelHe = targetDay.kind === "today"
+    ? `היום (${targetDay.formatted})`
+    : targetDay.kind === "past"
+      ? `יום שכבר עבר: ${targetDay.formatted}`
+      : `יום עתידי מתוכנן: ${targetDay.formatted}`;
+
+  const dayLabelEn = targetDay.kind === "today"
+    ? `today (${targetDay.formatted})`
+    : targetDay.kind === "past"
+      ? `a past day: ${targetDay.formatted}`
+      : `a planned future day: ${targetDay.formatted}`;
+
+  const systemPrompt = lang === "he"
+    ? `אתה עוזר תזונה ידידותי שמחשב תחזית שריפת קלוריות ליום מסוים.
+
+היום עליו מדובר: ${dayLabelHe}
 פרופיל המשתמש: ${profileBlock}
 
-שאל בדיוק 3 שאלות — אחת בכל תור, קצרה וברורה:
-1. כמה קלוריות שרפת עד עכשיו?
-2. עד איזו שעה ביממה?
-3. האם ביצעת ספורט או פעילות נוספת לאחר מכן? אם כן — מה ומשך כמה זמן?
+חשוב: הזכר את היום בתשובה הראשונה שלך (למשל: "בואו נחשב את שריפת הקלוריות ל${targetDay.formatted}").
 
-לאחר שאספת את 3 התשובות, הצג תחזית קצרה ומפורטת לסך השריפה עד חצות. בסיום הוסף בדיוק: ${BURN_DONE_MARKER}
+שאל בדיוק 3 שאלות — אחת בכל תור, קצרה וברורה:
+1. ${qs[0]}
+2. ${qs[1]}
+3. ${qs[2]}
+
+לאחר שאספת את 3 התשובות, הצג תחזית קצרה ומפורטת לסך השריפה ליום ${targetDay.formatted} עד חצות. בסיום הוסף בדיוק: ${BURN_DONE_MARKER}
 
 ענה בעברית. שאלה אחת בלבד בכל תור.`
-    : `You are a friendly nutrition assistant helping predict total calorie burn by end of day.
+    : `You are a friendly nutrition assistant predicting calorie burn for a specific day.
 
+Target day: ${dayLabelEn}
 User profile: ${profileBlock}
 
-Ask exactly 3 questions — one per turn, short and clear:
-1. How many calories have you burned so far?
-2. Until what time of day?
-3. Did you do any additional sports or physical activity after that? If yes — what and for how long?
+Important: Mention the target day in your first reply (e.g. "Let's estimate calorie burn for ${targetDay.formatted}").
 
-After collecting all 3 answers, provide a brief detailed prediction of total burn by midnight. End with exactly: ${BURN_DONE_MARKER}
+Ask exactly 3 questions — one per turn, short and clear:
+1. ${qs[0]}
+2. ${qs[1]}
+3. ${qs[2]}
+
+After collecting all 3 answers, provide a brief detailed prediction of total burn for ${targetDay.formatted} through midnight. End with exactly: ${BURN_DONE_MARKER}
 
 Answer in English. One question per turn only.`;
 

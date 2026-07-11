@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Flame, Send, Mic, StopCircle, CheckCircle2, ChevronRight } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Flame, Send, Mic, StopCircle, CheckCircle2, ChevronRight, CalendarDays } from "lucide-react";
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+import { getToday, formatDate } from "@/lib/dates";
 
 interface ChatMessage {
   role: "user" | "model";
   text: string;
 }
+
+type DayKind = "today" | "past" | "future";
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -28,6 +31,7 @@ export default function BurnPredictorPage() {
   const { lang } = useLang();
   const { showToast } = useToast();
 
+  const [date, setDate] = useState(getToday());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,11 +44,15 @@ export default function BurnPredictorPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const hasFetched = useRef(false);
+  const dateInFlightRef = useRef<string | null>(null);
+
+  const today = getToday();
+  const dayKind: DayKind = date === today ? "today" : date < today ? "past" : "future";
+  const formattedDate = useMemo(() => formatDate(date, lang), [date, lang]);
+  const targetDay = useMemo(() => ({ formatted: formattedDate, kind: dayKind }), [formattedDate, dayKind]);
 
   const T = {
     title: lang === "he" ? "תחזית שריפת קלוריות" : "Burn Predictor",
-    subtitle: lang === "he" ? "מופעל על ידי ג'מיניי" : "Powered by Gemini",
     placeholder: lang === "he" ? "כתוב תשובה..." : "Type a reply...",
     transcribing: lang === "he" ? "מתמלל..." : "Transcribing...",
     predictionReady: lang === "he" ? "התחזית שלך מוכנה" : "Your prediction is ready",
@@ -52,6 +60,9 @@ export default function BurnPredictorPage() {
     geminiError: lang === "he" ? "שגיאה בחיבור לג'מיניי" : "Error connecting to Gemini",
     micError: lang === "he" ? "לא ניתן לגשת למיקרופון" : "Cannot access microphone",
     transcribeError: lang === "he" ? "שגיאה בתמלול" : "Transcription error",
+    forDay: lang === "he" ? "תחזית עבור" : "Prediction for",
+    plannedBadge: lang === "he" ? "מתוכנן" : "planned",
+    pastBadge: lang === "he" ? "עבר" : "past",
   };
 
   useEffect(() => {
@@ -64,7 +75,7 @@ export default function BurnPredictorPage() {
       const res = await fetch("/api/burn-predictor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: msgs, lang }),
+        body: JSON.stringify({ messages: msgs, lang, targetDay }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -75,14 +86,17 @@ export default function BurnPredictorPage() {
     } finally {
       setLoading(false);
     }
-  }, [lang, showToast, T.geminiError]);
+  }, [lang, showToast, T.geminiError, targetDay]);
 
-  // Fetch first question on mount
+  // Fetch first question whenever date changes (and on mount)
   useEffect(() => {
-    if (hasFetched.current) return;
-    hasFetched.current = true;
+    if (dateInFlightRef.current === date) return;
+    dateInFlightRef.current = date;
+    setMessages([]);
+    setInputText("");
+    setIsDone(false);
     fetchReply([]);
-  }, [fetchReply]);
+  }, [date, fetchReply]);
 
   const sendMessage = useCallback(async () => {
     const text = inputText.trim();
@@ -140,19 +154,42 @@ export default function BurnPredictorPage() {
   return (
     <div className="min-h-dvh bg-canvas flex flex-col">
       {/* Header */}
-      <div className="bg-surface border-b border-line px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
-        <Link href="/" className="p-1.5 rounded-lg hover:bg-canvas text-ink-2 transition-colors">
-          <ChevronRight className="w-5 h-5" />
-        </Link>
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-brand-50 rounded-full flex items-center justify-center shrink-0">
-            <Flame className="w-4.5 h-4.5 text-brand-600" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-ink leading-tight">{T.title}</p>
-            <p className="text-[11px] text-ink-3 leading-tight">{T.subtitle}</p>
+      <div className="bg-surface border-b border-line px-4 py-3 sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="p-1.5 rounded-lg hover:bg-canvas text-ink-2 transition-colors">
+            <ChevronRight className="w-5 h-5" />
+          </Link>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 bg-brand-50 rounded-full flex items-center justify-center shrink-0">
+              <Flame className="w-4.5 h-4.5 text-brand-600" />
+            </div>
+            <p className="text-sm font-bold text-ink leading-tight truncate">{T.title}</p>
           </div>
         </div>
+
+        {/* Day selector — tap to change target day */}
+        <label className="relative mt-2 flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-canvas cursor-pointer select-none">
+          <CalendarDays className="w-4 h-4 shrink-0 text-brand-600" />
+          <span className="text-xs text-ink-3 shrink-0">{T.forDay}</span>
+          <span className="font-bold text-sm text-ink tabular-nums">{formattedDate}</span>
+          {dayKind === "future" && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 bg-brand-50 text-brand-700">
+              {T.plannedBadge}
+            </span>
+          )}
+          {dayKind === "past" && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 bg-warn/10 text-warn">
+              {T.pastBadge}
+            </span>
+          )}
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => { if (e.target.value) setDate(e.target.value); }}
+            className="absolute inset-0 opacity-0 cursor-pointer w-full"
+            aria-label={T.forDay}
+          />
+        </label>
       </div>
 
       {/* Chat */}
@@ -194,7 +231,7 @@ export default function BurnPredictorPage() {
               <span className="text-sm font-bold">{T.predictionReady}</span>
             </div>
             <Link
-              href="/"
+              href={date === today ? "/" : `/?date=${date}`}
               className="bg-brand-600 hover:bg-brand-700 active:scale-95 text-white text-sm font-bold px-4 py-3 rounded-xl text-center transition-all"
             >
               {T.updateBurn}

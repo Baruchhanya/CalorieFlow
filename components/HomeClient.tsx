@@ -122,6 +122,7 @@ export default function HomeClient({
   const today = getToday();
   const isToday = date === today;
   const isPast = date < today;
+  const isFuture = date > today;
   const goalProtein = useMemo(() => effectiveProteinGoal(userProfile), [userProfile]);
 
   // Handle iOS keyboard popping up bottom nav
@@ -390,7 +391,6 @@ export default function HomeClient({
 
   const navigateDate = (delta: number) => {
     const newDate = offsetDate(date, delta);
-    if (newDate > today) return;
     setDate(newDate);
     router.replace(`/?date=${newDate}`, { scroll: false });
   };
@@ -555,10 +555,14 @@ export default function HomeClient({
                   {T.today}
                 </span>
               )}
+              {isFuture && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 bg-brand-50 text-brand-700">
+                  {T.plannedBadge}
+                </span>
+              )}
               <input
                 type="date"
                 value={date}
-                max={today}
                 onChange={(e) => {
                   if (e.target.value) {
                     setDate(e.target.value);
@@ -569,8 +573,8 @@ export default function HomeClient({
               />
             </label>
 
-            <button onClick={() => navigateDate(1)} disabled={isToday} title={T.nextDay}
-              className="p-2 rounded-lg transition-colors disabled:opacity-25 shrink-0 bg-canvas hover:bg-line/60 active:bg-line text-ink-2">
+            <button onClick={() => navigateDate(1)} title={T.nextDay}
+              className="p-2 rounded-lg transition-colors shrink-0 bg-canvas hover:bg-line/60 active:bg-line text-ink-2">
               <ChevronLeft className="w-5 h-5" />
             </button>
           </div>
@@ -584,6 +588,16 @@ export default function HomeClient({
           <div className="bg-warn/10 border border-warn/20 rounded-xl px-4 py-2.5 text-sm text-warn flex items-center justify-between">
             <span>{T.viewingPastDay(formatDate(date, lang))}</span>
             <button onClick={goToToday} className="text-warn font-bold hover:underline text-xs shrink-0 ms-2">{T.backToToday}</button>
+          </div>
+        </div>
+      )}
+
+      {/* Future-day (planned) notice */}
+      {isFuture && (
+        <div className="max-w-2xl mx-auto px-4 pt-3 animate-slide-up">
+          <div className="bg-brand-50 border border-brand-100 rounded-xl px-4 py-2.5 text-sm text-brand-700 flex items-center justify-between">
+            <span>{T.viewingFutureDay(formatDate(date, lang))}</span>
+            <button onClick={goToToday} className="text-brand-700 font-bold hover:underline text-xs shrink-0 ms-2">{T.backToToday}</button>
           </div>
         </div>
       )}
