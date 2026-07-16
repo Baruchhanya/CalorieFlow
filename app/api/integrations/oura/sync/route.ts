@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/auth";
 import { ensureValidOuraTokens, fetchOuraDailyActivity, type OuraTokens } from "@/lib/oura";
+import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 
 /**
  * POST /api/integrations/oura/sync
  *
- * Fetches daily active-calories from Oura for the past `days` days (default 30)
- * and upserts them into daily_activity.
+ * Fetches daily total-calories from Oura for the past `days` days (default 30),
+ * converts to "active extra" by subtracting that day's goal (same conversion the
+ * manual "total" burn-entry mode uses), and upserts into daily_activity.
  *
  * Body (all optional): { days?: number, date?: string }
  * `date`, if provided, is echoed back in `records` when present in the synced range
@@ -26,7 +28,7 @@ export async function POST(req: Request) {
 
   const { data: settings } = await supabase
     .from("user_settings")
-    .select("oura_access_token, oura_refresh_token, oura_token_expires_at")
+    .select("oura_access_token, oura_refresh_token, oura_token_expires_at, daily_goal_calories")
     .eq("user_id", user.id)
     .single();
 
@@ -83,8 +85,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ synced: 0, records: [] });
   }
 
+  const goalForDate = await buildGoalResolver(supabase, user.id, settings.daily_goal_calories ?? DEFAULT_DAILY_GOAL);
+
   const rows = records
-    .map((r) => ({ user_id: user.id, date: r.date, calories_burned: r.activeCalories, source: "oura" }));
+    .map((r) => ({
+      user_id: user.id,
+      date: r.date,
+      calories_burned: Math.max(0, r.totalCalories - goalForDate(r.date)),
+      source: "oura",
+    }));
 
   if (rows.length === 0) {
     return NextResponse.json({ synced: 0, records: [] });

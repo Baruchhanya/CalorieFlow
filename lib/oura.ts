@@ -115,11 +115,13 @@ export interface OuraActivityRecord {
   /** ISO date string YYYY-MM-DD */
   date: string;
   activeCalories: number;
+  totalCalories: number;
 }
 
 interface DailyActivityItem {
   day?: string;
   active_calories?: number;
+  total_calories?: number;
 }
 
 interface DailyActivityResponse {
@@ -150,8 +152,12 @@ export async function fetchOuraDailyActivity(
 
     const json = await res.json() as DailyActivityResponse;
     for (const item of json.data ?? []) {
-      if (!item.day || item.active_calories == null) continue;
-      records.push({ date: item.day, activeCalories: Math.round(item.active_calories) });
+      if (!item.day || item.active_calories == null || item.total_calories == null) continue;
+      records.push({
+        date: item.day,
+        activeCalories: Math.round(item.active_calories),
+        totalCalories: Math.round(item.total_calories),
+      });
     }
     nextToken = json.next_token ?? null;
   } while (nextToken);

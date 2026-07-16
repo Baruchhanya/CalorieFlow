@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { ensureValidOuraTokens, fetchOuraDailyActivity, type OuraTokens } from "@/lib/oura";
+import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 
 /**
  * GET /api/cron/oura-sync
  *
- * Runs twice daily (see vercel.json). Pulls recent active-calories from Oura
- * for every user with a connected account and upserts them into daily_activity.
+ * Runs twice daily (see vercel.json). Pulls recent total-calories from Oura for
+ * every user with a connected account, converts to "active extra" by subtracting
+ * that day's goal, and upserts into daily_activity.
  */
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -29,7 +31,7 @@ export async function GET(req: Request) {
 
   const { data: accounts, error } = await supabaseAdmin
     .from("user_settings")
-    .select("user_id, oura_access_token, oura_refresh_token, oura_token_expires_at")
+    .select("user_id, oura_access_token, oura_refresh_token, oura_token_expires_at, daily_goal_calories")
     .not("oura_access_token", "is", null)
     .not("oura_refresh_token", "is", null);
 
@@ -65,8 +67,19 @@ export async function GET(req: Request) {
 
       const records = await fetchOuraDailyActivity(tokens.accessToken, fromDate, toDate);
 
+      const goalForDate = await buildGoalResolver(
+        supabaseAdmin,
+        account.user_id,
+        account.daily_goal_calories ?? DEFAULT_DAILY_GOAL,
+      );
+
       const rows = records
-        .map((r) => ({ user_id: account.user_id, date: r.date, calories_burned: r.activeCalories, source: "oura" }));
+        .map((r) => ({
+          user_id: account.user_id,
+          date: r.date,
+          calories_burned: Math.max(0, r.totalCalories - goalForDate(r.date)),
+          source: "oura",
+        }));
 
       if (rows.length > 0) {
         const { error: upsertError } = await supabaseAdmin
