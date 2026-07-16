@@ -52,7 +52,7 @@ export async function PUT(req: Request) {
   const { data, error } = await supabase
     .from("daily_activity")
     .upsert(
-      { user_id: user.id, date, calories_burned: burned },
+      { user_id: user.id, date, calories_burned: burned, source: "manual" },
       { onConflict: "user_id,date" }
     )
     .select()

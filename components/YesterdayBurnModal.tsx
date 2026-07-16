@@ -5,6 +5,7 @@ import { Flame, Loader2 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
 import Modal from "@/components/ui/Modal";
+import OuraConnectPanel from "@/components/OuraConnectPanel";
 
 interface Props {
   date: string;
@@ -79,6 +80,8 @@ export default function YesterdayBurnModal({ date, formattedDate, initialValue, 
           {T.yesterdayBurnFor(formattedDate)}
         </p>
         <p className="text-sm text-ink-2 leading-relaxed">{T.yesterdayBurnDesc}</p>
+
+        <OuraConnectPanel date={date} onSynced={(caloriesBurned) => onSaved(caloriesBurned, date)} />
 
         <div className="flex rounded-xl border border-line bg-canvas overflow-hidden text-xs font-bold" role="group">
           <button

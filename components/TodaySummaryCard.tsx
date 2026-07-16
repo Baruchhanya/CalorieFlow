@@ -5,6 +5,7 @@ import { Pencil, Check, X, Flame, ChevronDown, CheckCircle2 } from "lucide-react
 import { MealEntry, DEFAULT_TARGETS } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+import OuraConnectPanel from "@/components/OuraConnectPanel";
 
 function localTodayStr(): string {
   const n = new Date();
@@ -298,6 +299,7 @@ export default memo(function TodaySummaryCard({
 
             {/* Burned-calories input */}
             <div className="flex flex-col gap-2.5 bg-canvas border border-line rounded-xl px-4 py-3">
+              <OuraConnectPanel date={date} onSynced={onBurnedChange} />
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold text-fat uppercase tracking-wider min-w-0">
                   <Flame className="w-3.5 h-3.5 shrink-0" />
