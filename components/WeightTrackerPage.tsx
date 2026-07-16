@@ -61,9 +61,13 @@ function todayParts() {
 const MONTH_NAMES_HE = ["ינו׳", "פבר׳", "מרץ", "אפר׳", "מאי", "יוני", "יולי", "אוג׳", "ספט׳", "אוק׳", "נוב׳", "דצמ׳"] as const;
 const MONTH_NAMES_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
-function formatDayLabel(dateStr: string, lang: string) {
+function formatDayLabel(dateStr: string, lang: string, withWeekday = false) {
   const d = new Date(dateStr + "T12:00:00");
-  return d.toLocaleDateString(lang === "he" ? "he-IL" : "en-US", { month: "short", day: "numeric" });
+  return d.toLocaleDateString(lang === "he" ? "he-IL" : "en-US", {
+    month: "short",
+    day: "numeric",
+    ...(withWeekday ? { weekday: "short" as const } : {}),
+  });
 }
 
 const CHART_DAY_WIDTH = 44;
@@ -855,8 +859,8 @@ export function WeightTrackerPage() {
                 const isToday = e.date === getToday();
                 return (
                   <div key={e.id} className="flex items-center gap-3 px-5 py-3">
-                    <div className="text-xs text-ink-3 w-20 shrink-0 tabular-nums">
-                      {formatDayLabel(e.date, lang)}
+                    <div className="text-xs text-ink-3 w-28 shrink-0 tabular-nums">
+                      {formatDayLabel(e.date, lang, true)}
                       {isToday && <span className="ms-1 text-brand-600 font-bold">·{lang === "he" ? "היום" : "today"}</span>}
                     </div>
                     <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
