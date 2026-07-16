@@ -35,7 +35,9 @@ export async function GET(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const today = new Date().toISOString().split("T")[0];
+  // end_date is UTC-tomorrow (not UTC-today) so users east of UTC — whose local
+  // "today" is already past midnight UTC — still get Oura's data for their day.
+  const toDate = new Date(Date.now() + 86400 * 1000).toISOString().split("T")[0];
   const fromDate = new Date(Date.now() - 3 * 86400 * 1000).toISOString().split("T")[0]; // 3-day lookback covers a missed run
 
   const results = [];
@@ -61,10 +63,9 @@ export async function GET(req: Request) {
           .eq("user_id", account.user_id);
       }
 
-      const records = await fetchOuraDailyActivity(tokens.accessToken, fromDate, today);
+      const records = await fetchOuraDailyActivity(tokens.accessToken, fromDate, toDate);
 
       const rows = records
-        .filter((r) => r.date <= today)
         .map((r) => ({ user_id: account.user_id, date: r.date, calories_burned: r.activeCalories, source: "oura" }));
 
       if (rows.length > 0) {

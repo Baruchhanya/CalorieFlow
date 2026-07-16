@@ -64,8 +64,11 @@ export async function POST(req: Request) {
       .eq("user_id", user.id);
   }
 
-  const today = new Date().toISOString().split("T")[0];
-  const toDate = today;
+  // end_date is UTC-tomorrow (not UTC-today) so users east of UTC — whose local
+  // "today" is already past midnight UTC — still get Oura's data for their day.
+  // Oura only ever returns real, already-elapsed days, so there's no risk of
+  // fabricated future data from widening the window this way.
+  const toDate = new Date(Date.now() + 86400 * 1000).toISOString().split("T")[0];
   const fromDate = new Date(Date.now() - days * 86400 * 1000).toISOString().split("T")[0];
 
   let records;
@@ -81,7 +84,6 @@ export async function POST(req: Request) {
   }
 
   const rows = records
-    .filter((r) => r.date <= today)
     .map((r) => ({ user_id: user.id, date: r.date, calories_burned: r.activeCalories, source: "oura" }));
 
   if (rows.length === 0) {
