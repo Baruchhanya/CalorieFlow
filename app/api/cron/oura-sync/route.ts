@@ -6,9 +6,9 @@ import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 /**
  * GET /api/cron/oura-sync
  *
- * Runs twice daily (see vercel.json). Pulls recent total-calories from Oura for
+ * Runs twice daily (see vercel.json). Pulls today's total-calories from Oura for
  * every user with a connected account, converts to "active extra" by subtracting
- * that day's goal, and upserts into daily_activity.
+ * that day's goal, and upserts only today into daily_activity.
  */
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -37,10 +37,7 @@ export async function GET(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // end_date is UTC-tomorrow (not UTC-today) so users east of UTC — whose local
-  // "today" is already past midnight UTC — still get Oura's data for their day.
-  const toDate = new Date(Date.now() + 86400 * 1000).toISOString().split("T")[0];
-  const fromDate = new Date(Date.now() - 3 * 86400 * 1000).toISOString().split("T")[0]; // 3-day lookback covers a missed run
+  const today = new Date().toISOString().split("T")[0];
 
   const results = [];
 
@@ -65,35 +62,36 @@ export async function GET(req: Request) {
           .eq("user_id", account.user_id);
       }
 
-      const records = await fetchOuraDailyActivity(tokens.accessToken, fromDate, toDate);
+      const records = await fetchOuraDailyActivity(tokens.accessToken, today, today);
+      const record = records.find((r) => r.date === today);
 
-      const goalForDate = await buildGoalResolver(
-        supabaseAdmin,
-        account.user_id,
-        account.daily_goal_calories ?? DEFAULT_DAILY_GOAL,
-      );
+      if (record) {
+        const goalForDate = await buildGoalResolver(
+          supabaseAdmin,
+          account.user_id,
+          account.daily_goal_calories ?? DEFAULT_DAILY_GOAL,
+        );
 
-      const rows = records
-        .map((r) => ({
-          user_id: account.user_id,
-          date: r.date,
-          calories_burned: Math.max(0, r.totalCalories - goalForDate(r.date)),
-          source: "oura",
-        }));
-
-      if (rows.length > 0) {
         const { error: upsertError } = await supabaseAdmin
           .from("daily_activity")
-          .upsert(rows, { onConflict: "user_id,date" });
+          .upsert(
+            {
+              user_id: account.user_id,
+              date: record.date,
+              calories_burned: Math.max(0, record.totalCalories - goalForDate(record.date)),
+              source: "oura",
+            },
+            { onConflict: "user_id,date" },
+          );
         if (upsertError) throw new Error(upsertError.message);
+
+        await supabaseAdmin
+          .from("user_settings")
+          .update({ oura_last_sync: new Date().toISOString() })
+          .eq("user_id", account.user_id);
       }
 
-      await supabaseAdmin
-        .from("user_settings")
-        .update({ oura_last_sync: new Date().toISOString() })
-        .eq("user_id", account.user_id);
-
-      results.push({ user_id: account.user_id, synced: rows.length });
+      results.push({ user_id: account.user_id, synced: record ? 1 : 0 });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Oura sync error";
       results.push({ user_id: account.user_id, error: msg });

@@ -34,8 +34,8 @@ export default function OuraConnectPanel({ date, onSynced }: Props) {
     syncBtn: "סנכרן עכשיו",
     syncing: "מסנכרן...",
     disconnectBtn: "נתק",
-    syncSuccess: (n: number) => `סונכרנו ${n} ימים`,
-    syncNone: "אין נתונים חדשים",
+    syncSuccess: "הקלוריות עודכנו ליום הזה",
+    syncNone: "אין נתונים ליום הזה מאורה",
     syncError: "שגיאה בסנכרון",
     disconnectSuccess: "החשבון נותק",
   } : {
@@ -47,8 +47,8 @@ export default function OuraConnectPanel({ date, onSynced }: Props) {
     syncBtn: "Sync now",
     syncing: "Syncing…",
     disconnectBtn: "Disconnect",
-    syncSuccess: (n: number) => `${n} day${n === 1 ? "" : "s"} synced`,
-    syncNone: "No new data",
+    syncSuccess: "Burn updated for this day",
+    syncNone: "No Oura data for this day",
     syncError: "Sync failed",
     disconnectSuccess: "Account disconnected",
   };
@@ -74,11 +74,11 @@ export default function OuraConnectPanel({ date, onSynced }: Props) {
       const res = await fetch("/api/integrations/oura/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ days: 7, date }),
+        body: JSON.stringify({ date }),
       });
       const json = await res.json();
       if (res.ok) {
-        showToast(json.synced ? T.syncSuccess(json.synced) : T.syncNone, "success");
+        showToast(json.synced ? T.syncSuccess : T.syncNone, "success");
         if (json.matched) onSynced?.(json.matched.calories_burned);
         await fetchStatus();
       } else {

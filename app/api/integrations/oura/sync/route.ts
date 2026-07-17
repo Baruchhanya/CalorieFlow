@@ -7,13 +7,11 @@ import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 /**
  * POST /api/integrations/oura/sync
  *
- * Fetches daily total-calories from Oura for the past `days` days (default 30),
- * converts to "active extra" by subtracting that day's goal (same conversion the
- * manual "total" burn-entry mode uses), and upserts into daily_activity.
+ * Fetches Oura total-calories for a single day, converts to "active extra" by
+ * subtracting that day's goal (same conversion the manual "total" burn-entry
+ * mode uses), and upserts only that day into daily_activity.
  *
- * Body (all optional): { days?: number, date?: string }
- * `date`, if provided, is echoed back in `records` when present in the synced range
- * so the caller can update its currently-viewed day without a second round-trip.
+ * Body: { date: string } — YYYY-MM-DD of the currently-viewed day.
  */
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -43,8 +41,10 @@ export async function POST(req: Request) {
   };
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
-  const days = typeof body.days === "number" ? Math.min(Math.max(1, body.days), 365) : 30;
   const requestedDate = typeof body.date === "string" ? body.date : null;
+  if (!requestedDate || !/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+    return NextResponse.json({ error: "date required (YYYY-MM-DD)" }, { status: 400 });
+  }
 
   let tokens: OuraTokens;
   let refreshed: boolean;
@@ -66,42 +66,31 @@ export async function POST(req: Request) {
       .eq("user_id", user.id);
   }
 
-  // end_date is UTC-tomorrow (not UTC-today) so users east of UTC — whose local
-  // "today" is already past midnight UTC — still get Oura's data for their day.
-  // Oura only ever returns real, already-elapsed days, so there's no risk of
-  // fabricated future data from widening the window this way.
-  const toDate = new Date(Date.now() + 86400 * 1000).toISOString().split("T")[0];
-  const fromDate = new Date(Date.now() - days * 86400 * 1000).toISOString().split("T")[0];
-
   let records;
   try {
-    records = await fetchOuraDailyActivity(tokens.accessToken, fromDate, toDate);
+    records = await fetchOuraDailyActivity(tokens.accessToken, requestedDate, requestedDate);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Oura API error";
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 
-  if (records.length === 0) {
-    return NextResponse.json({ synced: 0, records: [] });
+  const record = records.find((r) => r.date === requestedDate);
+  if (!record) {
+    return NextResponse.json({ synced: 0, matched: null });
   }
 
   const goalForDate = await buildGoalResolver(supabase, user.id, settings.daily_goal_calories ?? DEFAULT_DAILY_GOAL);
-
-  const rows = records
-    .map((r) => ({
-      user_id: user.id,
-      date: r.date,
-      calories_burned: Math.max(0, r.totalCalories - goalForDate(r.date)),
-      source: "oura",
-    }));
-
-  if (rows.length === 0) {
-    return NextResponse.json({ synced: 0, records: [] });
-  }
+  const caloriesBurned = Math.max(0, record.totalCalories - goalForDate(record.date));
+  const row = {
+    user_id: user.id,
+    date: record.date,
+    calories_burned: caloriesBurned,
+    source: "oura",
+  };
 
   const { error } = await supabase
     .from("daily_activity")
-    .upsert(rows, { onConflict: "user_id,date" });
+    .upsert(row, { onConflict: "user_id,date" });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -110,11 +99,8 @@ export async function POST(req: Request) {
     .update({ oura_last_sync: new Date().toISOString() })
     .eq("user_id", user.id);
 
-  const responseRecords = rows.map((r) => ({ date: r.date, calories_burned: r.calories_burned }));
-  if (requestedDate) {
-    const match = responseRecords.find((r) => r.date === requestedDate);
-    return NextResponse.json({ synced: rows.length, records: responseRecords, matched: match ?? null });
-  }
-
-  return NextResponse.json({ synced: rows.length, records: responseRecords });
+  return NextResponse.json({
+    synced: 1,
+    matched: { date: row.date, calories_burned: caloriesBurned },
+  });
 }
