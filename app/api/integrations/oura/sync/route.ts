@@ -66,9 +66,16 @@ export async function POST(req: Request) {
       .eq("user_id", user.id);
   }
 
+  // Query a day of padding on each side of the requested date — guards against
+  // any inclusive/exclusive edge on Oura's end, without changing what we store
+  // (we still only ever match and upsert the exact requestedDate below).
+  const anchor = new Date(requestedDate + "T12:00:00");
+  const fromDate = new Date(anchor.getTime() - 86400 * 1000).toISOString().split("T")[0];
+  const toDate = new Date(anchor.getTime() + 86400 * 1000).toISOString().split("T")[0];
+
   let records;
   try {
-    records = await fetchOuraDailyActivity(tokens.accessToken, requestedDate, requestedDate);
+    records = await fetchOuraDailyActivity(tokens.accessToken, fromDate, toDate);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Oura API error";
     return NextResponse.json({ error: msg }, { status: 502 });

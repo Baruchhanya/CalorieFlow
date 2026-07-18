@@ -38,6 +38,8 @@ export async function GET(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const today = new Date().toISOString().split("T")[0];
+  const yesterday = new Date(Date.now() - 86400 * 1000).toISOString().split("T")[0];
+  const tomorrow = new Date(Date.now() + 86400 * 1000).toISOString().split("T")[0];
 
   const results = [];
 
@@ -62,7 +64,7 @@ export async function GET(req: Request) {
           .eq("user_id", account.user_id);
       }
 
-      const records = await fetchOuraDailyActivity(tokens.accessToken, today, today);
+      const records = await fetchOuraDailyActivity(tokens.accessToken, yesterday, tomorrow);
       const record = records.find((r) => r.date === today);
 
       if (record) {
