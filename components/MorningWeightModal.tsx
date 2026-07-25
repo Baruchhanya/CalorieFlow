@@ -39,7 +39,7 @@ export default function MorningWeightModal({ date, formattedDate, onSaved, onClo
         body: JSON.stringify({ weight_kg: num, date }),
       });
       if (res.ok) {
-        showToast(T.morningWeightSaved, "success");
+        showToast(T.morningWeightSaved(num, formattedDate), "success");
         onSaved(num, date);
       }
     } finally {
@@ -67,7 +67,7 @@ export default function MorningWeightModal({ date, formattedDate, onSaved, onClo
       const todayEntry = weights.find((w) => w.date === date);
 
       if (todayEntry) {
-        showToast(T.morningWeightSaved, "success");
+        showToast(T.morningWeightSaved(todayEntry.weight_kg, formattedDate), "success");
         onSaved(todayEntry.weight_kg, date);
       } else {
         showToast(T.morningWeightSyncNoData, "error");

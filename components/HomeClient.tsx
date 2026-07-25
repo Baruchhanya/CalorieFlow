@@ -304,15 +304,12 @@ export default function HomeClient({
     loadWeightEntries();
   }, [loadWeightEntries]);
 
-  // Morning weight prompt: 05:00–12:00 local, once per day, only if today has no weight entry
+  // Weight prompt: once per day on first visit, regardless of time of day, only if today has no weight entry
   useEffect(() => {
     if (morningWeightCheckedRef.current) return;
     if (!stableLoadedRef.current) return;
     if (weightEntries === undefined) return;
     morningWeightCheckedRef.current = true;
-
-    const hour = new Date().getHours();
-    if (hour < 5 || hour >= 12) return;
 
     try {
       const handled = localStorage.getItem("cf_morning_weight_handled");

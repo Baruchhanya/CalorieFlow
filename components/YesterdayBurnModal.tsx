@@ -52,7 +52,7 @@ export default function YesterdayBurnModal({ date, formattedDate, initialValue, 
         body: JSON.stringify({ date, calories_burned: active }),
       });
       if (res.ok) {
-        showToast(T.yesterdayBurnSaved, "success");
+        showToast(T.yesterdayBurnSaved(active, formattedDate), "success");
         onSaved(active, date);
       }
     } finally {
