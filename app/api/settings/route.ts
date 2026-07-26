@@ -38,42 +38,50 @@ export async function PUT(req: Request) {
   const todayRaw = typeof body.today_date === "string" ? body.today_date : "";
   const today = /^\d{4}-\d{2}-\d{2}$/.test(todayRaw) ? todayRaw : serverTodayUTC();
 
-  // Read current goal so we can preserve it as a historical baseline if needed.
-  const { data: settingsRow } = await supabase
-    .from("user_settings")
-    .select("daily_goal_calories")
-    .eq("user_id", user.id)
-    .single();
-  const previousGoal = settingsRow?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
-
-  // Maintain goal_history so past days keep their previous goal.
-  if (previousGoal !== goal) {
-    const { data: existingHistory } = await supabase
+  // Read current goal + history existence in one parallel batch.
+  const [settingsRead, historyRead] = await Promise.all([
+    supabase
+      .from("user_settings")
+      .select("daily_goal_calories")
+      .eq("user_id", user.id)
+      .single(),
+    supabase
       .from("goal_history")
       .select("id")
       .eq("user_id", user.id)
-      .limit(1);
+      .limit(1),
+  ]);
+  const previousGoal = settingsRead.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
 
-    if (!existingHistory || existingHistory.length === 0) {
+  // Maintain goal_history so past days keep their previous goal. The three
+  // writes touch independent rows/tables, so they can run in parallel.
+  const writes: PromiseLike<unknown>[] = [];
+  if (previousGoal !== goal) {
+    if (!historyRead.data || historyRead.data.length === 0) {
       // First-ever change — seed history with the prior value for all past dates.
-      await supabase
-        .from("goal_history")
-        .insert({ user_id: user.id, effective_date: SEED_PAST_DATE, daily_goal_calories: previousGoal });
-    }
-
-    await supabase
-      .from("goal_history")
-      .upsert(
-        { user_id: user.id, effective_date: today, daily_goal_calories: goal },
-        { onConflict: "user_id,effective_date" },
+      writes.push(
+        supabase
+          .from("goal_history")
+          .insert({ user_id: user.id, effective_date: SEED_PAST_DATE, daily_goal_calories: previousGoal })
       );
+    }
+    writes.push(
+      supabase
+        .from("goal_history")
+        .upsert(
+          { user_id: user.id, effective_date: today, daily_goal_calories: goal },
+          { onConflict: "user_id,effective_date" },
+        )
+    );
   }
 
-  const { data, error } = await supabase
+  const settingsWrite = supabase
     .from("user_settings")
     .upsert({ user_id: user.id, daily_goal_calories: goal }, { onConflict: "user_id" })
     .select()
     .single();
+
+  const [{ data, error }] = await Promise.all([settingsWrite, ...writes]);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);

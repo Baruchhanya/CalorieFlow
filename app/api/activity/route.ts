@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/auth";
-import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
+import { resolveGoalFromHistory, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   const user = await getAuthUser(supabase);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [activityRes, settingsRes] = await Promise.all([
+  const [activityRes, settingsRes, goalHistoryRes] = await Promise.all([
     supabase
       .from("daily_activity")
       .select("calories_burned, updated_at")
@@ -24,10 +24,15 @@ export async function GET(req: Request) {
       .select("daily_goal_calories")
       .eq("user_id", user.id)
       .single(),
+    supabase
+      .from("goal_history")
+      .select("effective_date, daily_goal_calories")
+      .eq("user_id", user.id)
+      .order("effective_date", { ascending: true }),
   ]);
 
   const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
-  const goalForDate = await buildGoalResolver(supabase, user.id, currentGoal);
+  const goalForDate = resolveGoalFromHistory(goalHistoryRes.data ?? [], currentGoal);
 
   return NextResponse.json({
     calories_burned: activityRes.data?.calories_burned ?? 0,

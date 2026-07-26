@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/auth";
-import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
+import { resolveGoalFromHistory, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 import { computeBalanceHistory } from "@/lib/balance";
 
 export type { BalanceDay, BalanceHistoryResponse } from "@/lib/balance";
@@ -18,7 +18,7 @@ export async function GET() {
   const fromStr = from30.toISOString().split("T")[0];
   const todayStr = today.toISOString().split("T")[0];
 
-  const [mealsRes, activityRes, settingsRes, acksRes] = await Promise.all([
+  const [mealsRes, activityRes, settingsRes, acksRes, goalHistoryRes] = await Promise.all([
     supabase
       .from("meals")
       .select("date, calories")
@@ -42,10 +42,15 @@ export async function GET() {
       .eq("user_id", user.id)
       .gte("date", fromStr)
       .lte("date", todayStr),
+    supabase
+      .from("goal_history")
+      .select("effective_date, daily_goal_calories")
+      .eq("user_id", user.id)
+      .order("effective_date", { ascending: true }),
   ]);
 
   const currentGoal = settingsRes.data?.daily_goal_calories ?? DEFAULT_DAILY_GOAL;
-  const goalForDate = await buildGoalResolver(supabase, user.id, currentGoal);
+  const goalForDate = resolveGoalFromHistory(goalHistoryRes.data ?? [], currentGoal);
 
   const balanceHistory = computeBalanceHistory({
     meals: mealsRes.data ?? [],

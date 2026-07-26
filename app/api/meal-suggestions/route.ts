@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     .select("name, calories, protein, carbs, fat, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
-    .limit(wantAll ? 5000 : 500);
+    .limit(wantAll ? 5000 : 200);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

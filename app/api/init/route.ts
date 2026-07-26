@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
           .select("name, calories, protein, carbs, fat, created_at")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
-          .limit(500),
+          .limit(200),
         supabase
           .from("day_acknowledgments")
           .select("date, estimated_balance")
@@ -179,7 +179,7 @@ export async function GET(request: NextRequest) {
         .select("name, calories, protein, carbs, fat, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(500),
+        .limit(200),
 
       supabase
         .from("day_acknowledgments")

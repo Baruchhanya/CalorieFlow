@@ -1,39 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/auth";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { readProfile } from "@/lib/initData";
 
 const FULL_COLS = "height_cm, weight_kg, age, protein_goal_g";
 const BASE_COLS = "height_cm, weight_kg, age";
-
-/**
- * Try to read the profile with the new `protein_goal_g` column. If that
- * column doesn't exist yet (migration not run), gracefully fall back to the
- * legacy column set so the app keeps working.
- */
-async function readProfile(supabase: SupabaseClient, userId: string) {
-  const tryFull = await supabase
-    .from("user_profile")
-    .select(FULL_COLS)
-    .eq("user_id", userId)
-    .single();
-
-  if (!tryFull.error) return tryFull.data;
-
-  // Fall back if the new column isn't there yet
-  const msg = (tryFull.error.message || "").toLowerCase();
-  if (msg.includes("protein_goal_g") || msg.includes("does not exist") || msg.includes("column")) {
-    const legacy = await supabase
-      .from("user_profile")
-      .select(BASE_COLS)
-      .eq("user_id", userId)
-      .single();
-    if (!legacy.error && legacy.data) {
-      return { ...legacy.data, protein_goal_g: null };
-    }
-  }
-  return null;
-}
 
 export async function GET() {
   const supabase = await createClient();

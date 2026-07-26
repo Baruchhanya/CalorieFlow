@@ -15,23 +15,16 @@ export async function readProfile(
   supabase: SupabaseClient,
   userId: string
 ): Promise<UserProfile | null> {
-  const tryFull = await supabase
+  // select("*") tolerates the protein_goal_g column not existing yet
+  // (pre-v6 schema) without a second serial fallback query.
+  const res = await supabase
     .from("user_profile")
-    .select("height_cm, weight_kg, age, protein_goal_g")
+    .select("*")
     .eq("user_id", userId)
     .single();
-  if (!tryFull.error) return tryFull.data;
-
-  const msg = (tryFull.error.message || "").toLowerCase();
-  if (msg.includes("protein_goal_g") || msg.includes("does not exist") || msg.includes("column")) {
-    const legacy = await supabase
-      .from("user_profile")
-      .select("height_cm, weight_kg, age")
-      .eq("user_id", userId)
-      .single();
-    if (!legacy.error && legacy.data) return { ...legacy.data, protein_goal_g: null };
-  }
-  return null;
+  if (res.error || !res.data) return null;
+  const { height_cm = null, weight_kg = null, age = null, protein_goal_g = null } = res.data;
+  return { height_cm, weight_kg, age, protein_goal_g };
 }
 
 /**
