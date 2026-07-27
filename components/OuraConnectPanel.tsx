@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Activity, Loader2 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+import { formatDate } from "@/lib/dates";
 
 interface OuraStatus {
   connected: boolean;
@@ -18,7 +19,7 @@ interface Props {
 }
 
 export default function OuraConnectPanel({ date, onSynced }: Props) {
-  const { lang } = useLang();
+  const { lang, T: appT } = useLang();
   const { showToast } = useToast();
 
   const [status, setStatus] = useState<OuraStatus | null>(null);
@@ -34,7 +35,6 @@ export default function OuraConnectPanel({ date, onSynced }: Props) {
     syncBtn: "סנכרן עכשיו",
     syncing: "מסנכרן...",
     disconnectBtn: "נתק",
-    syncSuccess: "הקלוריות עודכנו ליום הזה",
     syncNone: "אין נתונים ליום הזה מאורה",
     syncError: "שגיאה בסנכרון",
     disconnectSuccess: "החשבון נותק",
@@ -47,7 +47,6 @@ export default function OuraConnectPanel({ date, onSynced }: Props) {
     syncBtn: "Sync now",
     syncing: "Syncing…",
     disconnectBtn: "Disconnect",
-    syncSuccess: "Burn updated for this day",
     syncNone: "No Oura data for this day",
     syncError: "Sync failed",
     disconnectSuccess: "Account disconnected",
@@ -78,8 +77,12 @@ export default function OuraConnectPanel({ date, onSynced }: Props) {
       });
       const json = await res.json();
       if (res.ok) {
-        showToast(json.synced ? T.syncSuccess : T.syncNone, "success");
-        if (json.matched) onSynced?.(json.matched.calories_burned);
+        if (json.matched) {
+          showToast(appT.yesterdayBurnSaved(json.matched.calories_burned, formatDate(json.matched.date, lang)), "success");
+          onSynced?.(json.matched.calories_burned);
+        } else {
+          showToast(T.syncNone, "success");
+        }
         await fetchStatus();
       } else {
         showToast(json.error ?? T.syncError, "error");
@@ -89,7 +92,7 @@ export default function OuraConnectPanel({ date, onSynced }: Props) {
     } finally {
       setSyncing(false);
     }
-  }, [date, onSynced, showToast, fetchStatus, T]);
+  }, [date, onSynced, showToast, fetchStatus, T, appT, lang]);
 
   const handleDisconnect = useCallback(async () => {
     setDisconnecting(true);
