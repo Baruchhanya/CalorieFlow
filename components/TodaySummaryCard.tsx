@@ -5,6 +5,7 @@ import { Pencil, Check, X, Flame, ChevronDown, CheckCircle2 } from "lucide-react
 import { MealEntry, DEFAULT_TARGETS } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
+import { formatDate } from "@/lib/dates";
 import OuraConnectPanel from "@/components/OuraConnectPanel";
 
 function localTodayStr(): string {
@@ -183,7 +184,7 @@ export default memo(function TodaySummaryCard({
       });
       onBurnedChange(active);
       setBurnedInput(active === 0 ? "" : String(burnMode === "total" ? Math.round(active + baseGoal) : active));
-      showToast(lang === "he" ? "קלוריות שרופות נשמרו" : "Burned calories saved", "success");
+      showToast(T.yesterdayBurnSaved(active, formatDate(date, lang)), "success");
     } finally { setSavingBurned(false); }
   };
 
