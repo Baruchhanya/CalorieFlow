@@ -7,6 +7,9 @@ const AUTHORIZE_URL = "https://cloud.ouraring.com/oauth/authorize";
 const TOKEN_URL = "https://api.ouraring.com/oauth/token";
 const DAILY_ACTIVITY_URL = "https://api.ouraring.com/v2/usercollection/daily_activity";
 
+/** Oura tends to overestimate total burn — knock this off before storing any Oura-sourced value. */
+export const OURA_BIAS_ADJUSTMENT = 300;
+
 export interface OuraTokens {
   accessToken: string;
   refreshToken: string;

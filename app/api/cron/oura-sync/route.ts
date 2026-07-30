@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { ensureValidOuraTokens, fetchOuraDailyActivity, type OuraTokens } from "@/lib/oura";
+import { ensureValidOuraTokens, fetchOuraDailyActivity, OURA_BIAS_ADJUSTMENT, type OuraTokens } from "@/lib/oura";
 import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 
 /**
@@ -73,6 +73,7 @@ export async function GET(req: Request) {
           account.user_id,
           account.daily_goal_calories ?? DEFAULT_DAILY_GOAL,
         );
+        const adjustedTotalCalories = Math.max(0, record.totalCalories - OURA_BIAS_ADJUSTMENT);
 
         const { error: upsertError } = await supabaseAdmin
           .from("daily_activity")
@@ -80,7 +81,7 @@ export async function GET(req: Request) {
             {
               user_id: account.user_id,
               date: record.date,
-              calories_burned: Math.max(0, record.totalCalories - goalForDate(record.date)),
+              calories_burned: Math.max(0, adjustedTotalCalories - goalForDate(record.date)),
               source: "oura",
             },
             { onConflict: "user_id,date" },

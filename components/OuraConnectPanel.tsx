@@ -78,7 +78,7 @@ export default function OuraConnectPanel({ date, onSynced }: Props) {
       const json = await res.json();
       if (res.ok) {
         if (json.matched) {
-          showToast(appT.yesterdayBurnSaved(json.matched.calories_burned, formatDate(json.matched.date, lang)), "success");
+          showToast(appT.yesterdayBurnSaved(json.matched.calories_total, formatDate(json.matched.date, lang)), "success");
           onSynced?.(json.matched.calories_burned);
         } else {
           showToast(T.syncNone, "success");

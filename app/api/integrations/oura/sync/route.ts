@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/auth";
-import { ensureValidOuraTokens, fetchOuraDailyActivity, type OuraTokens } from "@/lib/oura";
+import { ensureValidOuraTokens, fetchOuraDailyActivity, OURA_BIAS_ADJUSTMENT, type OuraTokens } from "@/lib/oura";
 import { buildGoalResolver, DEFAULT_DAILY_GOAL } from "@/lib/goal";
 
 /**
@@ -86,8 +86,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ synced: 0, matched: null });
   }
 
+  const adjustedTotalCalories = Math.max(0, record.totalCalories - OURA_BIAS_ADJUSTMENT);
+
   const goalForDate = await buildGoalResolver(supabase, user.id, settings.daily_goal_calories ?? DEFAULT_DAILY_GOAL);
-  const caloriesBurned = Math.max(0, record.totalCalories - goalForDate(record.date));
+  const caloriesBurned = Math.max(0, adjustedTotalCalories - goalForDate(record.date));
   const row = {
     user_id: user.id,
     date: record.date,
@@ -108,6 +110,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     synced: 1,
-    matched: { date: row.date, calories_burned: caloriesBurned },
+    matched: { date: row.date, calories_burned: caloriesBurned, calories_total: adjustedTotalCalories },
   });
 }
