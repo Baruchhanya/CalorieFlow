@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Rewrite barrel imports to direct module paths so only used icons are bundled
+    optimizePackageImports: ["lucide-react"],
+  },
   async headers() {
     return [
       {

@@ -2,10 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { checkEmailAccess, getAuthUser } from "@/lib/auth";
 
-// HttpOnly cookie that caches a successful allowlist check for 5 minutes.
+// HttpOnly cookie that caches a successful allowlist check for 24 hours.
 // Value is the user's ID so it's automatically invalidated on sign-in/out.
+// A long TTL keeps the allowlist DB query out of the blocking path on cold
+// opens; removing a user from the allowlist takes up to the TTL to kick in.
 const ACCESS_COOKIE = "_cf_ok";
-const ACCESS_COOKIE_TTL = 300; // seconds
+const ACCESS_COOKIE_TTL = 86400; // seconds
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

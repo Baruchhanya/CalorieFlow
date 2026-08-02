@@ -52,7 +52,12 @@ export async function GET(request: NextRequest) {
 
   // ── SECONDARY phase: heavier, below-the-fold data ──
   if (phase === "secondary") {
-    const [settingsRes, access, histMealsRes, histActivityRes, presetsRes, suggestionsRes, acksRes, goalHistoryRes] =
+    // Boot-only extras: the full weight log (WeeklyWeightCard + morning
+    // prompt) and yesterday's activity (burn prompt) ride along in this
+    // batch so first load doesn't pay two extra serverless invocations.
+    const boot = searchParams.get("boot") === "1";
+    const ydate = searchParams.get("ydate");
+    const [settingsRes, access, histMealsRes, histActivityRes, presetsRes, suggestionsRes, acksRes, goalHistoryRes, weightRes, yActivityRes] =
       await Promise.all([
         supabase
           .from("user_settings")
@@ -95,6 +100,21 @@ export async function GET(request: NextRequest) {
           .select("effective_date, daily_goal_calories")
           .eq("user_id", user.id)
           .order("effective_date", { ascending: true }),
+        boot
+          ? supabase
+              .from("weight_log")
+              .select("id, date, weight_kg, source")
+              .eq("user_id", user.id)
+              .order("date", { ascending: true })
+          : Promise.resolve(null),
+        ydate
+          ? supabase
+              .from("daily_activity")
+              .select("calories_burned, updated_at")
+              .eq("user_id", user.id)
+              .eq("date", ydate)
+              .single()
+          : Promise.resolve(null),
       ]);
     timer.mark("db");
 
@@ -122,6 +142,16 @@ export async function GET(request: NextRequest) {
       balance_history: balanceHistory,
       meal_presets: presetsRes.data ?? [],
       meal_suggestions: mealSuggestions,
+      ...(boot ? { weight_entries: weightRes?.data ?? [] } : {}),
+      ...(ydate
+        ? {
+            yesterday_activity: {
+              calories_burned: yActivityRes?.data?.calories_burned ?? 0,
+              updated_at: yActivityRes?.data?.updated_at ?? null,
+              daily_goal_calories: goalForDate(ydate),
+            },
+          }
+        : {}),
     });
   }
 

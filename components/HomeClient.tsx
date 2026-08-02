@@ -102,12 +102,20 @@ export default function HomeClient({
   const [balanceHistory, setBalanceHistory] = useState<BalanceHistoryResponse | undefined>(undefined);
   const [mealPresets, setMealPresets] = useState<MealPreset[] | undefined>(undefined);
   const [mealSuggestions, setMealSuggestions] = useState<HistorySuggestion[] | undefined>(undefined);
-  // Weight log — fetched once, shared by WeeklyWeightCard and the morning prompt
+  // Weight log — arrives with the boot secondary batch, shared by
+  // WeeklyWeightCard and the morning prompt
   const [weightEntries, setWeightEntries] = useState<WeightEntry[] | undefined>(undefined);
+  // Yesterday's activity — arrives with the boot secondary batch; feeds the
+  // burn prompt. undefined = not loaded yet, null = load failed.
+  const [yesterdayActivity, setYesterdayActivity] = useState<
+    { calories_burned: number; updated_at: string | null; daily_goal_calories: number } | null | undefined
+  >(undefined);
   // Yesterday burn-calories prompt state
   const [yesterdayPrompt, setYesterdayPrompt] = useState<{ date: string; initial: number; baseGoal: number } | null>(null);
   // Morning weight prompt state
   const [morningWeightPrompt, setMorningWeightPrompt] = useState<{ date: string } | null>(null);
+  // True once the boot secondary fetch (with weight + yesterday extras) ran
+  const bootFetchDoneRef = useRef(false);
   // Track whether stable (non-date-specific) data has been loaded
   const stableLoadedRef = useRef(!!initialData);
   // True until the server-seeded critical payload has been consumed — lets the
@@ -170,10 +178,20 @@ export default function HomeClient({
 
   // Secondary (non-critical) data for a given date — never blocks the UI.
   // Tagged with a request id so a stale response can't overwrite newer data.
+  // The first call (boot) also carries the weight log and yesterday's
+  // activity in the same round trip, replacing two separate API calls.
   const loadSecondary = useCallback((targetDate: string, seq: number) => {
-    fetch(`/api/init?date=${targetDate}&phase=secondary`)
+    const boot = !bootFetchDoneRef.current;
+    bootFetchDoneRef.current = true;
+    let url = `/api/init?date=${targetDate}&phase=secondary`;
+    if (boot) url += `&boot=1&ydate=${offsetDate(getToday(), -1)}`;
+    fetch(url)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
+        if (boot) {
+          setWeightEntries(Array.isArray(d?.weight_entries) ? d.weight_entries : []);
+          setYesterdayActivity(d?.yesterday_activity ?? null);
+        }
         if (seq !== reqSeqRef.current) return;
         // Children no longer self-fetch, so always resolve their props to a
         // defined value — even on a failed/empty response — so their skeletons
@@ -184,6 +202,10 @@ export default function HomeClient({
         setMealSuggestions(Array.isArray(d?.meal_suggestions) ? d.meal_suggestions : []);
       })
       .catch(() => {
+        if (boot) {
+          setWeightEntries([]);
+          setYesterdayActivity(null);
+        }
         if (seq !== reqSeqRef.current) return;
         setBalanceHistory(EMPTY_BALANCE_HISTORY);
         setMealPresets([]);
@@ -254,43 +276,40 @@ export default function HomeClient({
     refresh(date);
   }, [date, refresh]);
 
-  // Yesterday-burn morning prompt: show once per day unless filled after 23:00 yesterday
+  // Yesterday-burn morning prompt: show once per day unless filled after 23:00
+  // yesterday. Data arrives with the boot secondary batch (no extra fetch).
   useEffect(() => {
     if (yesterdayCheckedRef.current) return;
     if (!stableLoadedRef.current) return;
+    if (yesterdayActivity === undefined) return;
     yesterdayCheckedRef.current = true;
+    if (yesterdayActivity === null) return;
 
-    const now = new Date();
-    const yDate = new Date(now);
-    yDate.setDate(yDate.getDate() - 1);
-    const yStr = `${yDate.getFullYear()}-${String(yDate.getMonth()+1).padStart(2,"0")}-${String(yDate.getDate()).padStart(2,"0")}`;
+    const yStr = offsetDate(today, -1);
 
     try {
       const handled = localStorage.getItem("cf_yesterday_burn_handled");
       if (handled === today) return;
     } catch { /* ignore */ }
 
-    fetch(`/api/activity?date=${yStr}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!data) return;
-        const deadline = new Date(yDate);
-        deadline.setHours(23, 0, 0, 0);
-        const updatedAt = data.updated_at ? new Date(data.updated_at) : null;
-        if (updatedAt && updatedAt >= deadline) return;
-        setYesterdayPrompt({
-          date: yStr,
-          initial: data.calories_burned ?? 0,
-          baseGoal: typeof data.daily_goal_calories === "number" ? data.daily_goal_calories : goalCalories,
-        });
-      })
-      .catch(() => { /* silent */ });
-  }, [loading, today]);
+    const deadline = new Date(yStr + "T23:00:00");
+    const updatedAt = yesterdayActivity.updated_at ? new Date(yesterdayActivity.updated_at) : null;
+    if (updatedAt && updatedAt >= deadline) return;
+    setYesterdayPrompt({
+      date: yStr,
+      initial: yesterdayActivity.calories_burned ?? 0,
+      baseGoal: typeof yesterdayActivity.daily_goal_calories === "number"
+        ? yesterdayActivity.daily_goal_calories
+        : goalCalories,
+    });
+  }, [loading, yesterdayActivity, today, goalCalories]);
 
   const markYesterdayHandled = useCallback(() => {
     try { localStorage.setItem("cf_yesterday_burn_handled", today); } catch { /* ignore */ }
   }, [today]);
 
+  // Re-fetch the weight log after a weight save (boot delivery comes via the
+  // secondary batch; this is only for refreshes).
   const loadWeightEntries = useCallback(() => {
     fetch("/api/weight", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -299,10 +318,6 @@ export default function HomeClient({
       })
       .catch(() => setWeightEntries([]));
   }, []);
-
-  useEffect(() => {
-    loadWeightEntries();
-  }, [loadWeightEntries]);
 
   // Weight prompt: once per day on first visit, regardless of time of day, only if today has no weight entry
   useEffect(() => {
