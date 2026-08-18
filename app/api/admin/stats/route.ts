@@ -64,6 +64,7 @@ interface GeminiRow {
   user_id: string | null;
   user_email: string | null;
   status: string;
+  model: string | null;
   prompt_tokens: number | null;
   candidates_tokens: number | null;
   total_tokens: number | null;
@@ -102,7 +103,7 @@ export async function GET() {
   // Fetch in parallel: meals, gemini_usage, allowed_users, auth users
   const [mealsRes, geminiRes, allowedRes, authRes] = await Promise.all([
     admin.from("meals").select("user_id, date, created_at"),
-    admin.from("gemini_usage").select("user_id, user_email, status, prompt_tokens, candidates_tokens, total_tokens, duration_ms, created_at"),
+    admin.from("gemini_usage").select("user_id, user_email, status, model, prompt_tokens, candidates_tokens, total_tokens, duration_ms, created_at"),
     admin.from("allowed_users").select("email"),
     fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=200`, {
       headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
@@ -141,11 +142,14 @@ export async function GET() {
   for (const g of gemini) {
     gemCost.set(
       g,
-      estimateUsageCost({
-        promptTokens: g.prompt_tokens ?? 0,
-        candidatesTokens: g.candidates_tokens ?? 0,
-        totalTokens: g.total_tokens ?? 0,
-      })
+      estimateUsageCost(
+        {
+          promptTokens: g.prompt_tokens ?? 0,
+          candidatesTokens: g.candidates_tokens ?? 0,
+          totalTokens: g.total_tokens ?? 0,
+        },
+        g.model ?? undefined
+      )
     );
   }
 

@@ -5,6 +5,10 @@ export interface FoodItem {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  /** Approximate total weight in grams, used to look up verified nutrition data. Only set on Gemini-analyzed items. */
+  quantity_grams?: number | null;
+  /** Short generic Hebrew name for database lookup (e.g. "חזה עוף"), distinct from the more descriptive display "name". Only set on Gemini-analyzed items. */
+  db_search_term_he?: string;
 }
 
 export interface GeminiResponse {

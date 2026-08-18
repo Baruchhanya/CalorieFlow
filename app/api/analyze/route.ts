@@ -6,11 +6,13 @@ import {
   analyzeImages,
   analyzeAudio,
   GEMINI_MODEL,
+  GEMINI_FALLBACK_MODEL,
   type AnalyzeResult,
   type ImagePart,
   type AnalyzeLang,
   type GeminiUsage,
 } from "@/lib/gemini";
+import { enrichItemsWithTzameret } from "@/lib/nutritionEnrichment";
 
 function pickLang(raw: unknown): AnalyzeLang {
   return raw === "en" ? "en" : "he";
@@ -23,6 +25,7 @@ interface LogParams {
   imageCount: number;
   durationMs: number;
   status: "success" | "error";
+  model?: string;
   usage?: GeminiUsage;
   errorMessage?: string;
 }
@@ -34,7 +37,7 @@ async function logUsage(params: LogParams): Promise<void> {
       user_id: params.userId,
       user_email: params.userEmail,
       request_type: params.requestType,
-      model: GEMINI_MODEL,
+      model: params.model ?? GEMINI_MODEL,
       image_count: params.imageCount,
       prompt_tokens: params.usage?.promptTokens ?? null,
       candidates_tokens: params.usage?.candidatesTokens ?? null,
@@ -121,7 +124,28 @@ export async function POST(request: NextRequest) {
       usage: result.usage,
     });
 
-    return NextResponse.json(result.data);
+    const enrichment = await enrichItemsWithTzameret(result.data.items);
+
+    if (enrichment.fallbackUsage) {
+      await logUsage({
+        userId: user.id,
+        userEmail: user.email ?? null,
+        requestType,
+        imageCount,
+        durationMs: Date.now() - startedAt,
+        status: "success",
+        model: GEMINI_FALLBACK_MODEL,
+        usage: enrichment.fallbackUsage,
+      });
+    }
+
+    const responseData = {
+      ...result.data,
+      items: enrichment.items,
+      total_calories: enrichment.items.reduce((sum, it) => sum + it.calories, 0),
+    };
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error("Analyze error:", error);
     const message = error instanceof Error ? error.message : "Failed to analyze food";
