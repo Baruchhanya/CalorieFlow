@@ -10,20 +10,11 @@ const genAI = new GoogleGenerativeAI(rawApiKey);
 
 export type AnalyzeLang = "he" | "en";
 
-// Cheap, low-latency model used for every request: identifying food items from
-// text/image/audio and parsing quantities. Runs on high volume, so cost matters most here.
-export const GEMINI_MODEL = "gemini-3.5-flash-lite";
-
-// Stronger model used only as a fallback: re-estimating nutrition for the rare items
-// the Tzameret database lookup couldn't match. Low volume, so it's worth paying more
-// per call for a better guess. See lib/nutritionEnrichment.ts.
-export const GEMINI_FALLBACK_MODEL = "gemini-3.6-flash";
+export const GEMINI_MODEL = "gemini-3.1-flash-lite";
 
 // Pricing per 1M tokens (USD). Override via env vars when tariffs change.
-const INPUT_TOKEN_PRICE_PER_M = Number(process.env.GEMINI_INPUT_PRICE_PER_M ?? 0.3);
-const OUTPUT_TOKEN_PRICE_PER_M = Number(process.env.GEMINI_OUTPUT_PRICE_PER_M ?? 2.5);
-const FALLBACK_INPUT_PRICE_PER_M = Number(process.env.GEMINI_FALLBACK_INPUT_PRICE_PER_M ?? 0.75);
-const FALLBACK_OUTPUT_PRICE_PER_M = Number(process.env.GEMINI_FALLBACK_OUTPUT_PRICE_PER_M ?? 3.75);
+const INPUT_TOKEN_PRICE_PER_M = Number(process.env.GEMINI_INPUT_PRICE_PER_M ?? 0.1);
+const OUTPUT_TOKEN_PRICE_PER_M = Number(process.env.GEMINI_OUTPUT_PRICE_PER_M ?? 0.4);
 
 export interface GeminiUsage {
   promptTokens: number;
@@ -36,12 +27,11 @@ export interface AnalyzeResult {
   usage: GeminiUsage;
 }
 
-export function estimateUsageCost(usage: GeminiUsage, model: string = GEMINI_MODEL): number {
-  const [inputPrice, outputPrice] =
-    model === GEMINI_FALLBACK_MODEL
-      ? [FALLBACK_INPUT_PRICE_PER_M, FALLBACK_OUTPUT_PRICE_PER_M]
-      : [INPUT_TOKEN_PRICE_PER_M, OUTPUT_TOKEN_PRICE_PER_M];
-  return (usage.promptTokens * inputPrice) / 1_000_000 + (usage.candidatesTokens * outputPrice) / 1_000_000;
+export function estimateUsageCost(usage: GeminiUsage): number {
+  return (
+    (usage.promptTokens * INPUT_TOKEN_PRICE_PER_M) / 1_000_000 +
+    (usage.candidatesTokens * OUTPUT_TOKEN_PRICE_PER_M) / 1_000_000
+  );
 }
 
 interface UsageMetadataLike {
@@ -79,12 +69,10 @@ Return this exact JSON structure (no markdown, no code blocks, raw JSON only):
     {
       "name": "food name",
       "quantity": "amount with unit (e.g. '1 כוס', '200 גרם', '2 פרוסות')",
-      "quantity_grams": <number, your best-effort estimate of the item's total weight in grams — always provide a number, even a rough one>,
-      "db_search_term_he": "short generic Hebrew name for this food, 1-3 words, no brand/cooking-method modifiers (e.g. 'חזה עוף', 'אורז לבן', 'בננה') — used to look up the food in a nutrition database",
-      "calories": <number, your own best estimate — used only if the database lookup for this item fails>,
-      "protein_g": <number, your own best estimate — used only if the database lookup for this item fails>,
-      "carbs_g": <number, your own best estimate — used only if the database lookup for this item fails>,
-      "fat_g": <number, your own best estimate — used only if the database lookup for this item fails>
+      "calories": <number>,
+      "protein_g": <number>,
+      "carbs_g": <number>,
+      "fat_g": <number>
     }
   ],
   "total_calories": <number>,
@@ -93,8 +81,6 @@ Return this exact JSON structure (no markdown, no code blocks, raw JSON only):
 }
 
 ${langInstruction}
-
-IMPORTANT: "db_search_term_he" must ALWAYS be in Hebrew regardless of the output language above — it is used internally to query a Hebrew nutrition database, not shown to the user.
 
 CRITICAL SPLITTING RULES — distinguish composite dishes from separate foods:
 
@@ -203,62 +189,6 @@ export async function analyzeImages(
   const result = await model.generateContent(parts);
   return {
     data: parseGeminiResponse(result.response.text()),
-    usage: extractUsage(result.response),
-  };
-}
-
-// ─── Fallback nutrition estimation (Tzameret DB misses only) ────────────────
-
-export interface FallbackNutritionItem {
-  name: string;
-  quantity: string;
-}
-
-export interface FallbackNutritionEstimate {
-  calories: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
-}
-
-export interface FallbackNutritionResult {
-  estimates: FallbackNutritionEstimate[];
-  usage: GeminiUsage;
-}
-
-/**
- * Re-estimates nutrition for items that couldn't be matched in the Tzameret database.
- * Batches all misses from a single analyze call into one request. Uses GEMINI_FALLBACK_MODEL
- * (stronger, pricier) since this only runs for the rare unmatched items, not every request.
- */
-export async function estimateFallbackNutrition(
-  items: FallbackNutritionItem[]
-): Promise<FallbackNutritionResult> {
-  const model = genAI.getGenerativeModel({ model: GEMINI_FALLBACK_MODEL });
-
-  const list = items.map((it, i) => `${i + 1}. ${it.name} — ${it.quantity}`).join("\n");
-
-  const prompt = `You are a professional nutritionist. For each of the following food items, give your most accurate nutritional estimate.
-
-${list}
-
-Return ONLY a valid JSON array (no markdown, no code blocks), with exactly ${items.length} objects, in the same order as the list above:
-[
-  { "calories": <number>, "protein_g": <number>, "carbs_g": <number>, "fat_g": <number> }
-]
-
-Base the estimate on the stated quantity for each item. All values must be positive numbers.`;
-
-  const result = await model.generateContent(prompt);
-  const cleaned = result.response
-    .text()
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```\s*$/i, "")
-    .trim();
-
-  return {
-    estimates: JSON.parse(cleaned),
     usage: extractUsage(result.response),
   };
 }
