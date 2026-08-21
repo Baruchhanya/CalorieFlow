@@ -58,6 +58,14 @@ const NOISY_MODIFIERS = [
   // A flour/starch product is a different food than the whole ingredient
   // ("קמח אורז" = rice flour, not rice) even though it shares the query's words.
   "קמח",
+  // Dehydrated/powdered/concentrated forms remove water and concentrate calories
+  // per 100g dramatically (e.g. dried whole egg is 605 kcal/100g vs ~155 fresh) —
+  // never a reasonable default for a plain query.
+  "מיובש",
+  "מיובשת",
+  "אבקה",
+  "מרוכז",
+  "מרוכזת",
 ];
 
 // Entries measured with inedible parts included (peel/bone/pit) understate the
