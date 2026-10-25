@@ -117,13 +117,23 @@ GENERAL RULES:
 - Return ONLY the JSON object, no other text, no markdown`;
 }
 
+const JSON_GENERATION_CONFIG = { responseMimeType: "application/json" };
+
 function parseGeminiResponse(text: string): GeminiResponse {
   const cleaned = text
     .replace(/^```json\s*/i, "")
     .replace(/^```\s*/i, "")
     .replace(/```\s*$/i, "")
     .trim();
-  return JSON.parse(cleaned);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Model occasionally wraps JSON in extra text or leaves trailing commas.
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    const slice = start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
+    return JSON.parse(slice.replace(/,(\s*[}\]])/g, "$1"));
+  }
 }
 
 function buildExtraContextBlock(extraContext?: string): string {
@@ -139,7 +149,7 @@ export async function analyzeText(
   text: string,
   lang: AnalyzeLang = "he"
 ): Promise<AnalyzeResult> {
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL, generationConfig: JSON_GENERATION_CONFIG });
   const result = await model.generateContent(
     `${buildPrompt(lang)}\n\nAnalyze this food input: "${text}"`
   );
@@ -172,7 +182,7 @@ export async function analyzeImages(
     throw new Error("At least one image is required");
   }
 
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL, generationConfig: JSON_GENERATION_CONFIG });
 
   const instruction =
     images.length === 1
@@ -346,7 +356,7 @@ export async function analyzeAudio(
   extraContext?: string,
   lang: AnalyzeLang = "he"
 ): Promise<AnalyzeResult> {
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL, generationConfig: JSON_GENERATION_CONFIG });
   const result = await model.generateContent([
     { inlineData: { data: base64Data, mimeType } },
     `${buildPrompt(lang)}\n\nThe user described food in an audio recording. Transcribe what they said and analyze the food mentioned. Apply the SPLITTING RULES — if the user listed multiple distinct foods (e.g. "pizza and salad", "burger and fries"), output them as separate items. If they described one composite dish (e.g. "pasta with sauce", "salad with chicken on top"), output a single item.${buildExtraContextBlock(extraContext)}`,
