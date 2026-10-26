@@ -12,10 +12,6 @@ const assistant = Assistant({
 export const metadata: Metadata = {
   title: "CalorieFlow – יומן תזונה אישי",
   description: "עקוב אחר התזונה שלך בעזרת AI. הזן טקסט, תמונה, או קול.",
-  icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
-  },
 };
 
 export const viewport: Viewport = {
