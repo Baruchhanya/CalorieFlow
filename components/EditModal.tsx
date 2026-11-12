@@ -16,9 +16,15 @@ interface EditModalProps {
 export default function EditModal({ entry, onSave, onClose }: EditModalProps) {
   const { T } = useLang();
   const { showToast } = useToast();
-  const [form, setForm] = useState({
-    name: "", quantity: "", calories: "", protein: "", carbs: "", fat: "", note: "",
-  });
+  const [form, setForm] = useState(() => ({
+    name: entry?.name ?? "",
+    quantity: entry?.quantity ?? "",
+    calories: entry ? String(Math.round(entry.calories)) : "",
+    protein: entry ? String(Math.round(entry.protein)) : "",
+    carbs: entry ? String(Math.round(entry.carbs)) : "",
+    fat: entry ? String(Math.round(entry.fat)) : "",
+    note: entry?.note ?? "",
+  }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 

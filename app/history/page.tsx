@@ -71,10 +71,10 @@ export default function HistoryPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-surface border-b border-line">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button onClick={() => router.push("/")}
+          <Link href="/" aria-label={T.backToToday}
             className="p-2 rounded-xl bg-canvas hover:bg-line/60 text-ink-2 transition-colors">
             <ArrowRight className="w-5 h-5" />
-          </button>
+          </Link>
           <Image src="/logo.png" alt="CalorieFlow" width={36} height={36} className="rounded-xl shrink-0" />
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold text-ink leading-tight">{T.historyTitle}</h1>
@@ -144,8 +144,8 @@ export default function HistoryPage() {
                   const pct = Math.min((day.calories / goal) * 100, 100);
 
                   return (
-                    <button key={day.date} onClick={() => router.push(`/?date=${day.date}`)}
-                      className="w-full text-start bg-surface rounded-(--radius-card) border border-line shadow-(--shadow-card) hover:border-brand-500/40 transition-all duration-150 overflow-hidden group">
+                    <Link key={day.date} href={`/?date=${day.date}`} prefetch={false}
+                      className="block w-full text-start bg-surface rounded-(--radius-card) border border-line shadow-(--shadow-card) hover:border-brand-500/40 transition-all duration-150 overflow-hidden group">
                       <div className="p-4 flex items-center gap-3">
                         {/* Date badge */}
                         <div className={`flex flex-col items-center justify-center w-12 h-14 rounded-xl shrink-0 ${isToday2 ? "bg-brand-600 text-white" : "bg-canvas text-ink-2"}`}>
@@ -179,7 +179,7 @@ export default function HistoryPage() {
                         {/* In RTL this chevron is on the left (inline-start), pointing left = "enter" */}
                         <ArrowRight className="w-4 h-4 text-ink-3/60 group-hover:text-brand-600 transition-colors shrink-0 rtl:rotate-0 ltr:rotate-180" />
                       </div>
-                    </button>
+                    </Link>
                   );
                 })}
               </div>

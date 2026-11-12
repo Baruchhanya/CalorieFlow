@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useEffect, memo, type CSSProperties } from "react";
+import { useState, useEffect, memo } from "react";
+import dynamic from "next/dynamic";
 import { Pencil, Check, X, Flame, ChevronDown, CheckCircle2 } from "lucide-react";
 import { MealEntry, DEFAULT_TARGETS } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
 import { formatDate } from "@/lib/dates";
-import OuraConnectPanel from "@/components/OuraConnectPanel";
+
+// Only rendered inside the collapsed details section.
+const OuraConnectPanel = dynamic(() => import("@/components/OuraConnectPanel"));
 
 function localTodayStr(): string {
   const n = new Date();
@@ -70,11 +73,11 @@ function MacroTile({ label, value, target, unit, barClass }: {
   const pct = Math.min((value / target) * 100, 100);
   const over = value > target;
   return (
-    <div className="bg-canvas border border-line rounded-xl p-3.5 flex flex-col gap-2">
-      <div className="flex justify-between items-center">
+    <div className="bg-canvas border border-line rounded-xl p-3 sm:p-3.5 flex flex-col gap-2">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-0.5">
         <span className="text-[11px] font-semibold text-ink-3 uppercase tracking-wide">{label}</span>
-        <span className={`text-xs font-bold tabular-nums ${over ? "text-over" : "text-ink-2"}`}>
-          {Math.round(value)}<span className="text-ink-3 font-normal">/{target}{unit}</span>
+        <span className={`text-sm sm:text-xs font-bold tabular-nums ${over ? "text-over" : "text-ink"}`}>
+          {Math.round(value)}<span className="text-ink-3 font-normal text-xs">/{target}{unit}</span>
         </span>
       </div>
       <div className="h-2 bg-line/70 rounded-full overflow-hidden">
@@ -135,7 +138,6 @@ export default memo(function TodaySummaryCard({
   );
   const consumed = totals.calories;
   const over = consumed > totalBudget;
-  const remaining = Math.max(totalBudget - consumed, 0);
 
   // ── Details / balance (collapsed by default) ──
   const [showDetails, setShowDetails] = useState(false);
@@ -230,18 +232,12 @@ export default memo(function TodaySummaryCard({
         ) : null}
       </div>
 
-      {/* Hero: single ring + one status line (remaining / over) */}
+      {/* Hero: single ring + allowance caption + deficit/surplus chip */}
       <div className="flex flex-col items-center pt-2 pb-5">
         <CalorieRing consumed={consumed} target={totalBudget} />
 
-        <div className={`mt-3 text-sm font-semibold tabular-nums ${over ? "text-over" : "text-ink-2"}`}>
-          {over
-            ? `+${Math.round(consumed - totalBudget).toLocaleString()} ${T.kcal} ${T.exceededBy}`
-            : `${T.remaining}: ${Math.round(remaining).toLocaleString()} ${T.kcal}`}
-        </div>
-
         {/* Allowance caption — the "of Y", with base + active breakdown when relevant */}
-        <p className="mt-1 text-xs text-ink-3 tabular-nums text-center px-4">
+        <p className="mt-3 text-xs text-ink-3 tabular-nums text-center px-4">
           {T.outOf} <span className="font-semibold text-ink-2">{Math.round(totalBudget).toLocaleString()}</span> {T.kcal}
           {activeExtra > 0 && (
             <span className="block text-[11px] mt-0.5">
@@ -252,7 +248,7 @@ export default memo(function TodaySummaryCard({
 
         {/* Deficit / surplus chip */}
         <div
-          className={`mt-3 inline-flex items-center gap-2 px-8 py-3 rounded-full text-lg font-bold tabular-nums border animate-slide-up ${
+          className={`mt-3 inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-base font-bold tabular-nums border animate-slide-up ${
             over
               ? "bg-over/10 text-over border-over/20"
               : "bg-brand-50 text-brand-700 border-brand-100"

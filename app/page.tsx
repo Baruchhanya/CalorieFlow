@@ -10,9 +10,8 @@ export default async function Page({
 }) {
   const params = await searchParams;
   const today = new Date().toISOString().split("T")[0];
-  const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date)
-    ? params.date
-    : today;
+  const dateFromUrl = !!params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date);
+  const date = dateFromUrl ? params.date! : today;
 
   // Fetch the critical payload during SSR so first paint carries real data
   // instead of a skeleton waiting on a client-side /api/init round trip.
@@ -25,5 +24,5 @@ export default async function Page({
     initialData = await fetchCriticalInitData(supabase, user, date);
   }
 
-  return <HomeClient initialDate={date} initialData={initialData} />;
+  return <HomeClient initialDate={date} initialData={initialData} dateFromUrl={dateFromUrl} />;
 }

@@ -63,8 +63,10 @@ export default memo(function MealCard({ entry, onDelete, onEdit }: MealCardProps
               <div className="bg-carbs h-full" style={{ width: `${carbsPct}%` }} />
               <div className="bg-fat h-full" style={{ width: `${fatPct}%` }} />
             </div>
-            <span className="text-xs text-ink-3 shrink-0 tabular-nums">
-              P{Math.round(entry.protein)} C{Math.round(entry.carbs)} F{Math.round(entry.fat)}
+            <span className="text-[11px] font-semibold shrink-0 tabular-nums flex items-center gap-1.5">
+              <span className="text-protein">{T.protein.slice(0, 1)} {Math.round(entry.protein)}</span>
+              <span className="text-carbs">{T.carbs.slice(0, 1)} {Math.round(entry.carbs)}</span>
+              <span className="text-fat">{T.fat.slice(0, 1)} {Math.round(entry.fat)}</span>
             </span>
           </div>
         </div>

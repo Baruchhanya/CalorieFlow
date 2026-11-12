@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import {
   CalendarDays, Trash2, RefreshCw, ChevronRight, ChevronLeft,
   LogOut, Globe, User, Scale, History, Home, Shield, Flame,
@@ -12,22 +13,24 @@ import TodaySummaryCard from "@/components/TodaySummaryCard";
 import CalorieHistorySection from "@/components/CalorieHistorySection";
 import FoodInput from "@/components/FoodInput";
 import MealCard from "@/components/MealCard";
-import EditModal from "@/components/EditModal";
-import ProfileModal from "@/components/ProfileModal";
-import UntrackedDayCard from "@/components/UntrackedDayCard";
-import YesterdayBurnModal from "@/components/YesterdayBurnModal";
-import MorningWeightModal from "@/components/MorningWeightModal";
 import WeeklyWeightCard from "@/components/WeeklyWeightCard";
 import { MealEntry, MealPreset, UserProfile, effectiveProteinGoal } from "@/types";
 import type { HistorySuggestion } from "@/types";
 import type { WeightEntry } from "@/lib/weight";
 import type { CriticalInitData } from "@/lib/initData";
 import type { BalanceHistoryResponse } from "@/app/api/balance-history/route";
-import { createClient } from "@/lib/supabase/client";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
 import { useConfirm } from "@/lib/confirm/context";
 import { getToday, offsetDate, formatDate } from "@/lib/dates";
+
+// Modals and conditional cards are only needed after an interaction (or a
+// once-a-day prompt), so they load on demand instead of in the home bundle.
+const EditModal = dynamic(() => import("@/components/EditModal"));
+const ProfileModal = dynamic(() => import("@/components/ProfileModal"));
+const UntrackedDayCard = dynamic(() => import("@/components/UntrackedDayCard"));
+const YesterdayBurnModal = dynamic(() => import("@/components/YesterdayBurnModal"));
+const MorningWeightModal = dynamic(() => import("@/components/MorningWeightModal"));
 
 function getInitials(email: string) {
   return email.split("@")[0].slice(0, 2).toUpperCase();
@@ -79,9 +82,12 @@ function NavItem({ icon, label, active, onClick, href }: {
 export default function HomeClient({
   initialDate,
   initialData,
+  dateFromUrl,
 }: {
   initialDate: string;
   initialData: CriticalInitData | null;
+  /** True when the date came from ?date= rather than the server's "today". */
+  dateFromUrl: boolean;
 }) {
   const router = useRouter();
   const { T, lang, toggleLang } = useLang();
@@ -276,6 +282,14 @@ export default function HomeClient({
     refresh(date);
   }, [date, refresh]);
 
+  // The server picks "today" in UTC; around local midnight that can be a
+  // different calendar day than the user's. Snap to the local day on mount.
+  useEffect(() => {
+    if (dateFromUrl) return;
+    const localToday = getToday();
+    if (initialDate !== localToday) setDate(localToday);
+  }, [dateFromUrl, initialDate]);
+
   // Yesterday-burn morning prompt: show once per day unless filled after 23:00
   // yesterday. Data arrives with the boot secondary batch (no extra fetch).
   useEffect(() => {
@@ -453,6 +467,8 @@ export default function HomeClient({
       confirmLabel: T.signOut,
     }))) return;
     criticalCache.clear();
+    // The Supabase browser client is heavy and only needed here — load on demand.
+    const { createClient } = await import("@/lib/supabase/client");
     await createClient().auth.signOut();
     router.push("/login");
   };
@@ -478,7 +494,7 @@ export default function HomeClient({
     <div className="min-h-screen pb-28 sm:pb-8" style={{ paddingBottom: "calc(7rem + env(safe-area-inset-bottom, 0px))" }}>
 
       {/* ── HEADER ── */}
-      <header className="sticky top-0 z-40 bg-surface border-b border-line">
+      <header className="sticky top-0 z-40 bg-surface/85 backdrop-blur-md border-b border-line">
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-2">
 
@@ -689,10 +705,10 @@ export default function HomeClient({
         </section>
       </main>
 
-      <footer className="pb-28 sm:pb-8 text-center text-xs text-ink-3 mt-4">{T.poweredBy}</footer>
+      <footer className="pb-2 text-center text-xs text-ink-3 mt-2">{T.poweredBy}</footer>
 
       {/* ── BOTTOM NAV (mobile) ── */}
-      <nav className="fixed z-40 sm:hidden inset-x-4 mx-auto max-w-sm rounded-full bg-surface border border-line shadow-lg transition-transform duration-300"
+      <nav className="fixed z-40 sm:hidden inset-x-4 mx-auto max-w-sm rounded-full bg-surface/90 backdrop-blur-md border border-line shadow-lg transition-transform duration-300"
         style={{
           bottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
           transform: "translateY(var(--keyboard-offset, 0))",
@@ -712,7 +728,9 @@ export default function HomeClient({
         </div>
       </nav>
 
-      <EditModal entry={editingEntry} onSave={handleSave} onClose={() => setEditingEntry(null)} />
+      {editingEntry && (
+        <EditModal entry={editingEntry} onSave={handleSave} onClose={() => setEditingEntry(null)} />
+      )}
 
       {showProfile && (
         <ProfileModal

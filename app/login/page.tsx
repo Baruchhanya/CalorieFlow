@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import Image from "next/image";
-import { createClient } from "@/lib/supabase/client";
 import { Loader2, ShieldCheck, Zap, BarChart3 } from "lucide-react";
 
 function GoogleIcon() {
@@ -61,6 +60,7 @@ function LoginContent() {
 
   const handleSignIn = async () => {
     setLoading(true);
+    const { createClient } = await import("@/lib/supabase/client");
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",

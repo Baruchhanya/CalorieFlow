@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Bookmark, Plus, X, Loader2, History, ChevronLeft } from "lucide-react";
 import type { MealPreset, MealEntry, HistorySuggestion } from "@/types";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast/context";
 import { useConfirm } from "@/lib/confirm/context";
-import MealHistoryModal from "@/components/MealHistoryModal";
+
+const MealHistoryModal = dynamic(() => import("@/components/MealHistoryModal"));
 
 interface MealPresetsProps {
   currentDate: string;
@@ -415,14 +417,16 @@ export default function MealPresets({ currentDate, onAdded, initialPresets, init
         )}
       </div>
 
-      <MealHistoryModal
-        open={showHistoryModal}
-        currentDate={currentDate}
-        presetNameKeys={presetNameKeys}
-        onAdded={(entries) => onAdded(entries)}
-        onPresetSaved={(preset) => setPresets((prev) => [...prev, preset])}
-        onClose={() => setShowHistoryModal(false)}
-      />
+      {showHistoryModal && (
+        <MealHistoryModal
+          open
+          currentDate={currentDate}
+          presetNameKeys={presetNameKeys}
+          onAdded={(entries) => onAdded(entries)}
+          onPresetSaved={(preset) => setPresets((prev) => [...prev, preset])}
+          onClose={() => setShowHistoryModal(false)}
+        />
+      )}
     </section>
   );
 }

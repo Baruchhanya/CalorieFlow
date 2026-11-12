@@ -539,8 +539,9 @@ export default function FoodInput({ onEntriesAdded, currentDate, initialPresets,
       <div className="grid grid-cols-4 gap-1 bg-canvas rounded-xl p-1 mb-4">
         {tabs.map(({ key, label, icon }) => (
           <button key={key} type="button" onClick={() => handleTabChange(key)}
-            className={`flex items-center justify-center gap-1.5 min-h-[44px] py-2 rounded-lg text-xs font-medium touch-manipulation active:scale-[0.97] transition-all duration-200 ${tab === key ? "bg-surface text-brand-600 shadow-sm" : "text-ink-2 hover:text-ink"}`}>
-            {icon}<span className="hidden sm:inline">{label}</span>
+            aria-pressed={tab === key}
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 min-h-[48px] sm:min-h-[44px] py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-xs touch-manipulation active:scale-[0.97] transition-all duration-200 ${tab === key ? "bg-surface text-brand-600 font-bold shadow-sm" : "text-ink-2 font-medium hover:text-ink"}`}>
+            {icon}<span>{label}</span>
           </button>
         ))}
       </div>
